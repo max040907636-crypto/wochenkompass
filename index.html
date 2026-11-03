@@ -4186,7 +4186,7 @@ gymNachtrag(); load(); applyTheme(); render();
       + '<details class="acc" open><summary>Für alle IT-Berufe gleich (Teil 1)</summary><div class="acc-in" style="gap:0">' + RAHMEN.filter(r => r[3]).map(r => rahmenRow(r[0], r[1], r[2], false)).join("") + '</div></details>'
       + '<details class="acc"><summary>Läuft die ganze Ausbildung mit</summary><div class="acc-in" style="gap:0">' + RAHMEN.filter(r => !r[3]).map(r => rahmenRow(r[0], r[1], r[2], false)).join("") + '</div></details>'
       + '<details class="acc"' + (S.rahmenEigen.length ? ' open' : '') + '><summary>Speziell für deinen Beruf (' + S.rahmenEigen.length + ')</summary><div class="acc-in">'
-      + '<p class="small muted">Die berufsspezifischen Punkte hängen davon ab, welcher IT-Beruf genau in deinem Vertrag steht. Trag sie aus deinem betrieblichen Ausbildungsplan ab.</p>'
+      + '<p class="small muted">Kaufmann für Digitalisierungsmanagement: § 4 Abs. 2 Nr. 8–15 der DigiManKflAusbV (gesetze-im-internet.de). Eigene Punkte aus deinem betrieblichen Ausbildungsplan kannst du ergänzen.</p>'
       + (S.rahmenEigen.length ? '<div>' + S.rahmenEigen.map(e => '<div style="display:flex;gap:8px;align-items:center">' + '<div style="flex:1;min-width:0">' + rahmenRow(e.id, e.t, "", false) + '</div>' + delBtn("x-rdel", e.id, "Punkt löschen") + '</div>').join("") + '</div>' : '')
       + '<div class="add-row"><input id="rT" class="inp" maxlength="120" placeholder="Punkt aus deinem Ausbildungsplan"><button class="btn" data-act="x-radd">+</button></div></div></details>'
       + '<p class="small muted">Quelle: IT-Ausbildungsverordnungen 2020, § 4 – Wortlaut der gemeinsamen Positionen.</p></div>';
@@ -4413,6 +4413,19 @@ gymNachtrag(); load(); applyTheme(); render();
     if (!G.grippe || typeof G.grippe !== "object") G.grippe = {};
   }
   ensureIch();
+
+  /* ---------- (v17) Einmalig: KDM-Punkte im Rahmenplan + offene Punkte als To-dos ----------
+     Quelle KDM: Verordnung über die Berufsausbildung zum Kaufmann/zur Kauffrau für
+     Digitalisierungsmanagement (DigiManKflAusbV) § 4 Abs. 2 Nr. 8–15, gesetze-im-internet.de */
+  const KDM_PUNKTE = [["kdm8", "Analysieren von Arbeits-, Geschäfts- und Wertschöpfungsprozessen"], ["kdm9", "Ermitteln des Bedarfs an Informationen und Bereitstellen von Daten"], ["kdm10", "Digitale Weiterentwicklung von Geschäftsmodellen"], ["kdm11", "Anbahnen und Gestalten von Verträgen"], ["kdm12", "Planen und Durchführen von Beschaffungen"], ["kdm13", "Anwenden von Instrumenten der kaufmännischen Steuerung und Kontrolle"], ["kdm14", "Umsetzen der Schutzziele der Datensicherheit"], ["kdm15", "Einhalten der Bestimmungen zum Datenschutz und zu weiteren Schutzrechten"]];
+  const OFFEN = [["o1", "privat", "Dokumente holen und unter Ich → Dokumente eintragen, wo sie liegen", "2026-11-06"], ["o2", "arbeit", "Im Ausbildungsvertrag nachsehen: Ende Probezeit und Ende Ausbildung (unter Ich eintragen)", "2026-11-06"], ["o3", "privat", "Abo-Karte „Mein Abo läuft“: herausfinden, was das ist", ""], ["o4", "arbeit", "Ausbilder fragen: Teil 1 am 29.09.2027 oder am 22.03.2028? (Anmeldeschluss Herbst: 15.05.2027)", ""], ["o5", "schule", "Termine der Klassenarbeiten eintragen (dann Kalender-Export nutzen)", ""], ["o6", "schule", "Lehrkraft nach Unterlagen für LF 2, 3 und 5 fragen + neuen Teams-Export machen", ""], ["o7", "schule", "Lösung vom MC-Test LS 4.2 mit der Lehrkraft abgleichen", ""], ["o8", "schule", "Schulzeit klären: Unterricht bis 13:10 oder bis 15:00?", ""], ["o9", "privat", "Netzteil vom PC nachsehen (Aufkleber am Netzteil) und notieren", ""], ["o10", "privat", "Vorsorgebescheinigung: nächste Termine 7/29 und 7/31 gegenprüfen", ""]];
+  (function einmalig() {
+    let neu = false;
+    if (!S.kdmV1 && Array.isArray(S.rahmenEigen)) { KDM_PUNKTE.forEach(([id, t]) => { if (!S.rahmenEigen.some(e => e.id === id)) S.rahmenEigen.push({id, t}); }); S.kdmV1 = true; neu = true; }
+    else if (!S.kdmV1 && !Array.isArray(S.rahmenEigen)) { S.rahmenEigen = KDM_PUNKTE.map(([id, t]) => ({id, t})); S.kdmV1 = true; neu = true; }
+    if (!S.offenV1 && Array.isArray(S.items)) { OFFEN.forEach(([id, area, text, date]) => { if (!S.items.some(x => x.id === id)) S.items.push({id, kind:"todo", area, text, date, von:"", bis:"", done:false}); }); S.offenV1 = true; neu = true; }
+    if (neu) save();
+  })();
 
   /* ---------- Feld-Liste für den Steckbrief (nur Beschriftungen) ---------- */
   const FELDER = [
