@@ -1,6 +1,6 @@
 # Wochenkompass
 
-Meine Alltags-App für Schule, Arbeit und Gym (mit eingebautem Hantelbuch).
+Meine Alltags-App für Schule, Arbeit, Gym, Ich und Gesundheit (mit eingebautem Hantelbuch).
 
 - Öffnen: https://max040907636-crypto.github.io/wochenkompass/
 - Aufs Handy: Link in Safari öffnen → Teilen → „Zum Home-Bildschirm“. Dann startet sie wie eine App, ohne Browser-Leisten.
