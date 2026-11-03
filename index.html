@@ -4343,7 +4343,7 @@ gymNachtrag(); load(); applyTheme(); render();
 })();
 </script>
 
-<!-- ERWEITERUNG v15/v16 (03.11.2026): Bereiche „Ich“ und „Gesundheit“ im Baum-Stil; v16: Gesundheit auch im Ich-Baum, Gewicht per Paket -->
+<!-- ERWEITERUNG v15–v19 (03.11.2026): v19 = große Kachel „Ich“, Gesundheit als Tab im Ich-Bereich; Bereiche „Ich“ und „Gesundheit“ im Baum-Stil; v16: Gesundheit auch im Ich-Baum, Gewicht per Paket -->
 <style>
 /* ---------- Baum (wie der Schul-Baum) ---------- */
 .tree{display:flex;flex-direction:column;gap:8px}
@@ -4380,7 +4380,11 @@ gymNachtrag(); load(); applyTheme(); render();
 .mbar i.leer{background:var(--soft)}
 .stepper{display:flex;align-items:center;gap:10px}
 .stepper b{font-family:var(--f-display);font-size:30px;min-width:44px;text-align:center}
-.quick.q6{grid-template-columns:repeat(3,minmax(0,1fr))}
+.tiles.t4{grid-template-columns:repeat(2,minmax(0,1fr))}
+@media (max-width:560px){ .tiles.t4{grid-template-columns:1fr} }
+.ichtabs{display:grid;grid-template-columns:1fr 1fr;gap:4px;padding:4px;border-radius:14px;background:var(--soft)}
+.ichtabs a{min-height:44px;border-radius:10px;display:flex;align-items:center;justify-content:center;gap:6px;font-weight:700;text-decoration:none;color:var(--fg)}
+.ichtabs a[aria-current="page"]{background:var(--surface);box-shadow:0 1px 0 var(--line),0 0 0 1px var(--line)}
 .tr-hit{outline:2px solid var(--privat);outline-offset:1px}
 </style>
 <input type="file" id="ichFile" accept=".json,application/json" hidden>
@@ -4472,13 +4476,15 @@ gymNachtrag(); load(); applyTheme(); render();
     return '<div class="tr-row' + (v ? "" : " leer") + '" data-s="' + esc((label + " " + v).toLowerCase()) + '"><label class="k" for="if-' + k + '">' + esc(label) + extra + '</label><span class="v"><input id="if-' + k + '" data-i-f="' + k + '" ' + (typ === "date" ? 'type="date"' : typ === "num" ? 'inputmode="decimal"' : 'type="text" maxlength="120"') + ' value="' + esc(v) + '" placeholder="fehlt noch"></span></div>';
   }
 
+  // (v19) Ich und Gesundheit sind EIN Bereich: oben zwei Tabs
+  const ichTabs = aktiv => '<nav class="ichtabs" aria-label="Ich-Bereich"><a href="#ich"' + (aktiv === "ich" ? ' aria-current="page"' : '') + '>🪪 Über mich</a><a href="#gesund"' + (aktiv === "gesund" ? ' aria-current="page"' : '') + '>❤️ Gesundheit</a></nav>';
   /* =====================================================================
      SEITE: ICH
      ===================================================================== */
   function viewIch() {
     ensureIch();
     const I = S.ich, t = todayKey(), g = F("geb"), a = alter(g);
-    let h = '<div class="stack view"><div><p class="eyebrow">Alles über dich an einem Ort</p><h1>🪪 Ich</h1></div>';
+    let h = '<div class="stack view"><div><p class="eyebrow">Über dich und deine Gesundheit</p><h1>🪪 Ich</h1></div>' + ichTabs("ich");
     // Steckbrief-Karte
     let gebTxt = "";
     if (g) { let n = t.slice(0, 4) + g.slice(4); if (n < t) n = (+t.slice(0, 4) + 1) + g.slice(4); const d = diffDays(t, n); gebTxt = d === 0 ? "🎂 Heute ist dein Geburtstag!" : "🎂 Geburtstag in " + d + (d === 1 ? " Tag" : " Tagen"); }
@@ -4569,7 +4575,7 @@ gymNachtrag(); load(); applyTheme(); render();
   function viewGesund() {
     ensureIch();
     const G = S.gesund, t = todayKey(), m = G.mood[t] || {}, tage = letzteTage(14);
-    let h = '<div class="stack view"><div><p class="eyebrow">Körper und Kopf</p><h1>❤️ Gesundheit</h1></div>';
+    let h = '<div class="stack view"><div><p class="eyebrow">Über dich und deine Gesundheit</p><h1>🪪 Ich</h1></div>' + ichTabs("gesund");
     // Tages-Check
     const skala = (feld, lbl, icons) => '<p class="lbl">' + lbl + '</p><div class="moods">' + icons.map((ic, i) => '<button type="button" data-act="i-mood" data-f="' + feld + '" data-v="' + (i + 1) + '" aria-pressed="' + (m[feld] === i + 1) + '" aria-label="' + lbl + ' ' + (i + 1) + ' von 5">' + ic + '</button>').join("") + '</div>';
     h += '<div class="card"><div class="card-h"><h3>☀️ Wie geht’s dir heute?</h3><span class="small muted">' + esc(fmt(t, {weekday:"short", day:"numeric", month:"short"})) + '</span></div>'
@@ -4634,14 +4640,13 @@ gymNachtrag(); load(); applyTheme(); render();
 
   /* ---------- In die App einhängen ---------- */
   VIEWS.ich = viewIch; VIEWS.gesund = viewGesund;
-  TITLES.ich = "Ich"; TITLES.gesund = "Gesundheit";
+  TITLES.ich = "Ich"; TITLES.gesund = "Ich";
   SUB.push("ich", "gesund");
   // Start: Schnellzugriff um Ich und Gesundheit erweitern, Fristen und Grippe-Hinweis
   const _se = startExtras;
   startExtras = function (t) {
     ensureIch();
     let h = _se(t);
-    h = h.replace('<div class="quick">', '<div class="quick q6"><button type="button" class="qbtn" data-act="i-go" data-v="ich"><span aria-hidden="true">🪪</span>Ich</button><button type="button" class="qbtn" data-act="i-go" data-v="gesund"><span aria-hidden="true">❤️</span>Gesundheit</button>');
     const bald = fristen().filter(x => x.tage <= 90);
     if (bald.length) h += '<button type="button" class="card" data-act="i-go" data-v="ich" style="text-align:left;border:2px solid var(--feiertag)"><h3>⏰ ' + (bald[0].tage < 0 ? "Abgelaufen: " : "Läuft bald ab: ") + esc(bald[0].k.name) + '</h3><p class="small">gültig bis ' + esc(fmtD(bald[0].k.bis)) + (bald.length > 1 ? ' · und ' + (bald.length - 1) + ' weitere' : '') + '</p></button>';
     const m = S.gesund.mood[t];
@@ -4661,6 +4666,23 @@ gymNachtrag(); load(); applyTheme(); render();
       localStorage.setItem(HB_KEY, JSON.stringify(hb)); return true;
     } catch (e) { return false; }
   }
+
+  /* ---------- (v19) Große Kachel „Ich“ auf Start (wie Schule, Arbeit, Gym) ---------- */
+  function ichKachel() {
+    ensureIch();
+    const t = todayKey(), m = S.gesund.mood[t] || {}, fr = fristen()[0], offen = S.gesund.termine.filter(x => !x.done).length;
+    const z1 = m.s ? "Heute: " + MOOD[m.s - 1] + " · " + (S.gesund.wasser[t] || 0) + " Gläser Wasser" : "Wie geht’s dir heute?";
+    const z2 = fr && fr.tage <= 365 ? "Läuft ab: " + fr.k.name + " (" + fmtD(fr.k.bis) + ")" : offen ? offen + (offen === 1 ? " Arzttermin" : " Arzttermine") + " offen" : "Karten, Dokumente, Gesundheit";
+    return '<a class="tile" href="#ich" style="--c:var(--privat)"><span class="em" aria-hidden="true">🪪</span><h2>Ich</h2><span class="pv"><b>' + esc(z1) + '</b><br>' + esc(z2) + '</span></a>';
+  }
+  const _vStart = VIEWS.start;
+  VIEWS.start = function () {
+    const h = _vStart();
+    const i = h.indexOf('<div class="tiles">'); if (i < 0) return h;
+    const j = h.indexOf('<div class="counters">', i); if (j < 0) return h;
+    const end = h.lastIndexOf('</div>', j);   // schließt die Kachel-Reihe
+    return h.slice(0, i) + '<div class="tiles t4">' + h.slice(i + 19, end) + ichKachel() + h.slice(end);
+  };
 
   /* ---------- Ich-Paket laden (nur in den Browser-Speicher) ---------- */
   function paketAnwenden(o) {
