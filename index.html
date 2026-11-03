@@ -4649,6 +4649,19 @@ gymNachtrag(); load(); applyTheme(); render();
     return h;
   };
 
+  /* ---------- (v18) Größe und Gewicht ins Hantelbuch (Gym) schreiben ----------
+     Klappt nur, wenn das Hantelbuch auf diesem Gerät schon einen Speicher hat.
+     Sonst wird es gemerkt (hbPending) und beim nächsten Öffnen nachgeholt. */
+  function hbAnwenden(A) {
+    try {
+      const raw = localStorage.getItem(HB_KEY); if (!raw) return false;
+      const hb = JSON.parse(raw); hb.settings = hb.settings || {};
+      if (A.groesse) hb.settings.height = A.groesse;
+      if (A.gewicht && +A.gewicht.kg > 0) { hb.body = hb.body || {}; if (!Array.isArray(hb.body.entries)) hb.body.entries = []; if (!hb.body.entries.some(e => e.d === A.gewicht.d)) hb.body.entries.push({d:A.gewicht.d, kg:+A.gewicht.kg, arm:null, waist:null}); }
+      localStorage.setItem(HB_KEY, JSON.stringify(hb)); return true;
+    } catch (e) { return false; }
+  }
+
   /* ---------- Ich-Paket laden (nur in den Browser-Speicher) ---------- */
   function paketAnwenden(o) {
     if (!o || o.app !== "Wochenkompass-Ich-Paket" || !o.ich) { toast("Das ist kein Ich-Paket.", 3500); return; }
@@ -4665,19 +4678,23 @@ gymNachtrag(); load(); applyTheme(); render();
     if (A.verg && S.verg) Object.keys(A.verg).forEach(k => { if (!S.verg[k]) { S.verg[k] = A.verg[k]; n++; } });
     if (A.erledigt) S.items.forEach(x => { if (A.erledigt.some(r => x.text && x.text.includes(r)) && !x.done) { x.done = true; n++; } });
     if (A.fragenErledigt && S.ausb && Array.isArray(S.ausb.fragen)) S.ausb.fragen.forEach(x => { if (A.fragenErledigt.some(r => x.t.includes(r)) && !x.done) { x.done = true; n++; } });
-    if (A.gewicht && +A.gewicht.kg > 0) {   // (v16) Gewicht ins Hantelbuch (Gym) eintragen
-      try { const raw = localStorage.getItem(HB_KEY); if (raw) { const hb = JSON.parse(raw); hb.body = hb.body || {}; if (!Array.isArray(hb.body.entries)) hb.body.entries = []; if (!hb.body.entries.some(e => e.d === A.gewicht.d)) { hb.body.entries.push({d:A.gewicht.d, kg:+A.gewicht.kg, arm:null, waist:null}); localStorage.setItem(HB_KEY, JSON.stringify(hb)); n++; } } else toast("Gewicht bitte einmal im Gym eintragen (Gym → Mehr → Körper).", 4000); } catch (e) {}
-    }
-    if (A.groesse) {   // Größe auch im Hantelbuch (Gym) setzen
-      try { const raw = localStorage.getItem(HB_KEY); if (raw) { const hb = JSON.parse(raw); hb.settings = hb.settings || {}; if (hb.settings.height !== A.groesse) { hb.settings.height = A.groesse; localStorage.setItem(HB_KEY, JSON.stringify(hb)); n++; } } } catch (e) {}
-    }
+    if (A.gewicht || A.groesse) { if (hbAnwenden(A)) n++; else I.hbPending = {gewicht:A.gewicht || null, groesse:A.groesse || null}; }
     I.paket = todayKey(); save(); rerender();
-    toast("Ich-Paket geladen ✓ (" + n + " Einträge)", 3500);
+    toast("Deine Daten sind da ✓ (" + n + " Einträge)", 3000);
   }
   $("#ichFile").addEventListener("change", e => {
     const f = e.target.files && e.target.files[0]; if (!f) return;
     const r = new FileReader(); r.onload = () => { try { paketAnwenden(JSON.parse(r.result)); } catch (x) { toast("Datei konnte nicht gelesen werden.", 3500); } }; r.readAsText(f); e.target.value = "";
   });
+
+  /* ---------- (v18) Automatisch laden ----------
+     Nur die private Claude-Version hat window.ICH_PAKET_AUTO (eigener Skript-Block).
+     Die öffentliche GitHub-Version hat ihn NICHT. Jede Paket-Version wird einmal übernommen. */
+  try {
+    const AP = window.ICH_PAKET_AUTO;
+    if (AP && AP.app === "Wochenkompass-Ich-Paket" && S.ich.autoV !== AP.erstellt) { paketAnwenden(AP); S.ich.autoV = AP.erstellt; save(); }
+    if (S.ich.hbPending && hbAnwenden(S.ich.hbPending)) { delete S.ich.hbPending; save(); }
+  } catch (e) {}
 
   /* ---------- Klicks ---------- */
   document.addEventListener("click", e => {
