@@ -179,6 +179,10 @@ textarea{width:100%;min-height:96px;border-radius:12px;border:1px solid var(--li
 .daypick button[aria-pressed="true"] small{color:var(--inv);opacity:.75}
 .daypick button:disabled{opacity:.35}
 .daypick button.is-today{box-shadow:0 0 0 2px var(--fg) inset}
+/* v19: Betriebstage mit blauem Punkt statt Wort „Betrieb“ (passte nicht in die schmalen Knöpfe) */
+.daypick button small{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.daypick button.w::after{content:"";width:6px;height:6px;border-radius:50%;background:var(--arbeit);margin-top:3px}
+.daypick button.w[aria-pressed="true"]::after{background:var(--inv)}
 .privacy{display:flex;gap:10px;align-items:flex-start;font-size:14px;padding:12px 14px;border-radius:var(--r);background:color-mix(in srgb,var(--warn) 12%,var(--surface));border:1px solid color-mix(in srgb,var(--warn) 45%,transparent)}
 .tip{font-size:14px;padding:10px 12px;border-radius:12px;background:var(--soft)}
 .tip b{font-weight:700}
@@ -2367,7 +2371,7 @@ function arbHeute() {
   let h = '';
   if ([0, 6].includes(wdOf(t))) h += '<div class="banner" style="--c:var(--arbeit)"><span class="ic">✍️</span><div><b>Wochenende: Zeit fürs Berichtsheft</b><button class="link small" data-act="arbtab" data-v="bh">Zum Berichtsheft-Helfer →</button></div></div>';
   h += '<div class="card"><div class="card-h"><h3>Aufgaben & Notizen</h3><span class="small muted">KW ' + isoWeek(k) + '</span></div><div class="wk-nav"><button class="icon-btn" data-act="wday" data-n="-7" aria-label="Woche zurück">' + ICON.left + '</button><div class="daypick mid" role="group" aria-label="Tag wählen">'
-    + [0, 1, 2, 3, 4, 5, 6].map(i => { const d = addDays(wmon, i), w = dayBlocks(d).some(b => b.area === "arbeit"); return '<button type="button" data-act="wdpick" data-d="' + d + '" aria-pressed="' + (d === k) + '" class="' + (d === t ? "is-today" : "") + '">' + WD_S[wdOf(d)] + '<small>' + (w ? "Betrieb" : parseKey(d).getDate() + ".") + '</small></button>'; }).join("")
+    + [0, 1, 2, 3, 4, 5, 6].map(i => { const d = addDays(wmon, i), w = dayBlocks(d).some(b => b.area === "arbeit"); return '<button type="button" data-act="wdpick" data-d="' + d + '" aria-pressed="' + (d === k) + '" class="' + (d === t ? "is-today" : "") + (w ? " w" : "") + '"' + (w ? ' aria-label="' + WD_S[wdOf(d)] + ' ' + parseKey(d).getDate() + '., Betrieb"' : '') + '>' + WD_S[wdOf(d)] + '<small>' + parseKey(d).getDate() + '.</small></button>'; }).join("")
     + '</div><button class="icon-btn" data-act="wday" data-n="7" aria-label="Woche vor">' + ICON.right + '</button></div>'
     + '<p class="small"><b>' + esc(fmt(k, {weekday:"long", day:"numeric", month:"long"})) + '</b> · ' + (dayBlocks(k).find(b => ["arbeit", "schule", "feiertag", "urlaub", "frei"].includes(b.area)) || {label:""}).label + '</p>';
   const tasks = S.items.filter(x => x.area === "arbeit" && x.date === k);
