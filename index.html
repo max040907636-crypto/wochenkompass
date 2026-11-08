@@ -484,6 +484,7 @@ p{margin:0}
 .plate{width:48px;height:48px;border-radius:50%;background:var(--fg);color:var(--inv);display:grid;place-items:center;font-family:var(--f-display);font-weight:700;font-size:24px;flex:none;position:relative}
 .plate::after{content:"";position:absolute;inset:5px;border-radius:50%;border:2px solid var(--inv);opacity:.5}
 .card.ink .plate{background:var(--inv);color:var(--fg)}
+.btn.primary .plate{background:var(--inv);color:var(--fg)}  /* (v27) Auswahl „was anderes trainieren“ */
 .card.ink .plate::after{border-color:var(--fg)}
 .day-head{display:flex;gap:12px;align-items:center}
 .day-head > div{min-width:0}
@@ -1015,6 +1016,32 @@ function weekRow(mon) {
 const X_ICON = '<svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>';
 
 /* ---------- Seite: START – nur das, was als Nächstes dran ist ---------- */
+/* ---------- (v27) Heute was anderes trainieren ----------
+   Sucht das letzte verpasste Training der letzten 6 Tage, das danach noch nicht nachgeholt wurde. */
+function verpasst(t) {
+  for (let i = 1; i <= 6; i++) {
+    const k = addDays(t, -i); if (k < start()) break;
+    if (!isPlanned(k) || dayStatus(k) !== "missed") continue;
+    const plan = DAYS[parseKey(k).getDay()];
+    let nachgeholt = false;
+    for (let x = addDays(k, 1); x < t; x = addDays(x, 1)) { const wx = S.workouts[x]; if (wx && wx.plan === plan && dayStatus(x) === "done") nachgeholt = true; }
+    if (!nachgeholt) return {k, plan};
+  }
+  return null;
+}
+function andersHtml(t, n) {
+  if (!UI.anders) return '<button class="btn block" data-act="anders">🔄 Heute was anderes trainieren</button>';
+  const heute = n && n.today ? n.plan : null, v = verpasst(t);
+  const reihe = Object.keys(PLAN).sort((a, b) => (v && a === v.plan ? -1 : v && b === v.plan ? 1 : 0));
+  let h = '<div class="card"><h3>🔄 Was trainierst du heute?</h3>';
+  if (v && v.plan !== heute) h += '<p class="small">Verpasst am <b>' + esc(fmtDate(v.k, {weekday:"long"})) + '</b>: ' + esc(PLAN[v.plan].name) + '. Einfach heute nachholen.</p>';
+  h += reihe.map(p => {
+    const extra = v && p === v.plan && p !== heute ? 'verpasst am ' + fmtDate(v.k, {weekday:"short"}).replace(".", "") : p === heute ? 'heute geplant' : '';
+    return '<button class="btn block' + (v && p === v.plan && p !== heute ? ' primary' : '') + '" data-act="start" data-p="' + p + '" style="justify-content:flex-start;gap:12px;text-align:left"><span class="plate" style="flex:none">' + p + '</span><span>' + esc(PLAN[p].name) + (extra ? '<br><small style="font-weight:400;opacity:.75">' + esc(extra) + '</small>' : '') + '</span></button>';
+  }).join("");
+  return h + '<button class="link" data-act="anders">Abbrechen</button></div>';
+}
+
 function viewStart() {
   const t = todayKey(), n = nextUp(), w = S.workouts[t], st = stats(), before = t < start();
   let h = '<div class="stack"><p class="eyebrow">' + esc(fmtDate(t, {weekday:"long", day:"numeric", month:"long"})) + (before ? '' : ' · Woche ' + weekNo(t)) + '</p>';
@@ -1039,6 +1066,8 @@ function viewStart() {
   if (backupDue()) h += '<div class="card note"><p><b>📦 Zeit für eine Sicherung</b><br><span class="small">Deine Trainings liegen nur auf diesem Handy. Ein Tipp – dann sind sie sicher.</span></p><div class="btn-row"><button class="btn primary" data-act="backup">Jetzt sichern</button><button class="btn" data-act="bsnooze">Später</button></div></div>';
   // Mit Kollege trainiert? Ein Tipp – zählt als Gym-Besuch (eigene Übungen, nichts eintragen nötig)
   if (dayStatus(t) !== "done") h += '<button class="btn block" data-act="buddy" data-d="' + t + '">👥 Heute mit Kollege trainiert</button>';
+  // (v27) Heute was anderes trainieren, z. B. das verpasste Training von gestern nachholen
+  if (dayStatus(t) !== "done" && !hasLogged(w)) h += andersHtml(t, n);
   // Zähler: wie oft warst du schon da?
   h += '<button class="card" style="text-align:left" data-act="go" data-h="kalender"><p class="eyebrow">So oft warst du schon im Gym</p><div class="big-row"><span class="big">' + st.total + '×</span><span class="muted" style="padding-bottom:6px">Diesen Monat: ' + st.month + ' · Serie: ' + st.streak + '</span></div></button>';
   h += '<div class="card"><h3>' + (before ? 'Deine erste Woche' : 'Diese Woche') + '</h3>' + weekRow(mondayOf(before ? start() : t)) + '</div></div>';
@@ -1410,8 +1439,9 @@ document.addEventListener("click", async e => {
     case "lvf": UI.lvTag = b.dataset.v; render(); break;     // Tag auf der Kilos-Seite
     case "kgs": { const id = b.dataset.ex, ex = EX[id]; saveKg(id, Math.min(400, Math.max(0, Math.round((curKg(id, t) + (+b.dataset.d) * (ex.inc || 1)) * 10) / 10)), t); render(); break; }
     case "wtsheet": { const id = curEx(); if (id) openSheet("wt", id); break; }
+    case "anders": UI.anders = !UI.anders; render(); break;
     case "start": {
-      const p = b.dataset.p, w = S.workouts[t];
+      const p = b.dataset.p, w = S.workouts[t]; UI.anders = false;
       if (w && hasLogged(w) && w.plan !== p) toast("Heute läuft schon " + PLAN[w.plan].name);
       else { UI.pick = p; if (w) { w.plan = p; if (["manual", "missed", "excused"].includes(w.status)) w.status = "draft"; changed("w-" + t); } }
       UI.from = currentView() === "training" ? (UI.from || "start") : currentView();   // merken, woher man kam
