@@ -612,7 +612,7 @@ textarea{width:100%;min-height:72px;border-radius:10px;border:1px solid var(--li
 .lv.off{background:transparent;color:var(--muted);border:1px solid var(--line)}
 .card.ink .chip{border-color:var(--inv);color:var(--inv)}
 .icon-btn[aria-current="page"]{background:var(--fg);color:var(--inv);border-color:var(--fg)}
-.play{width:40px;height:40px;border-radius:50%;background:var(--fg);color:var(--inv);display:grid;place-items:center;font-size:14px;flex:none}
+.pick{width:48px;height:48px;border-radius:12px;border:2px solid var(--fg);background:var(--surface);color:var(--fg);font-size:22px;font-weight:700;flex:none;line-height:1;padding:0}.pick[aria-pressed="true"]{background:var(--fg);color:var(--inv)}.uxli{display:flex;align-items:center;gap:10px}.uxli .row{flex:1;min-width:0}.gchips{display:flex;flex-wrap:wrap;gap:6px}.gchips button{min-height:38px;padding:0 12px;border-radius:999px;border:1px solid var(--line);background:var(--surface);color:var(--fg);font-weight:700;font-size:14px}.gchips button.on{background:var(--fg);color:var(--inv);border-color:var(--fg)}.daychips.seg2{grid-template-columns:repeat(2,minmax(0,1fr))}.uxsuche{width:100%;min-height:48px;border-radius:12px;border:1px solid var(--line);background:var(--surface);color:var(--fg);padding:0 14px;font-size:16px}.tagp{display:inline-block;font-size:11px;font-weight:700;padding:1px 6px;border-radius:6px;background:var(--soft);color:var(--fg);margin-left:4px;vertical-align:1px}.stepper.sm span{white-space:normal;max-width:92px;line-height:1.2}.vid-kein{display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:var(--r);border:1px solid var(--line);background:var(--soft);color:var(--fg);text-decoration:none}.vid-kein b{display:block}.vid-kein small{display:block;color:var(--muted);font-size:13px}.play{width:40px;height:40px;border-radius:50%;background:var(--fg);color:var(--inv);display:grid;place-items:center;font-size:14px;flex:none}
 
 /* Fortschritt */
 .bodymap svg{width:100%;max-width:320px;height:auto;display:block;margin:0 auto}
@@ -783,6 +783,129 @@ const EX = {
     how:["Unterarme unter die Schultern, Füße hüftbreit.","Körper ist eine gerade Linie von Kopf bis Ferse.","Bauch und Po anspannen, ruhig atmen."],fehler:["Hohlkreuz.","Po zu weit oben."],tipp:"Lieber 20 Sek. sauber als 60 Sek. mit Hohlkreuz.",yt:"Unterarmstütz Plank richtige Ausführung"}
 };
 
+/* ---------- (v34) Übungs-Bibliothek: weitere Übungen zum Auswählen ----------
+   Ohne eigenes Video (Anleitung + YouTube-Link) und ohne Level-Daten (std fehlt mit Absicht –
+   für diese Übungen gibt es keine geprüften Richtwerte). Startgewichte sind grobe Anfänger-Richtwerte. */
+Object.assign(EX, {
+  /* Brust */
+  lh_bank:{name:"Bankdrücken (Langhantel)",art:"Langhantel",p:["brust"],s:["schultern","trizeps"],sets:3,min:6,max:10,rest:150,inc:2.5,start:{kg:20,von:20,bis:40,wie:" mit Stange"},
+    how:["Auf die Bank legen, Augen unter der Stange.","Etwas breiter als schulterbreit greifen, Schulterblätter zusammen.","Stange kontrolliert zur unteren Brust ablassen.","Nach oben drücken, bis die Arme fast gestreckt sind."],fehler:["Po hebt von der Bank ab.","Stange auf der Brust abfedern."],tipp:"Schwer? Immer mit Sicherheitsablage oder einem Partner, der sichert.",yt:"Bankdrücken Langhantel richtige Ausführung"},
+  schraegbank_kh:{name:"Schrägbankdrücken (Kurzhanteln)",art:"Kurzhanteln",p:["brust"],s:["schultern","trizeps"],sets:3,min:8,max:12,rest:120,inc:2,start:{kg:8,von:6,bis:12,wie:" je Hand"},
+    how:["Bank auf ca. 30° stellen.","Hanteln auf Brusthöhe, Schulterblätter zusammen.","Schräg nach oben drücken.","Langsam bis zur oberen Brust ablassen."],fehler:["Bank zu steil – dann arbeiten fast nur die Schultern.","Hanteln unten fallen lassen."],tipp:"Trifft vor allem die obere Brust.",yt:"Schrägbankdrücken Kurzhantel richtige Ausführung"},
+  schraegbank_lh:{name:"Schrägbankdrücken (Langhantel)",art:"Langhantel",p:["brust"],s:["schultern","trizeps"],sets:3,min:6,max:10,rest:150,inc:2.5,start:{kg:20,von:20,bis:35,wie:" mit Stange"},
+    how:["Schrägbank ca. 30°, Stange über den Augen.","Etwas breiter als schulterbreit greifen.","Zur oberen Brust ablassen.","Kontrolliert nach oben drücken."],fehler:["Ellbogen ganz zur Seite.","Hohlkreuz stark überstrecken."],tipp:"Am besten an der Multipresse oder mit Partner üben.",yt:"Schrägbankdrücken Langhantel richtige Ausführung"},
+  fliegende:{name:"Fliegende (Kurzhanteln)",art:"Kurzhanteln",p:["brust"],s:[],sets:3,min:10,max:15,rest:90,inc:1,start:{kg:6,von:4,bis:8,wie:" je Hand"},
+    how:["Auf die Flachbank legen, Hanteln über der Brust.","Arme leicht gebeugt lassen.","In einem Bogen zur Seite öffnen, bis die Brust zieht.","Im gleichen Bogen zurück nach oben."],fehler:["Arme ganz gestreckt.","Zu tief runter."],tipp:"Leichtes Gewicht – es geht um die Dehnung, nicht ums Drücken.",yt:"Fliegende Kurzhantel richtige Ausführung"},
+  crossover:{name:"Kabel-Crossover",art:"Kabelzug",p:["brust"],s:[],sets:3,min:12,max:15,rest:90,inc:2.5,start:{kg:5,von:2.5,bis:10,wie:" je Seite"},
+    how:["Beide Kabel oben einhängen, in die Mitte stellen.","Schrittstellung, Oberkörper leicht nach vorne.","Griffe im Bogen vor dem Bauch zusammenführen.","Langsam zurück, bis die Brust zieht."],fehler:["Mit den Armen drücken statt im Bogen führen.","Schultern nach vorne fallen lassen."],tipp:"Kabel tief einhängen und nach oben ziehen = obere Brust.",yt:"Cable Crossover richtige Ausführung"},
+  dips:{name:"Dips am Barren",art:"Körpergewicht",p:["brust","trizeps"],s:["schultern"],sets:3,min:6,max:12,rest:120,inc:0,koerper:true,
+    how:["Am Barren hochstützen, Arme gestreckt.","Oberkörper leicht nach vorne.","Langsam ablassen, bis die Oberarme etwa waagerecht sind.","Wieder hochdrücken."],fehler:["Zu tief runter – das belastet die Schultern.","Schultern zu den Ohren ziehen."],tipp:"Zu schwer? An der Dip-Maschine mit Unterstützung anfangen.",yt:"Dips Barren richtige Ausführung"},
+  liegestuetze:{name:"Liegestütze",art:"Körpergewicht",p:["brust"],s:["trizeps","schultern"],sets:3,min:8,max:20,rest:90,inc:0,koerper:true,
+    how:["Hände etwas breiter als schulterbreit.","Körper ist eine gerade Linie.","Brust bis kurz über den Boden ablassen.","Hochdrücken, Bauch bleibt fest."],fehler:["Hüfte hängt durch.","Ellbogen 90° zur Seite."],tipp:"Zu schwer? Hände auf eine Bank stellen.",yt:"Liegestütze richtige Ausführung"},
+
+  /* Rücken */
+  klimmzuege:{name:"Klimmzüge",art:"Körpergewicht",p:["lat"],s:["bizeps","oben"],sets:3,min:3,max:10,rest:150,inc:0,koerper:true,
+    how:["Stange etwas breiter als schulterbreit greifen.","Aus dem Hängen die Schultern nach unten ziehen.","Hochziehen, bis das Kinn über der Stange ist.","Langsam wieder ganz runter."],fehler:["Mit Schwung (Kipping).","Nur halbe Bewegung."],tipp:"Noch keine geschafft? Erst Latziehen oder langsam runterlassen üben.",yt:"Klimmzüge richtige Ausführung Anfänger"},
+  lh_rudern:{name:"Langhantelrudern vorgebeugt",art:"Langhantel",p:["oben","lat"],s:["bizeps","unten"],sets:3,min:8,max:12,rest:120,inc:2.5,start:{kg:30,von:20,bis:40,wie:" mit Stange"},
+    how:["Stange schulterbreit greifen, Knie leicht gebeugt.","Oberkörper gerade nach vorne kippen (ca. 45°).","Stange zum Bauchnabel ziehen.","Langsam ablassen, Rücken bleibt gerade."],fehler:["Runder Rücken.","Oberkörper richtet sich beim Ziehen auf."],tipp:"Erst leicht anfangen, bis die Haltung sitzt.",yt:"Langhantelrudern vorgebeugt richtige Ausführung"},
+  tbar:{name:"T-Bar-Rudern",art:"T-Bar / Landmine",p:["oben","lat"],s:["bizeps"],sets:3,min:8,max:12,rest:120,inc:2.5,start:{kg:20,von:10,bis:30,wie:" (Scheiben)"},
+    how:["Über die Stange stellen, Griff fassen.","Knie leicht gebeugt, Rücken gerade, vorgebeugt.","Griff zur Brust ziehen, Schulterblätter zusammen.","Langsam ablassen."],fehler:["Runder Rücken.","Mit Schwung aus den Beinen."],tipp:"Mit Brustpolster ist es leichter für den unteren Rücken.",yt:"T-Bar Rudern richtige Ausführung"},
+  rudermaschine:{name:"Rudern an der Maschine",art:"Maschine",p:["oben","lat"],s:["bizeps"],sets:3,min:10,max:12,rest:120,inc:2.5,start:{kg:25,von:20,bis:35,wie:""},
+    how:["Sitz so einstellen, dass die Griffe auf Brusthöhe sind.","Brust ans Polster.","Griffe nach hinten ziehen, Ellbogen nah am Körper.","Langsam zurück."],fehler:["Brust löst sich vom Polster.","Schultern hochziehen."],tipp:"Das Polster schont den unteren Rücken.",yt:"Rudermaschine Brustpolster richtige Ausführung"},
+  latzug_eng:{name:"Latziehen eng (V-Griff)",art:"Kabelzug",p:["lat"],s:["bizeps","oben"],sets:3,min:8,max:12,rest:120,inc:2.5,start:{kg:25,von:20,bis:35,wie:""},
+    how:["V-Griff einhängen, Oberschenkel unters Polster.","Brust raus, leicht nach hinten lehnen.","Griff zur oberen Brust ziehen.","Langsam nach oben lassen."],fehler:["Schwung mit dem Oberkörper.","Nur mit den Armen ziehen."],tipp:"Ellbogen zeigen beim Ziehen nach unten.",yt:"Latziehen enger Griff richtige Ausführung"},
+  ueberzug:{name:"Latziehen mit gestreckten Armen",art:"Kabelzug (Stange/Seil)",p:["lat"],s:[],sets:3,min:12,max:15,rest:90,inc:2.5,start:{kg:15,von:10,bis:20,wie:""},
+    how:["Stange am oberen Kabelzug, einen Schritt zurück.","Leicht vorbeugen, Arme fast gestreckt.","Stange im Bogen bis zu den Oberschenkeln drücken.","Langsam zurück nach oben."],fehler:["Arme stark beugen.","Mit dem Oberkörper schwingen."],tipp:"Gut zum Aufwärmen vor dem Latziehen.",yt:"Straight Arm Pulldown richtige Ausführung"},
+  face_pull:{name:"Face Pulls",art:"Kabelzug (Seil)",p:["oben"],s:["schultern"],sets:3,min:12,max:15,rest:90,inc:2.5,start:{kg:10,von:7.5,bis:15,wie:""},
+    how:["Seil am Kabelzug auf Kopfhöhe.","Seil-Enden fassen, einen Schritt zurück.","Seil Richtung Gesicht ziehen, Hände gehen nach außen.","Kurz halten, langsam zurück."],fehler:["Zu schwer, mit Schwung.","Schultern hochziehen."],tipp:"Super für die Haltung und gesunde Schultern.",yt:"Face Pulls richtige Ausführung"},
+  kreuzheben:{name:"Kreuzheben (Langhantel)",art:"Langhantel",p:["unten","po"],s:["beinbeuger","oben"],sets:3,min:5,max:8,rest:180,inc:5,start:{kg:40,von:30,bis:60,wie:" mit Stange"},
+    how:["Stange über der Fußmitte, hüftbreit stehen.","Runter in die Hocke, Stange schulterbreit greifen, Rücken gerade.","Aus den Beinen hochdrücken, Stange nah am Körper.","Oben aufrecht stehen, kontrolliert zurück."],fehler:["Runder Rücken – das ist der wichtigste Fehler!","Stange weit weg vom Körper."],tipp:"Technik zuerst mit wenig Gewicht und von einem Trainer zeigen lassen.",yt:"Kreuzheben richtige Ausführung Anfänger"},
+  hyperext:{name:"Rückenstrecker (Hyperextensions)",art:"Körpergewicht",p:["unten"],s:["po","beinbeuger"],sets:3,min:12,max:15,rest:90,inc:0,koerper:true,
+    how:["In das Gerät legen, Hüfte knapp über dem Polster.","Arme vor der Brust kreuzen.","Oberkörper langsam nach unten lassen.","Bis zur geraden Linie hochkommen – nicht weiter."],fehler:["Oben ins Hohlkreuz gehen.","Mit Schwung."],tipp:"Zu leicht? Eine Hantelscheibe vor die Brust nehmen.",yt:"Hyperextensions Rückenstrecker richtige Ausführung"},
+  shrugs:{name:"Schulterheben (Shrugs)",art:"Kurzhanteln",p:["oben"],s:[],sets:3,min:10,max:15,rest:90,inc:2,start:{kg:14,von:10,bis:18,wie:" je Hand"},
+    how:["Aufrecht stehen, Hanteln seitlich.","Schultern gerade nach oben zu den Ohren ziehen.","Oben 1 Sek. halten.","Langsam ablassen."],fehler:["Schultern kreisen.","Kopf nach vorne schieben."],tipp:"Nur hoch und runter – keine Kreise.",yt:"Shrugs Kurzhantel richtige Ausführung"},
+
+  /* Schultern */
+  military:{name:"Schulterdrücken stehend (Langhantel)",art:"Langhantel",p:["schultern"],s:["trizeps"],sets:3,min:6,max:10,rest:150,inc:2.5,start:{kg:20,von:20,bis:30,wie:" mit Stange"},
+    how:["Stange auf Schulterhöhe, schulterbreit greifen.","Bauch und Po anspannen.","Stange gerade über den Kopf drücken.","Kontrolliert zurück auf Schulterhöhe."],fehler:["Starkes Hohlkreuz.","Schwung aus den Beinen."],tipp:"Kopf kurz nach hinten nehmen, damit die Stange vorbeikommt.",yt:"Military Press Langhantel richtige Ausführung"},
+  schulterpresse:{name:"Schulterpresse (Maschine)",art:"Maschine",p:["schultern"],s:["trizeps"],sets:3,min:8,max:12,rest:120,inc:2.5,start:{kg:15,von:10,bis:25,wie:""},
+    how:["Sitz so einstellen, dass die Griffe auf Schulterhöhe sind.","Rücken fest an die Lehne.","Nach oben drücken.","Langsam zurück."],fehler:["Rücken löst sich von der Lehne.","Arme oben durchknallen."],tipp:"Gut zum Lernen, bevor du Kurzhanteln nimmst.",yt:"Schulterpresse Maschine richtige Ausführung"},
+  arnold:{name:"Arnold Press",art:"Kurzhanteln",p:["schultern"],s:["trizeps"],sets:3,min:8,max:12,rest:120,inc:2,start:{kg:6,von:4,bis:8,wie:" je Hand"},
+    how:["Sitzend, Hanteln vor dem Gesicht, Handflächen zu dir.","Beim Hochdrücken die Hände nach außen drehen.","Oben zeigen die Handflächen nach vorne.","Beim Ablassen zurückdrehen."],fehler:["Zu schnell drehen.","Hohlkreuz."],tipp:"Leichter als normales Schulterdrücken nehmen.",yt:"Arnold Press richtige Ausführung"},
+  frontheben:{name:"Frontheben",art:"Kurzhanteln",p:["schultern"],s:[],sets:2,min:12,max:15,rest:90,inc:1,start:{kg:4,von:3,bis:6,wie:" je Hand"},
+    how:["Aufrecht stehen, Hanteln vor den Oberschenkeln.","Arme fast gestreckt nach vorne bis Schulterhöhe heben.","Kurz halten.","Langsam ablassen."],fehler:["Schwung aus dem Rücken.","Höher als Schulterhöhe."],tipp:"Die vordere Schulter arbeitet beim Drücken schon viel mit – 2 Sätze reichen.",yt:"Frontheben Kurzhantel richtige Ausführung"},
+  seitheben_kabel:{name:"Seitheben am Kabel",art:"Kabelzug",p:["schultern"],s:[],sets:3,min:12,max:15,rest:60,inc:2.5,jeSeite:true,start:{kg:2.5,von:2.5,bis:5,wie:" (eine Seite)"},
+    how:["Kabel ganz unten, seitlich zum Gerät stellen.","Griff mit der äußeren Hand fassen.","Arm seitlich bis Schulterhöhe heben.","Langsam ablassen, dann Seite wechseln."],fehler:["Mit dem Oberkörper wegkippen.","Zu schwer."],tipp:"Das Kabel hält die Schulter auch unten unter Spannung.",yt:"Seitheben am Kabel richtige Ausführung"},
+  seitheben_maschine:{name:"Seitheben (Maschine)",art:"Maschine",p:["schultern"],s:[],sets:3,min:12,max:15,rest:90,inc:2.5,start:{kg:10,von:5,bis:15,wie:""},
+    how:["Sitz so einstellen, dass die Schultern am Drehpunkt sind.","Polster an die Oberarme.","Arme seitlich bis Schulterhöhe heben.","Langsam ablassen."],fehler:["Schultern hochziehen.","Mit Schwung."],tipp:"Ideal, wenn Kurzhantel-Seitheben noch wackelt.",yt:"Seitheben Maschine richtige Ausführung"},
+  aufrechtes_rudern:{name:"Aufrechtes Rudern (Kabel)",art:"Kabelzug (Stange)",p:["schultern"],s:["oben"],sets:2,min:10,max:15,rest:90,inc:2.5,start:{kg:15,von:10,bis:20,wie:""},
+    how:["Stange am unteren Kabelzug, schulterbreit greifen.","Stange nah am Körper hochziehen, Ellbogen führen.","Nur bis Brusthöhe.","Langsam ablassen."],fehler:["Zu eng greifen.","Höher als bis zur Brust ziehen."],tipp:"Zwickt es in der Schulter? Weglassen und Seitheben nehmen.",yt:"Aufrechtes Rudern Kabel richtige Ausführung"},
+
+  /* Bizeps */
+  lh_curls:{name:"Langhantel-Curls",art:"Langhantel",p:["bizeps"],s:[],sets:3,min:8,max:12,rest:90,inc:2.5,start:{kg:20,von:15,bis:25,wie:" mit Stange"},
+    how:["Stange schulterbreit von unten greifen.","Ellbogen am Körper.","Hochbeugen bis vor die Schultern.","Langsam ablassen."],fehler:["Schwung aus dem Rücken.","Ellbogen wandern nach vorne."],tipp:"Tut das Handgelenk weh? Nimm die SZ-Stange.",yt:"Langhantel Curls richtige Ausführung"},
+  sz_curls:{name:"SZ-Curls",art:"SZ-Stange",p:["bizeps"],s:[],sets:3,min:8,max:12,rest:90,inc:2.5,start:{kg:15,von:10,bis:20,wie:" mit Stange"},
+    how:["SZ-Stange an den schrägen Stellen greifen.","Ellbogen am Körper.","Hochbeugen.","Langsam ablassen."],fehler:["Schaukeln.","Unten nicht ganz strecken."],tipp:"Schonender für die Handgelenke als die gerade Stange.",yt:"SZ Curls richtige Ausführung"},
+  scott:{name:"Scott-Curls (Maschine)",art:"Maschine",p:["bizeps"],s:[],sets:3,min:10,max:12,rest:90,inc:2.5,start:{kg:15,von:10,bis:20,wie:""},
+    how:["Sitz so einstellen, dass die Achseln am Polster liegen.","Oberarme flach aufs Polster.","Griffe hochbeugen.","Langsam fast ganz strecken."],fehler:["Po hebt ab.","Unten ruckartig."],tipp:"Kein Schummeln möglich – der Bizeps arbeitet allein.",yt:"Scott Curls Maschine richtige Ausführung"},
+  konzentration:{name:"Konzentrations-Curls",art:"Kurzhantel",p:["bizeps"],s:[],sets:2,min:10,max:15,rest:60,inc:1,jeSeite:true,start:{kg:6,von:4,bis:8,wie:" (eine Hantel)"},
+    how:["Auf die Bank setzen, Ellbogen innen am Oberschenkel abstützen.","Hantel hochbeugen.","Oben kurz anspannen.","Langsam ablassen, dann Seite wechseln."],fehler:["Oberkörper hilft mit.","Zu schnell."],tipp:"Langsam und sauber – hier zählt das Gefühl.",yt:"Konzentrationscurls richtige Ausführung"},
+  schraegbank_curls:{name:"Schrägbank-Curls",art:"Kurzhanteln",p:["bizeps"],s:[],sets:2,min:10,max:12,rest:90,inc:1,start:{kg:5,von:4,bis:7,wie:" je Hand"},
+    how:["Bank auf ca. 45–60°, zurücklehnen.","Arme hängen gerade nach unten.","Hanteln hochbeugen, Ellbogen bleiben hinten.","Langsam ganz ablassen."],fehler:["Ellbogen kommen nach vorne.","Zu schwer."],tipp:"Starke Dehnung unten – leichter als normale Curls nehmen.",yt:"Schrägbank Curls Kurzhantel richtige Ausführung"},
+
+  /* Trizeps */
+  skullcrusher:{name:"French Press / Stirndrücken (SZ)",art:"SZ-Stange",p:["trizeps"],s:[],sets:3,min:10,max:12,rest:90,inc:2.5,start:{kg:10,von:10,bis:20,wie:" mit Stange"},
+    how:["Auf die Flachbank legen, Stange über der Brust.","Nur die Ellbogen beugen, Stange Richtung Stirn ablassen.","Oberarme bleiben ruhig.","Wieder strecken."],fehler:["Ellbogen gehen weit auseinander.","Zu schwer – Stange kommt dem Kopf zu nah."],tipp:"Stange eher hinter den Kopf führen, das schont die Ellbogen.",yt:"French Press SZ Stange richtige Ausführung"},
+  enges_bank:{name:"Enges Bankdrücken",art:"Langhantel",p:["trizeps"],s:["brust","schultern"],sets:3,min:8,max:12,rest:120,inc:2.5,start:{kg:20,von:20,bis:35,wie:" mit Stange"},
+    how:["Auf die Bank legen, schulterbreit greifen.","Ellbogen nah am Körper.","Stange zur unteren Brust ablassen.","Hochdrücken."],fehler:["Zu eng greifen – das tut den Handgelenken weh.","Ellbogen zur Seite."],tipp:"Schulterbreit reicht völlig.",yt:"Enges Bankdrücken richtige Ausführung"},
+  trizeps_stange:{name:"Trizepsdrücken am Kabel (Stange)",art:"Kabelzug (Stange)",p:["trizeps"],s:[],sets:3,min:10,max:15,rest:90,inc:2.5,start:{kg:15,von:10,bis:20,wie:""},
+    how:["Gerade oder gebogene Stange am oberen Kabelzug.","Ellbogen eng am Körper.","Stange nach unten drücken bis die Arme gestreckt sind.","Langsam zurück."],fehler:["Ellbogen wandern nach vorne.","Oberkörper drückt mit."],tipp:"Etwas schwerer als mit Seil möglich.",yt:"Trizepsdrücken Kabel Stange richtige Ausführung"},
+  dips_maschine:{name:"Dip-Maschine (sitzend)",art:"Maschine",p:["trizeps"],s:["brust"],sets:3,min:10,max:12,rest:90,inc:2.5,start:{kg:20,von:15,bis:35,wie:""},
+    how:["Sitz einstellen, Griffe neben dem Körper.","Rücken an die Lehne.","Griffe nach unten drücken, bis die Arme gestreckt sind.","Langsam zurück."],fehler:["Schultern hochziehen.","Gewicht zurückfallen lassen."],tipp:"Gute Vorstufe für echte Dips.",yt:"Dip Maschine sitzend richtige Ausführung"},
+  bankdips:{name:"Bank-Dips",art:"Körpergewicht",p:["trizeps"],s:["brust"],sets:2,min:8,max:15,rest:90,inc:0,koerper:true,
+    how:["Hände hinter dir auf die Bankkante, Finger nach vorne.","Beine angewinkelt (leichter) oder gestreckt (schwerer).","Po nah an der Bank absenken, bis die Oberarme waagerecht sind.","Hochdrücken."],fehler:["Zu tief runter.","Po weit weg von der Bank."],tipp:"Zwickt die Schulter? Lieber Trizepsdrücken am Kabel.",yt:"Bank Dips richtige Ausführung"},
+
+  /* Beine */
+  kniebeuge:{name:"Kniebeuge (Langhantel)",art:"Langhantel",p:["quadrizeps"],s:["po","unten"],sets:3,min:6,max:10,rest:180,inc:2.5,start:{kg:20,von:20,bis:40,wie:" mit Stange"},
+    how:["Stange auf den oberen Rücken (nicht auf den Nacken).","Füße schulterbreit, Zehen leicht nach außen.","Hüfte nach hinten-unten, Brust bleibt oben.","So tief wie sauber möglich, dann hochdrücken."],fehler:["Knie fallen nach innen.","Fersen heben ab, runder Rücken."],tipp:"Im Squat-Rack mit Sicherheitsstangen trainieren.",yt:"Kniebeuge Langhantel richtige Ausführung Anfänger"},
+  hackenschmidt:{name:"Hackenschmidt-Kniebeuge",art:"Maschine",p:["quadrizeps"],s:["po"],sets:3,min:8,max:12,rest:150,inc:5,start:{kg:20,von:10,bis:40,wie:" (Scheiben)"},
+    how:["Rücken und Schultern an die Polster.","Füße schulterbreit auf die Platte.","Langsam runter, bis die Knie ca. 90° gebeugt sind.","Durch die ganze Fußsohle hochdrücken."],fehler:["Knie fallen nach innen.","Po löst sich vom Polster."],tipp:"Der Schlitten wiegt schon etwas – trag nur die Scheiben ein.",yt:"Hackenschmidt Kniebeuge richtige Ausführung"},
+  ausfallschritte:{name:"Ausfallschritte",art:"Kurzhanteln",p:["quadrizeps"],s:["po"],sets:2,min:10,max:12,rest:90,inc:2,jeSeite:true,start:{kg:6,von:4,bis:10,wie:" je Hand"},
+    how:["Aufrecht stehen, Hanteln seitlich.","Großen Schritt nach vorne.","Hinteres Knie Richtung Boden senken.","Vom vorderen Bein zurückdrücken."],fehler:["Vorderes Knie knickt nach innen.","Oberkörper fällt nach vorne."],tipp:"Erst ohne Gewicht üben, bis das Gleichgewicht sitzt.",yt:"Ausfallschritte Kurzhantel richtige Ausführung"},
+  bulgarian:{name:"Bulgarische Split-Kniebeuge",art:"Kurzhanteln",p:["quadrizeps"],s:["po"],sets:2,min:8,max:12,rest:120,inc:2,jeSeite:true,start:{kg:6,von:4,bis:10,wie:" je Hand"},
+    how:["Hinteren Fuß auf eine Bank legen.","Vorderen Fuß so weit vorne, dass das Knie über dem Fuß bleibt.","Gerade nach unten absenken.","Vom vorderen Bein hochdrücken."],fehler:["Vorderer Fuß zu nah an der Bank.","Knie fällt nach innen."],tipp:"Schwer, aber sehr wirksam – lieber leicht anfangen.",yt:"Bulgarian Split Squat richtige Ausführung"},
+  beinbeuger_liegend:{name:"Beinbeuger liegend",art:"Maschine",p:["beinbeuger"],s:[],sets:3,min:10,max:15,rest:90,inc:2.5,start:{kg:15,von:10,bis:25,wie:""},
+    how:["Auf den Bauch legen, Knie knapp hinter dem Polster.","Polster über den Fersen.","Fersen Richtung Po ziehen.","Langsam zurück."],fehler:["Hüfte hebt ab.","Mit Schwung."],tipp:"Hüfte bleibt fest am Polster.",yt:"Beinbeuger liegend richtige Ausführung"},
+  adduktoren:{name:"Adduktoren-Maschine (innen)",art:"Maschine",p:["quadrizeps"],s:[],g:"Beine",sets:2,min:12,max:15,rest:60,inc:5,start:{kg:30,von:20,bis:40,wie:""},
+    how:["Polster an die Innenseite der Knie.","Beine kontrolliert zusammendrücken.","Kurz halten.","Langsam öffnen."],fehler:["Gewicht zurückschnellen lassen.","Zu weit öffnen."],tipp:"Trainiert die Innenseite der Oberschenkel.",yt:"Adduktoren Maschine richtige Ausführung"},
+
+  /* Po & Hüfte */
+  abduktoren:{name:"Abduktoren-Maschine (außen)",art:"Maschine",p:["po"],s:[],sets:3,min:12,max:15,rest:60,inc:5,start:{kg:30,von:20,bis:40,wie:""},
+    how:["Polster an die Außenseite der Knie.","Beine nach außen drücken.","Kurz halten.","Langsam zurück."],fehler:["Mit Schwung.","Oberkörper zieht mit."],tipp:"Leicht nach vorne lehnen trifft den Po stärker.",yt:"Abduktoren Maschine richtige Ausführung"},
+  kabel_kickback:{name:"Po-Kickbacks am Kabel",art:"Kabelzug (Fußschlaufe)",p:["po"],s:["beinbeuger"],sets:2,min:12,max:15,rest:60,inc:2.5,jeSeite:true,start:{kg:5,von:2.5,bis:10,wie:" (eine Seite)"},
+    how:["Fußschlaufe unten einhängen, um den Knöchel legen.","Am Gerät festhalten, leicht vorbeugen.","Bein gestreckt nach hinten drücken.","Langsam zurück, dann Seite wechseln."],fehler:["Hohlkreuz.","Mit Schwung."],tipp:"Oben den Po bewusst anspannen.",yt:"Glute Kickbacks Kabel richtige Ausführung"},
+
+  /* Waden */
+  wade_stehend:{name:"Wadenheben stehend",art:"Maschine",p:["waden"],s:[],sets:3,min:10,max:15,rest:60,inc:5,start:{kg:30,von:20,bis:50,wie:""},
+    how:["Schultern unter die Polster, Fußballen auf die Kante.","Fersen langsam nach unten sinken lassen.","Auf die Zehenspitzen drücken.","Oben 1 Sek. halten."],fehler:["Mit den Knien wippen.","Zu kleine Bewegung."],tipp:"Probleme am Fuß? Erst mit dem Physio klären.",yt:"Wadenheben stehend Maschine richtige Ausführung"},
+  wade_sitzend:{name:"Wadenheben sitzend",art:"Maschine",p:["waden"],s:[],sets:3,min:12,max:15,rest:60,inc:5,start:{kg:20,von:10,bis:30,wie:""},
+    how:["Hinsetzen, Polster auf die Oberschenkel.","Fußballen auf die Kante.","Fersen tief sinken lassen.","Hochdrücken, oben halten."],fehler:["Wippen.","Zu schnell."],tipp:"Trifft den tieferen Wadenmuskel.",yt:"Wadenheben sitzend richtige Ausführung"},
+
+  /* Bauch */
+  crunch:{name:"Crunches",art:"Körpergewicht",p:["bauch"],s:[],sets:2,min:12,max:20,rest:60,inc:0,koerper:true,
+    how:["Auf den Rücken legen, Beine angewinkelt.","Hände an die Schläfen.","Schultern einrollen und leicht anheben.","Langsam zurück."],fehler:["Am Kopf ziehen.","Ganz hochkommen wie beim Sit-up."],tipp:"Kleine Bewegung, Bauch fest anspannen.",yt:"Crunches richtige Ausführung"},
+  beinheben_haengend:{name:"Beinheben hängend",art:"Körpergewicht",p:["bauch"],s:[],sets:2,min:8,max:15,rest:90,inc:0,koerper:true,
+    how:["An der Klimmzugstange hängen.","Beine ruhig halten.","Knie oder gestreckte Beine nach oben ziehen.","Langsam ablassen."],fehler:["Schwingen.","Nur mit dem Hüftbeuger ziehen."],tipp:"Erst Knie heben, später gestreckte Beine.",yt:"Beinheben hängend richtige Ausführung"},
+  russian_twist:{name:"Russian Twist",art:"Körpergewicht",p:["bauch"],s:[],sets:2,min:10,max:20,rest:60,inc:0,koerper:true,
+    how:["Hinsetzen, Oberkörper leicht nach hinten.","Füße am Boden oder angehoben.","Oberkörper nach links und rechts drehen.","Eine Drehung je Seite = 1 Wdh."],fehler:["Runder Rücken.","Nur die Arme bewegen."],tipp:"Schwerer mit einer Hantelscheibe in den Händen.",yt:"Russian Twist richtige Ausführung"},
+  bauchmaschine:{name:"Bauchmaschine (Crunch)",art:"Maschine",p:["bauch"],s:[],sets:2,min:10,max:15,rest:90,inc:2.5,start:{kg:20,von:15,bis:30,wie:""},
+    how:["Sitz einstellen, Polster an die Brust.","Oberkörper nach vorne einrollen.","Kurz halten.","Langsam zurück."],fehler:["Mit den Armen ziehen.","Mit Schwung."],tipp:"Ausatmen beim Einrollen.",yt:"Bauchmaschine Crunch richtige Ausführung"},
+  seitstuetz:{name:"Seitstütz",art:"Körpergewicht",p:["bauch"],s:[],sets:2,min:20,max:40,rest:60,inc:5,zeit:true,jeSeite:true,
+    how:["Seitlich auf den Unterarm stützen, Ellbogen unter der Schulter.","Füße übereinander.","Hüfte hochdrücken – Körper ist eine Linie.","Halten, dann Seite wechseln."],fehler:["Hüfte sackt ab.","Schulter rutscht nach oben."],tipp:"Zu schwer? Unteres Knie auf den Boden.",yt:"Seitstütz richtige Ausführung"},
+  ab_wheel:{name:"Bauchroller (Ab Wheel)",art:"Ab-Roller",p:["bauch"],s:["lat"],sets:2,min:5,max:12,rest:90,inc:0,koerper:true,
+    how:["Auf die Knie, Roller unter den Schultern.","Bauch fest anspannen.","Langsam nach vorne rollen, so weit es sauber geht.","Aus dem Bauch zurückrollen."],fehler:["Hohlkreuz.","Zu weit rollen."],tipp:"Anfangs nur ein kurzes Stück – Rücken bleibt gerade.",yt:"Bauchroller Ab Wheel richtige Ausführung"}
+});
+
 /* ---------- Trainingstage: Muskelbereiche mit je 3 Übungen ---------- */
 const PLAN = {
   A:{name:"Arme & Schultern",tag:"Mittwoch",areas:[{n:"Schultern",ex:["schulterdruecken","seitheben","reverse_fly"]},{n:"Bizeps",ex:["curls","hammercurls","kabelcurls"]},{n:"Trizeps",ex:["trizeps","ueberkopf_trizeps","kickbacks"]}]},
@@ -792,7 +915,34 @@ const PLAN = {
 const DAYS = {3:"A",5:"B",6:"C"};
 const planEx = p => PLAN[p].areas.flatMap(a => a.ex);
 const areaOf = (p, id) => (PLAN[p].areas.find(a => a.ex.includes(id)) || {}).n || "";
-const MUSCLES = {brust:"Brust",schultern:"Schultern",bizeps:"Bizeps",trizeps:"Trizeps",bauch:"Bauch",lat:"Breiter Rücken",oben:"Oberer Rücken",unten:"Unterer Rücken",po:"Po",quadrizeps:"Beine vorne",beinbeuger:"Beine hinten"};
+const MUSCLES = {brust:"Brust",schultern:"Schultern",bizeps:"Bizeps",trizeps:"Trizeps",bauch:"Bauch",lat:"Breiter Rücken",oben:"Oberer Rücken",unten:"Unterer Rücken",po:"Po",quadrizeps:"Beine vorne",beinbeuger:"Beine hinten",waden:"Waden"};
+
+/* ---------- (v34) Meine Übungen: selbst ausgewählt (z. B. was du mit deinen Freunden machst) ----------
+   Gespeichert in S.settings.meine (Liste von Übungs-IDs). Kilos zeigt nur diese Übungen.
+   Daraus entsteht automatisch der Trainingstag „M“ (Meine Übungen), den du wie A/B/C starten kannst. */
+const GRUPPEN = ["Brust", "Rücken", "Schultern", "Bizeps", "Trizeps", "Beine", "Po & Hüfte", "Waden", "Bauch"];
+const GRUPPE_VON = {brust:"Brust", lat:"Rücken", oben:"Rücken", unten:"Rücken", schultern:"Schultern", bizeps:"Bizeps", trizeps:"Trizeps", quadrizeps:"Beine", beinbeuger:"Beine", po:"Po & Hüfte", waden:"Waden", bauch:"Bauch"};
+const gruppeOf = id => EX[id].g || GRUPPE_VON[EX[id].p[0]] || "Sonstiges";
+const hatStd = id => !!(EX[id] && Array.isArray(EX[id].std));
+function meine() { const m = S && S.settings && S.settings.meine; return Array.isArray(m) ? m.filter((id, i) => EX[id] && m.indexOf(id) === i) : []; }
+const istMeine = id => meine().includes(id);
+// Liste nach Muskelgruppe sortieren: [[Gruppe, [ids]], …]
+function gruppiert(ids) { return GRUPPEN.concat(["Sonstiges"]).map(g => [g, ids.filter(id => gruppeOf(id) === g)]).filter(x => x[1].length); }
+// In welchem festen Plan (A/B/C) kommt die Übung vor?
+const planVon = id => ["A", "B", "C"].filter(p => planEx(p).includes(id));
+function toggleMeine(id) {
+  if (!EX[id]) return false;
+  const m = meine(), an = !m.includes(id);
+  S.settings.meine = an ? m.concat([id]) : m.filter(x => x !== id);
+  changed("settings");
+  return an;
+}
+// Trainingstag „M“ wird bei jedem Zugriff frisch aus deiner Auswahl gebaut
+Object.defineProperty(PLAN, "M", {enumerable:true, configurable:true, get() {
+  return {name:"Meine Übungen", tag:"Mit Freunden", areas:gruppiert(meine()).map(([n, ex]) => ({n, ex}))};
+}});
+// Tage für Listen und Knöpfe: „M“ nur, wenn du Übungen ausgewählt hast
+const planKeys = () => Object.keys(PLAN).filter(p => p !== "M" || meine().length > 0);
 
 /* ---------- Dehnplan: jeden Tag (nichts eintragen, nur machen) ---------- */
 const STRETCH = {
@@ -832,7 +982,7 @@ const clone = o => JSON.parse(JSON.stringify(o));
 const mmss = s => Math.floor(s / 60) + ":" + pad(s % 60);
 const noKg = ex => !!(ex.zeit || ex.koerper);
 const startTxt = id => { const e = EX[id]; if (e.zeit) return "Start 20–30 Sek."; if (e.koerper) return "Körpergewicht"; return "Start ca. " + fmtNum(e.start.kg) + " kg" + e.start.wie; };
-const vidHtml = (id, label) => { const src = vidSrc(id); return '<div class="vid-box">' + (src ? '<video src="' + esc(src) + '" autoplay loop muted playsinline preload="auto" aria-label="' + esc(label) + '"></video>' : '<div class="vid-none">Video lädt nicht – schau unten in die Anleitung.</div>') + '</div>'; };
+const vidHtml = (id, label) => { const src = vidSrc(id); if (!src && EX[id] && !STRETCH[id]) return '<a class="vid-kein" href="https://www.youtube.com/results?search_query=' + encodeURIComponent(EX[id].yt) + '" target="_blank" rel="noopener"><span class="play" aria-hidden="true">▶</span><span><b>Video auf YouTube ansehen ↗</b><small>Für diese Übung gibt es noch kein eigenes Video.</small></span></a>'; return '<div class="vid-box">' + (src ? '<video src="' + esc(src) + '" autoplay loop muted playsinline preload="auto" aria-label="' + esc(label) + '"></video>' : '<div class="vid-none">Video lädt nicht – schau unten in die Anleitung.</div>') + '</div>'; };
 
 /* ---------- Zustand & Speichern ---------- */
 const LS_KEY = "hantelbuch.v1";
@@ -844,6 +994,8 @@ const UI = {month:null, pick:null, step:null, chartEx:null, confirm:null, needRe
 // Einmalig: Plan auf Montag, 2.11. verschieben, wenn vorher noch nichts trainiert wurde
 function migrate() {
   if (!S.stretch) S.stretch = {custom:[], log:{}};
+  // (v34) Erste Auswahl: Übungen, für die du schon Kilos eingestellt hast
+  if (S.settings && !Array.isArray(S.settings.meine)) { S.settings.meine = Object.keys(S.settings.kg || {}).filter(id => EX[id]); changed("settings"); }
   if (!S.stretch.custom) S.stretch.custom = [];
   if (S.settings && !S.settings.v3) {
     const early = Object.values(S.workouts).some(w => w.date < PLAN_START && (hasLogged(w) || w.status === "done" || w.status === "manual"));
@@ -914,12 +1066,12 @@ function bestOf(w, id) { const ss = okSets(w, id); if (!ss.length) return null; 
 function bestEver(id, beforeK) { const v = Object.values(S.workouts).filter(w => !beforeK || w.date < beforeK).map(w => bestOf(w, id)).filter(x => x != null); return v.length ? Math.max(...v) : null; }
 
 /* ---------- Level ---------- */
-function levelOf(id, sc) { let l = 0; EX[id].std.forEach((v, i) => { if (sc >= v) l = i + 1; }); return l; }
-const badge = l => '<span class="lv">' + LV[l].e + ' ' + LV[l].n + '</span>';
-const badgeTxt = l => LV[l].e + " " + LV[l].n;
+function levelOf(id, sc) { if (!hatStd(id)) return null; let l = 0; EX[id].std.forEach((v, i) => { if (sc >= v) l = i + 1; }); return l; }
+const badge = l => l == null ? '' : '<span class="lv">' + LV[l].e + ' ' + LV[l].n + '</span>';
+const badgeTxt = l => l == null ? "" : LV[l].e + " " + LV[l].n;
 // Gewicht, das für Level l bei r Wdh. nötig ist (auf die nächste Stufe aufgerundet)
 function needKg(id, l, r) { const ex = EX[id], inc = ex.inc || 1, kg = ex.std[l - 1] / (1 + r / 30); return Math.max(inc, Math.ceil(kg / inc - 1e-9) * inc); }
-function meter(l) { return '<div class="meter" aria-hidden="true">' + LV.map((x, i) => '<span class="' + (i <= l ? "on" : "") + (i === l ? " cur" : "") + '"><i></i>' + x.n + '</span>').join("") + '</div>'; }
+function meter(l) { if (l == null) return ""; return '<div class="meter" aria-hidden="true">' + LV.map((x, i) => '<span class="' + (i <= l ? "on" : "") + (i === l ? " cur" : "") + '"><i></i>' + x.n + '</span>').join("") + '</div>'; }
 
 /* ---------- Vorschlag fürs heutige Gewicht (doppelte Progression) ---------- */
 function suggest(id, k) {
@@ -941,6 +1093,7 @@ function suggest(id, k) {
 function curKg(id, t) { const m = (S.settings.kg || {})[id]; if (m) return m.kg; const w = S.workouts[t]; if (w && w.wt && w.wt[id] != null) return w.wt[id]; return EX[id].start ? EX[id].start.kg : 0; }
 function refReps(id, t) { const ss = okSets(S.workouts[t], id); if (ss.length) return Math.max(...ss.map(s => num(s.r))); const e = EX[id]; return Math.round((e.min + e.max) / 2); }
 function lvBox(id, t) {
+  if (!hatStd(id)) { const ls = lastSet(id); return '<p class="small">Mit <b>' + fmtNum(curKg(id, t)) + ' kg</b> eingestellt.' + (ls ? ' Zuletzt: ' + fmtNum(ls.kg) + ' kg × ' + ls.r + ' Wdh.' : '') + '</p><p class="small muted">Für diese Übung gibt es keine Level-Daten – die App merkt sich aber deine Rekorde.</p>'; }
   const ex = EX[id], kg = curKg(id, t), r = refReps(id, t), l = levelOf(id, score(id, kg, r));
   const next = l >= 5 ? "Höchstes Level – du bist eine Legende! 👑" : "Für " + badgeTxt(l + 1) + ": ca. " + fmtNum(needKg(id, l + 1, r)) + " kg × " + r + " Wdh.";
   return meter(l) + '<p class="small">Mit <b>' + fmtNum(kg) + ' kg × ' + r + ' Wdh.</b> bist du: <b>' + badgeTxt(l) + '</b>. ' + next + '</p>';
@@ -1032,7 +1185,7 @@ function verpasst(t) {
 function andersHtml(t, n) {
   if (!UI.anders) return '<button class="btn block" data-act="anders">🔄 Heute was anderes trainieren</button>';
   const heute = n && n.today ? n.plan : null, v = verpasst(t);
-  const reihe = Object.keys(PLAN).sort((a, b) => (v && a === v.plan ? -1 : v && b === v.plan ? 1 : 0));
+  const reihe = planKeys().sort((a, b) => (v && a === v.plan ? -1 : v && b === v.plan ? 1 : 0));
   let h = '<div class="card"><h3>🔄 Was trainierst du heute?</h3>';
   if (v && v.plan !== heute) h += '<p class="small">Verpasst am <b>' + esc(fmtDate(v.k, {weekday:"long"})) + '</b>: ' + esc(PLAN[v.plan].name) + '. Einfach heute nachholen.</p>';
   h += reihe.map(p => {
@@ -1060,11 +1213,13 @@ function viewStart() {
         + '<div class="day-head"><div class="plate">' + n.plan + '</div><div><h1>' + P.name + '</h1></div></div>'
         + '<button class="btn block" data-act="go" data-h="tag-' + n.plan.toLowerCase() + '">Übungen ansehen</button></div>';
     }
-    if (!hasLogged(w)) h += '<p class="small muted">Heute trotzdem trainieren? ' + Object.keys(PLAN).map(p => '<button class="link" data-act="start" data-p="' + p + '">' + PLAN[p].name + '</button>').join(" · ") + '</p>';
+    if (!hasLogged(w)) h += '<p class="small muted">Heute trotzdem trainieren? ' + planKeys().map(p => '<button class="link" data-act="start" data-p="' + p + '">' + PLAN[p].name + '</button>').join(" · ") + '</p>';
   }
   // Erinnerung an die Sicherung (alle 30 Tage)
   if (backupDue()) h += '<div class="card note"><p><b>📦 Zeit für eine Sicherung</b><br><span class="small">Deine Trainings liegen nur auf diesem Handy. Ein Tipp – dann sind sie sicher.</span></p><div class="btn-row"><button class="btn primary" data-act="backup">Jetzt sichern</button><button class="btn" data-act="bsnooze">Später</button></div></div>';
   // Mit Kollege trainiert? Ein Tipp – zählt als Gym-Besuch (eigene Übungen, nichts eintragen nötig)
+  // (v34) Mit Freunden trainieren: deine ausgewählten Übungen mit Kilos und Sätzen
+  if (dayStatus(t) !== "done" && meine().length && !(n && n.today && n.plan === "M")) h += '<button class="btn block" data-act="start" data-p="M">👥 Meine Übungen trainieren (' + meine().length + ')</button>';
   if (dayStatus(t) !== "done") h += '<button class="btn block" data-act="buddy" data-d="' + t + '">👥 Heute mit Kollege trainiert</button>';
   // (v27) Heute was anderes trainieren, z. B. das verpasste Training von gestern nachholen
   if (dayStatus(t) !== "done" && !hasLogged(w)) h += andersHtml(t, n);
@@ -1076,12 +1231,13 @@ function viewStart() {
 
 /* ---------- Seite: PLAN (alle Tage) ---------- */
 function viewPlan() {
-  let h = '<div class="stack"><div><p class="eyebrow">3er-Split · ab ' + esc(fmtDate(start(), {day:"numeric", month:"numeric"})) + '</p><h1>Dein Plan</h1></div><p class="muted">Jeder Tag hat eigene Muskeln. Pro Muskelbereich gibt es 3 Übungen. Tipp auf einen Tag.</p>';
-  for (const p of Object.keys(PLAN)) {
+  let h = '<div class="stack"><div><p class="eyebrow">3er-Split · ab ' + esc(fmtDate(start(), {day:"numeric", month:"numeric"})) + '</p><h1>Dein Plan</h1></div><p class="muted">Jeder Tag hat eigene Muskeln. Tipp auf einen Tag.' + (meine().length ? ' „M“ sind deine selbst ausgewählten Übungen.' : '') + '</p>';
+  for (const p of planKeys()) {
     const P = PLAN[p];
     h += '<button class="card" style="text-align:left" data-act="go" data-h="tag-' + p.toLowerCase() + '"><div class="day-head"><div class="plate">' + p + '</div><div><p class="eyebrow">' + P.tag + '</p><h2>' + P.name + '</h2></div></div>'
-      + '<div class="chips">' + P.areas.map(a => '<span class="chip">' + a.n + ' · 3</span>').join("") + '</div></button>';
+      + '<div class="chips">' + P.areas.map(a => '<span class="chip">' + a.n + ' · ' + a.ex.length + '</span>').join("") + '</div></button>';
   }
+  if (!meine().length) h += '<button class="card" style="text-align:left" data-act="go" data-h="uebungen"><div class="day-head"><div class="plate">M</div><div><p class="eyebrow">Mit Freunden</p><h2>Meine Übungen</h2></div></div><p class="small muted">Noch leer – unter „Übungen“ auf ＋ tippen, dann kannst du sie hier starten.</p></button>';
   return h + '<div class="card prose"><h3>So läuft jede Einheit</h3><ol><li>5–10 Min aufwärmen (Rad, Laufband).</li><li>Die App zeigt dir immer nur die aktuelle Übung mit Video.</li><li>Gewicht vorher unter „Kilos“ einstellen. Im Training Wdh. eintragen, abhaken – der Pausen-Timer startet von selbst.</li><li>Aufhören, wenn noch 1–3 saubere Wdh. gehen würden.</li><li>Am Ende „Training abschließen“ – dann steht es im Kalender.</li></ol></div></div>';
 }
 
@@ -1091,10 +1247,11 @@ function viewTag(p) {
   let h = '<div class="stack"><button class="link" data-act="go" data-h="plan">← Alle Tage</button><div class="day-head"><div class="plate">' + p + '</div><div><p class="eyebrow">' + P.tag + ' · ca. ' + minutes(p, addDays(start(), 21)) + ' Min</p><h1>' + P.name + '</h1></div></div>';
   if (p === "C") h += '<div class="card note"><p class="small"><b>Verletzung am Fuß oder Bein?</b> Kläre mit deinem Physio, ab wann Übungen im Stehen (Goblet Squat, Kreuzheben) wieder gehen. Bis dahin lieber nur Maschinen im Sitzen.</p></div>';
   P.areas.forEach(a => {
-    h += '<div class="card"><div class="area-h"><h3>' + a.n + '</h3><span class="small muted">3 Übungen</span></div><ul class="list">';
+    h += '<div class="card"><div class="area-h"><h3>' + a.n + '</h3><span class="small muted">' + a.ex.length + (a.ex.length === 1 ? ' Übung' : ' Übungen') + '</span></div><ul class="list">';
     a.ex.forEach(id => { const e = EX[id]; h += '<li><button type="button" class="row" data-act="info" data-ex="' + id + '"><span><b>' + esc(e.name) + '</b><small>' + e.art + ' · ' + startTxt(id) + '</small></span><span class="num">' + setsFor(id, t) + '×' + e.min + '–' + e.max + (e.zeit ? "s" : "") + '</span></button></li>'; });
     h += '</ul></div>';
   });
+  if (p === "M") { if (!P.areas.length) h += '<div class="card note"><p class="small">Du hast noch keine Übungen ausgewählt.</p></div>'; h += '<button class="btn block" data-act="go" data-h="uebungen">✏️ Übungen auswählen</button>'; if (!P.areas.length) return h + '</div>'; }
   return h + '<button class="btn primary block" data-act="start" data-p="' + p + '">Dieses Training starten</button></div>';
 }
 
@@ -1126,7 +1283,8 @@ function viewTraining() {
     h += '<div class="wt-line"><span class="grow"><span class="eyebrow">Dein Gewicht</span><span><b id="wtSum">' + fmtNum(kg) + ' kg</b> <span class="small muted">' + esc(ex.start.wie.trim()) + '</span></span></span><span id="lvSum">' + badge(l) + '</span><button type="button" class="btn small-btn" data-act="wtsheet">ändern</button></div>';
   } else {
     const best = bestOf(w, id) || bestEver(id, t) || 0, l = levelOf(id, best);
-    h += '<p class="hint">' + sg.text + '</p><div class="card"><div class="area-h"><h3>Dein Level</h3>' + badge(l) + '</div>' + meter(l) + '<p class="small muted">' + (l >= 5 ? "Höchstes Level!" : "Für " + badgeTxt(l + 1) + ": " + ex.std[l] + (ex.zeit ? " Sek." : " Wdh.") + " in einem Satz") + '</p></div>';
+    if (l == null) h += '<p class="hint">' + sg.text + '</p>' + (best ? '<p class="small muted">Dein bester Satz: <b>' + fmtNum(best) + (ex.zeit ? ' Sek.' : ' Wdh.') + '</b></p>' : '');
+    else h += '<p class="hint">' + sg.text + '</p><div class="card"><div class="area-h"><h3>Dein Level</h3>' + badge(l) + '</div>' + meter(l) + '<p class="small muted">' + (l >= 5 ? "Höchstes Level!" : "Für " + badgeTxt(l + 1) + ": " + ex.std[l] + (ex.zeit ? " Sek." : " Wdh.") + " in einem Satz") + '</p></div>';
   }
   if (hist.length) h += '<p class="prev">Letztes Mal (' + esc(fmtDate(hist[0].date)) + '): ' + okSets(hist[0], id).map(s => noKg(ex) ? num(s.r) + (ex.zeit ? " s" : " Wdh.") : fmtNum(num(s.kg) || 0) + " × " + num(s.r)).join(" · ") + '</p>';
   h += '<section class="ex" data-ex="' + id + '"><div class="sets"><div class="set-h"><span>Satz</span><span></span><span>' + (ex.zeit ? "Sek." : "Wdh.") + '</span><span>OK</span></div>';
@@ -1257,17 +1415,21 @@ function lvRow(id) {
     const bb = bestEver(id);
     return '<li class="kgrow"><div class="kg-top"><button type="button" class="link kg-name" data-act="info" data-ex="' + id + '">' + esc(ex.name) + '</button>' + (bb != null ? badge(levelOf(id, bb)) : '') + '</div><small class="muted">Ohne Gewicht – ' + (ex.zeit ? "Sekunden" : "Wiederholungen") + ' trägst du im Training ein.</small></li>';
   }
-  const kg = curKg(id, todayKey()), l = levelOf(id, score(id, kg, 10));
+  const kg = curKg(id, todayKey()), l = levelOf(id, score(id, kg, 10)), ls = lastSet(id);
+  const zuletzt = ls ? ' · zuletzt ' + fmtNum(ls.kg) + ' kg × ' + ls.r + ' (' + fmtDate(ls.date, {day:"numeric", month:"numeric"}) + ')' : '';
   return '<li class="kgrow"><div class="kg-top"><button type="button" class="link kg-name" data-act="info" data-ex="' + id + '">' + esc(ex.name) + '</button>' + badge(l) + '</div>'
     + '<div class="stepper sm"><button type="button" data-act="kgs" data-ex="' + id + '" data-d="-1" aria-label="Weniger Gewicht ' + esc(ex.name) + '">−</button><input class="kg-in" data-ex="' + id + '" inputmode="decimal" autocomplete="off" aria-label="Gewicht ' + esc(ex.name) + ' in kg" value="' + String(kg).replace(".", ",") + '"><span>kg' + esc(ex.start.wie) + '</span><button type="button" data-act="kgs" data-ex="' + id + '" data-d="1" aria-label="Mehr Gewicht ' + esc(ex.name) + '">+</button></div>'
-    + (l < 5 ? '<small class="muted">Nächstes Level ' + badgeTxt(l + 1) + ' ab ' + fmtNum(needKg(id, l + 1, 10)) + ' kg</small>' : '<small class="muted">Höchstes Level 👑</small>') + '</li>';
+    + (l == null ? (zuletzt ? '<small class="muted">' + zuletzt.slice(3) + '</small>' : '') : l < 5 ? '<small class="muted">Nächstes Level ' + badgeTxt(l + 1) + ' ab ' + fmtNum(needKg(id, l + 1, 10)) + ' kg' + zuletzt + '</small>' : '<small class="muted">Höchstes Level 👑' + zuletzt + '</small>') + '</li>';
 }
 function viewLevel() {
-  if (!UI.lvTag) { const n = nextUp(); UI.lvTag = n ? n.plan : "A"; }
-  let h = '<div class="stack"><h1>Kilos</h1><p class="muted">Stell mit <b>−</b> und <b>+</b> ein, mit wie viel Kilo du trainierst. Das Abzeichen zeigt dein Level.</p>';
-  h += '<div class="daychips seg3" role="group" aria-label="Trainingstag">' + Object.keys(PLAN).map(p => '<button type="button" data-act="lvf" data-v="' + p + '" class="' + (p === UI.lvTag ? "on" : "") + '" aria-pressed="' + (p === UI.lvTag) + '">' + p + ' · ' + PLAN[p].name.split(" ")[0] + '</button>').join("") + '</div>';
-  PLAN[UI.lvTag].areas.forEach(a => { h += '<div class="card"><div class="area-h"><h3>' + a.n + '</h3></div><ul class="list">' + a.ex.map(lvRow).join("") + '</ul></div>'; });
-  return h + '<p class="small muted">🥬 Lauch → 🐣 Rookie → ⚙️ Maschine → 🦍 Beast → 🐺 Alpha → 👑 Legende</p></div>';
+  // (v34) Nur deine ausgewählten Übungen, sortiert nach Muskelgruppe
+  const ids = meine();
+  let h = '<div class="stack"><h1>Kilos</h1>';
+  if (!ids.length) return h + '<div class="card note"><h3>Noch keine Übungen ausgewählt</h3><p class="small">Geh zu <b>Übungen</b> und tipp bei jeder Übung, die du wirklich machst, auf <b>＋</b>. Dann erscheint sie hier mit ihren Kilos.</p><button class="btn primary block" data-act="go" data-h="uebungen">Übungen auswählen</button></div></div>';
+  h += '<p class="muted">Deine ' + ids.length + (ids.length === 1 ? ' Übung' : ' Übungen') + '. Stell mit <b>−</b> und <b>+</b> ein, mit wie viel Kilo du trainierst.</p>';
+  gruppiert(ids).forEach(([g, list]) => { h += '<div class="card"><div class="area-h"><h3>' + esc(g) + '</h3><span class="small muted">' + list.length + '</span></div><ul class="list">' + list.map(lvRow).join("") + '</ul></div>'; });
+  h += '<button class="btn block" data-act="go" data-h="uebungen">✏️ Übungen ändern</button>';
+  return h + '<p class="small muted">🥬 Lauch → 🐣 Rookie → ⚙️ Maschine → 🦍 Beast → 🐺 Alpha → 👑 Legende · Level gibt es nur für die Übungen aus dem Plan (A/B/C).</p></div>';
 }
 
 /* ---------- Seite: STATISTIK (unter Mehr) ---------- */
@@ -1294,21 +1456,32 @@ function viewStatistik() {
 }
 
 /* ---------- Seite: ÜBUNGEN – alle Übungen mit Video ---------- */
+/* (v34) Übungen: alle Übungen, mit ＋ zu „Meine Übungen“ hinzufügen, Suche und Muskelgruppen */
+function uxItem(id) {
+  const e = EX[id], on = istMeine(id), pv = planVon(id);
+  return '<li class="uxli" data-n="' + esc((e.name + " " + e.art + " " + gruppeOf(id)).toLowerCase()) + '"><button type="button" class="row" data-act="info" data-ex="' + id + '"><span><b>' + esc(e.name) + (pv.length ? '<span class="tagp">' + pv.join("/") + '</span>' : '') + '</b><small>' + esc(e.art) + ' · ' + e.sets + ' × ' + e.min + '–' + e.max + (e.zeit ? " Sek." : " Wdh.") + (BLOB_URL[id] ? ' · ▶ Video' : '') + '</small></span></button>'
+    + '<button type="button" class="pick" data-act="pick" data-ex="' + id + '" aria-pressed="' + on + '" aria-label="' + esc(e.name) + (on ? ' aus meinen Übungen entfernen' : ' zu meinen Übungen hinzufügen') + '">' + (on ? '✓' : '＋') + '</button></li>';
+}
+function uxFilter() {   // Suche ohne neu zu zeichnen (Tastatur bleibt offen)
+  const q = (UI.uxQ || "").trim().toLowerCase(); let n = 0;
+  document.querySelectorAll("#main .uxcard").forEach(c => { let any = false; c.querySelectorAll(".uxli").forEach(li => { const ok = !q || li.dataset.n.includes(q); li.hidden = !ok; if (ok) { any = true; n++; } }); c.hidden = !any; });
+  const leer = document.getElementById("uxLeer"); if (leer) leer.hidden = n > 0 || !q;
+}
 function viewUebungen() {
-  const f = UI.uxTag || "alle";
-  let h = '<div class="stack"><div><p class="eyebrow">' + Object.keys(EX).length + ' Übungen mit Video</p><h1>Übungen</h1></div>'
-    + '<div class="daychips seg4" role="group" aria-label="Filter">' + [["alle", "Alle"], ["A", "A · Arme"], ["B", "B · Brust"], ["C", "C · Beine"]].map(([v, n]) => '<button type="button" data-act="uxf" data-v="' + v + '" class="' + (v === f ? "on" : "") + '" aria-pressed="' + (v === f) + '">' + n + '</button>').join("") + '</div>'
-    + '<p class="small muted">Tipp auf eine Übung: Video, richtige Ausführung und Tipps. Dehnübungen findest du unter „Dehnen“.</p>';
-  for (const p of Object.keys(PLAN)) {
-    if (f !== "alle" && f !== p) continue;
-    PLAN[p].areas.forEach(a => {
-      h += '<div class="card"><div class="area-h"><h3>' + a.n + '</h3><span class="small muted">Tag ' + p + ' · ' + PLAN[p].tag + '</span></div><ul class="list">'
-        + a.ex.map(id => { const e = EX[id]; return '<li><button type="button" class="row" data-act="info" data-ex="' + id + '"><span><b>' + esc(e.name) + '</b><small>' + e.art + ' · ' + e.sets + ' × ' + e.min + '–' + e.max + (e.zeit ? " Sek." : " Wdh.") + '</small></span><span class="play" aria-hidden="true">▶</span></button></li>'; }).join("") + '</ul></div>';
-    });
-  }
+  const m = meine(), alle = Object.keys(EX), f = UI.uxF || (m.length ? "meine" : "alle"), g = UI.uxG || ""; UI.uxShown = f;
+  let ids = f === "meine" ? m : alle; if (g) ids = ids.filter(id => gruppeOf(id) === g);
+  let h = '<div class="stack"><div><p class="eyebrow">' + alle.length + ' Übungen · ' + alle.filter(id => BLOB_URL[id]).length + ' mit Video</p><h1>Übungen</h1></div>'
+    + '<div class="daychips seg2" role="group" aria-label="Auswahl"><button type="button" data-act="uxf" data-v="meine" class="' + (f === "meine" ? "on" : "") + '" aria-pressed="' + (f === "meine") + '">⭐ Meine (<span id="uxN">' + m.length + '</span>)</button><button type="button" data-act="uxf" data-v="alle" class="' + (f === "alle" ? "on" : "") + '" aria-pressed="' + (f === "alle") + '">Alle (' + alle.length + ')</button></div>'
+    + '<input type="search" class="uxsuche" id="uxSuche" placeholder="🔍 Übung suchen, z. B. Curls" autocomplete="off" enterkeyhint="search" aria-label="Übung suchen" value="' + esc(UI.uxQ || "") + '">'
+    + '<div class="gchips" role="group" aria-label="Muskelgruppe"><button type="button" data-act="uxg" data-v="" class="' + (!g ? "on" : "") + '" aria-pressed="' + !g + '">Alle Muskeln</button>' + GRUPPEN.map(x => '<button type="button" data-act="uxg" data-v="' + esc(x) + '" class="' + (g === x ? "on" : "") + '" aria-pressed="' + (g === x) + '">' + esc(x) + '</button>').join("") + '</div>'
+    + '<p class="small muted">Tipp auf <b>＋</b> bei allen Übungen, die du machst (z. B. mit deinen Freunden). Nur die stehen dann unter <b>Kilos</b> und im Training „M · Meine Übungen“. Tipp auf den Namen für Anleitung und Video.</p>';
+  if (f === "meine" && !m.length) h += '<div class="card note"><p class="small">Noch keine Übungen ausgewählt. Wechsel auf <b>Alle</b> und tipp auf ＋.</p><button class="btn primary" data-act="uxf" data-v="alle">Alle Übungen zeigen</button></div>';
+  else if (!ids.length) h += '<p class="small muted">In dieser Muskelgruppe hast du noch nichts ausgewählt.</p>';
+  gruppiert(ids).forEach(([gn, list]) => { h += '<div class="card uxcard"><div class="area-h"><h3>' + esc(gn) + '</h3><span class="small muted">' + list.length + '</span></div><ul class="list">' + list.map(uxItem).join("") + '</ul></div>'; });
+  h += '<p class="small muted" id="uxLeer" hidden>Nichts gefunden. Probier ein anderes Wort.</p>';
+  if (m.length) h += '<button class="btn block" data-act="go" data-h="kilos">Zu den Kilos →</button>';
   return h + '</div>';
 }
-
 /* ---------- Seite: WISSEN ---------- */
 function viewWissen() {
   const e = (S.body.entries || []).filter(x => num(x.kg) != null).sort((a, b) => a.d < b.d ? 1 : -1)[0], kg = e ? num(e.kg) : 70;
@@ -1326,7 +1499,8 @@ function infoSheet(id) {
   return '<div class="sheet-top"><h2>' + esc(e.name) + '</h2><button class="icon-btn" data-act="close" aria-label="Schließen">' + X_ICON + '</button></div>' + vidHtml(id, e.name)
     + '<div class="chips"><span class="chip solid">' + e.sets + ' × ' + e.min + '–' + e.max + (e.zeit ? " Sek." : " Wdh.") + '</span><span class="chip">Pause ' + mmss(e.rest) + '</span><span class="chip">' + startTxt(id) + '</span>' + (b != null ? badge(levelOf(id, b)) : '') + '</div>'
     + '<div class="prose"><ol>' + e.how.map(x => '<li>' + esc(x) + '</li>').join("") + '</ol><p><b>Fehler vermeiden:</b> ' + e.fehler.map(esc).join(" ") + '</p><p><b>Tipp:</b> ' + esc(e.tipp) + '</p></div>'
-    + '<a class="link" href="https://www.youtube.com/results?search_query=' + encodeURIComponent(e.yt) + '" target="_blank" rel="noopener">Mit echten Personen auf YouTube ansehen ↗</a>';
+    + '<a class="link" href="https://www.youtube.com/results?search_query=' + encodeURIComponent(e.yt) + '" target="_blank" rel="noopener">Mit echten Personen auf YouTube ansehen ↗</a>'
+    + (istMeine(id) ? '<button class="btn block" data-act="pick" data-ex="' + id + '">✓ In meinen Übungen – entfernen</button>' : '<button class="btn primary block" data-act="pick" data-ex="' + id + '">＋ Zu meinen Übungen</button>');
 }
 function stretchSheet(id) {
   const e = STRETCH[id];
@@ -1335,12 +1509,13 @@ function stretchSheet(id) {
 }
 
 /* ---------- Rendern & Navigation ---------- */
-const VIEWS = {start:viewStart, plan:viewPlan, "tag-a":() => viewTag("A"), "tag-b":() => viewTag("B"), "tag-c":() => viewTag("C"), training:viewTraining, dehnen:viewDehnen, kalender:viewKalender, mehr:viewMehr, uebungen:viewUebungen, kilos:viewLevel, level:viewLevel, fortschritt:viewStatistik, statistik:viewStatistik, wissen:viewWissen};
-const TAB_OF = {start:"start", plan:"plan", "tag-a":"plan", "tag-b":"plan", "tag-c":"plan", dehnen:"dehnen", kalender:"kalender", uebungen:"uebungen", kilos:"kilos", level:"kilos"};
+const VIEWS = {start:viewStart, plan:viewPlan, "tag-a":() => viewTag("A"), "tag-b":() => viewTag("B"), "tag-c":() => viewTag("C"), "tag-m":() => viewTag("M"), training:viewTraining, dehnen:viewDehnen, kalender:viewKalender, mehr:viewMehr, uebungen:viewUebungen, kilos:viewLevel, level:viewLevel, fortschritt:viewStatistik, statistik:viewStatistik, wissen:viewWissen};
+const TAB_OF = {start:"start", plan:"plan", "tag-a":"plan", "tag-b":"plan", "tag-c":"plan", "tag-m":"plan", dehnen:"dehnen", kalender:"kalender", uebungen:"uebungen", kilos:"kilos", level:"kilos"};
 function currentView() { const v = location.hash.replace("#", ""); return VIEWS[v] ? v : "start"; }
 function render() {
   const v = currentView(); UI.needRender = false;
   $("#main").innerHTML = VIEWS[v]();
+  if (v === "uebungen") uxFilter();
   document.body.classList.toggle("focus", v === "training");
   if ($("#moreBtn")) { if (v === "mehr" || v === "wissen" || v === "statistik" || v === "fortschritt") $("#moreBtn").setAttribute("aria-current", "page"); else $("#moreBtn").removeAttribute("aria-current"); }
   document.querySelectorAll(".tabs a").forEach(a => { if (a.dataset.tab === TAB_OF[v]) a.setAttribute("aria-current", "page"); else a.removeAttribute("aria-current"); });
@@ -1402,7 +1577,7 @@ function setWeight(kg) {
 function cheer(id, t, set) {
   const sc = score(id, num(set.kg) || 0, num(set.r)), prev = bestEver(id, t);
   const others = okSets(S.workouts[t], id).filter(s => s !== set).map(s => score(id, num(s.kg) || 0, num(s.r)));
-  if (prev == null) { if (!UI.seen[id]) { UI.seen[id] = 1; return "Dein Start-Level: " + badgeTxt(levelOf(id, sc)); } return null; }
+  if (prev == null) { if (!UI.seen[id]) { UI.seen[id] = 1; return hatStd(id) ? "Dein Start-Level: " + badgeTxt(levelOf(id, sc)) : "Erster Satz eingetragen ✓"; } return null; }
   const best = Math.max(prev, ...others);
   if (sc > best + 0.05) { const lo = levelOf(id, best), ln = levelOf(id, sc); return ln > lo ? "LEVEL UP! " + badgeTxt(ln) : "🏆 Neuer Rekord!"; }
   return null;
@@ -1412,6 +1587,7 @@ document.addEventListener("input", e => {
   const el = e.target;
   if (el.matches(".in-r")) { const c = rowCtx(el); if (c) { c.set.r = num(el.value); changed("w-" + c.t); } }
   else if (el.id === "wtIn") { const v = num(el.value); if (v != null) setWeight(v); }
+  else if (el.id === "uxSuche") { UI.uxQ = el.value; uxFilter(); }
   else if (el.id === "bNote") { const w = S.workouts[el.dataset.d]; if (w) { w.note = el.value; changed("w-" + el.dataset.d); } }
   else if (el.id === "note") { const t = todayKey(), w = ensureWorkout(t, todayPlan()); w.note = el.value; changed("w-" + t); }
 });
@@ -1435,13 +1611,29 @@ document.addEventListener("click", async e => {
   const act = b.dataset.act, t = todayKey();
   switch (act) {
     case "go": closeSheet(); go(b.dataset.h); break;
-    case "uxf": UI.uxTag = b.dataset.v; render(); break;     // Filter auf der Übungen-Seite
+    case "uxf": UI.uxF = b.dataset.v; render(); break;       // Meine / Alle auf der Übungen-Seite
+    case "uxg": UI.uxG = b.dataset.v; render(); break;       // Muskelgruppe auf der Übungen-Seite
+    case "pick": {   // (v34) Übung zu „Meine Übungen“ hinzufügen oder entfernen
+      const id = b.dataset.ex; if (!EX[id]) break;
+      const an = toggleMeine(id);
+      toast(an ? "Zu deinen Übungen ✓ – steht jetzt unter Kilos" : "Aus deinen Übungen entfernt");
+      if (UI.sheet && UI.sheet.kind === "info") renderSheet();
+      if (currentView() === "uebungen") {
+        if (!UI.uxF) UI.uxF = UI.uxShown || "alle";   // Ansicht festhalten, damit die Liste nicht umspringt
+        if (UI.uxF === "alle") {   // Liste „Alle“: nur den Knopf ändern, damit die Seite nicht springt
+          document.querySelectorAll('#main .pick[data-ex="' + id + '"]').forEach(x => { x.setAttribute("aria-pressed", String(an)); x.textContent = an ? "✓" : "＋"; x.setAttribute("aria-label", EX[id].name + (an ? " aus meinen Übungen entfernen" : " zu meinen Übungen hinzufügen")); });
+          const nEl = document.getElementById("uxN"); if (nEl) nEl.textContent = meine().length;
+        } else render();
+      } else render();
+      break;
+    }
     case "lvf": UI.lvTag = b.dataset.v; render(); break;     // Tag auf der Kilos-Seite
     case "kgs": { const id = b.dataset.ex, ex = EX[id]; saveKg(id, Math.min(400, Math.max(0, Math.round((curKg(id, t) + (+b.dataset.d) * (ex.inc || 1)) * 10) / 10)), t); render(); break; }
     case "wtsheet": { const id = curEx(); if (id) openSheet("wt", id); break; }
     case "anders": UI.anders = !UI.anders; render(); break;
     case "start": {
       const p = b.dataset.p, w = S.workouts[t]; UI.anders = false;
+      if (p === "M" && !meine().length) { toast("Wähl erst unter „Übungen“ deine Übungen aus"); go("uebungen"); break; }
       if (w && hasLogged(w) && w.plan !== p) toast("Heute läuft schon " + PLAN[w.plan].name);
       else { UI.pick = p; if (w) { w.plan = p; if (["manual", "missed", "excused"].includes(w.status)) w.status = "draft"; changed("w-" + t); } }
       UI.from = currentView() === "training" ? (UI.from || "start") : currentView();   // merken, woher man kam
