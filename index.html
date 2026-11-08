@@ -5731,6 +5731,584 @@ h1,h2,h3{padding-top:.06em;padding-bottom:.04em}
   try { rerender(); } catch (e) {}
 })();
 </script>
+<!-- ERWEITERUNG v35 (08.11.2026): Ich → „📖 Mein Leben“ mit Zeitstrahl, Reisen, Freundin, Freunden, Familie, Hobbys,
+     Schullaufbahn, Wohnorten, Jobs, Erfolgen, Erlebnissen, Haustieren, Lieblingsdingen und Bucket List.
+     Ohne persönliche Werte im Code (darf auf GitHub Pages). Die Werte trägt Max selbst ein oder lädt ein „Leben-Paket“. -->
+<style>
+/* ---------- Drei Tabs im Ich-Bereich ---------- */
+.ichtabs.t3{grid-template-columns:repeat(3,minmax(0,1fr))}
+.ichtabs.t3 a{font-size:14px;padding:0 4px;text-align:center;line-height:1.15}
+@media (max-width:380px){ .ichtabs.t3 a{font-size:13px;gap:4px} }
+/* ---------- Unter-Tabs in „Mein Leben“ ---------- */
+.ltabs{display:flex;gap:6px;overflow-x:auto;padding-bottom:2px;scrollbar-width:none}
+.ltabs::-webkit-scrollbar{display:none}
+.ltabs button{flex:none;min-height:42px;padding:0 14px;border-radius:21px;border:1px solid var(--line);background:var(--surface);color:var(--fg);font-weight:700;font-size:14px;white-space:nowrap}
+.ltabs button[aria-pressed="true"]{background:var(--fg);color:var(--bg);border-color:var(--fg)}
+.lchips{display:flex;gap:6px;flex-wrap:wrap}
+.lchips .chipbtn{min-height:36px}
+/* ---------- Zeitstrahl ---------- */
+.zs-jahr{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;margin:18px 0 8px}
+.zs-jahr b{font-family:var(--f-display);font-size:26px;line-height:1}
+.zs-list{position:relative;margin-left:18px;border-left:3px solid var(--line);display:flex;flex-direction:column;gap:8px;padding:2px 0}
+.zs-it{position:relative;display:block;width:100%;text-align:left;padding:0 0 0 28px;border:0;background:none;color:var(--fg);font:inherit;cursor:pointer}
+.zs-dot{position:absolute;left:-17.5px;top:8px;width:32px;height:32px;border-radius:50%;background:color-mix(in srgb,var(--c) 22%,var(--surface));border:2px solid var(--c);display:grid;place-items:center;font-size:16px;line-height:1}
+.zs-card{display:block;min-width:0;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:9px 12px;overflow-wrap:anywhere}
+.zs-card .zs-d{display:block;font-size:12px;font-weight:700;color:var(--muted)}
+.zs-card .zs-t{display:block;font-weight:700;margin:2px 0}
+.zs-card .zs-s{display:block;font-size:13px;color:var(--muted)}
+.zs-card .zs-n{display:block;font-size:13px;margin-top:4px;white-space:pre-line}
+.zs-it.auto .zs-card{border-style:dashed}
+.zs-it.jetzt .zs-dot{background:var(--fg);border-color:var(--fg)}
+/* ---------- Bereiche-Kacheln ---------- */
+.lgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px}
+.lgrid button{display:flex;flex-direction:column;align-items:flex-start;gap:4px;min-height:96px;padding:12px;border-radius:16px;border:1px solid var(--line);border-top:4px solid var(--c);background:var(--surface);color:var(--fg);text-align:left;font:inherit}
+.lgrid button .em{font-size:26px;line-height:1}
+.lgrid button b{font-size:15px}
+.lgrid button small{color:var(--muted);font-size:12px}
+@media (max-width:360px){ .lgrid{grid-template-columns:1fr 1fr} }
+/* ---------- Listen-Einträge ---------- */
+.lent{display:flex;gap:10px;align-items:flex-start;padding:10px 0;border-top:1px solid var(--line)}
+.lent:first-child{border-top:0}
+.lent .em{font-size:22px;line-height:1.2;flex:none;width:28px;text-align:center}
+.lent .li-main{flex:1;min-width:0;overflow-wrap:anywhere}
+.lent .li-main small{display:block;color:var(--muted)}
+.lzahl{display:grid;grid-template-columns:repeat(auto-fit,minmax(90px,1fr));gap:6px}
+.lzahl div{background:var(--soft);border-radius:12px;padding:8px 10px}
+.lzahl b{display:block;font-family:var(--f-display);font-size:24px;line-height:1.1}
+.lzahl span{font-size:12px;color:var(--muted);font-weight:700}
+.lrow{display:flex;flex-direction:column;gap:4px;margin-top:10px}
+.lrow label{font-size:13px;font-weight:700;color:var(--muted)}
+.lrow input,.lrow textarea{width:100%;min-width:0;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--fg);padding:0 10px;height:44px;font:inherit}
+.lrow textarea{height:auto;min-height:80px;padding:8px 10px}
+.lnamen{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
+.lnamen button{min-height:34px;padding:0 12px;border-radius:17px;border:1px solid var(--line);background:var(--soft);color:var(--fg);font:inherit;font-size:13px}
+#sheet .lform .field{margin-bottom:10px}
+#sheet .lform select,#sheet .lform textarea{width:100%}
+.lherz{font-size:42px;line-height:1}
+</style>
+<input type="file" id="lebenFile" accept=".json,application/json" hidden>
+<script>
+/* =====================================================================
+   ERWEITERUNG v35: „📖 Mein Leben“ (dritter Tab im Ich-Bereich)
+   - Zeitstrahl: alles mit Datum, nach Jahren, mit Alter, Filter nach
+     Bereich und „mit wem“, Suche, „Heute vor X Jahren“
+   - Bereiche: Reisen, Freunde, Familie, Hobbys, Schullaufbahn, Wohnorte,
+     Jobs & Praktika, Erfolge, Erlebnisse, Haustiere, Bucket List
+   - Freundin: zusammen seit, Jahrestag, Geburtstag, unsere Momente,
+     Geschenkideen
+   - Lieblingsdinge
+   Speicher: S.leben = {e:[Einträge], paar:{}, fav:{}}
+   Ein Eintrag: {id, key, kat, t, d, bis, wo, land, mit, art, abschluss, geb, notiz, done}
+   Datum darf ungenau sein: „2019“, „2019-07“ oder „2019-07-14“.
+   ===================================================================== */
+(function () {
+  "use strict";
+
+  /* ---------- Speicher anlegen (immer frisch aus S lesen, auch nach Backup-Import) ---------- */
+  function L() {
+    if (!S.leben || typeof S.leben !== "object") S.leben = {};
+    const o = S.leben;
+    if (!Array.isArray(o.e)) o.e = [];
+    if (!o.paar || typeof o.paar !== "object") o.paar = {};
+    if (!o.fav || typeof o.fav !== "object") o.fav = {};
+    return o;
+  }
+  const id6 = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+  const IF = k => ((S.ich && S.ich.f && S.ich.f[k]) || "").trim();
+  const MON = ["Januar", "Februar", "März", "April", "Mai", "Juni", "Juli", "August", "September", "Oktober", "November", "Dezember"];
+
+  /* ---------- Bereiche (Kategorien) mit Icon, Farbe und Formular-Feldern ----------
+     Feld: [schlüssel, Beschriftung, Typ, Platzhalter/Optionen]
+     Typen: txt, date (ungenau erlaubt), geb (Geburtstag, Jahr optional), sel, area, mit, chk */
+  const DATE_PH = "z. B. 2019 · 07.2019 · 14.07.2019";
+  const KAT = {
+    reise:   {ic:"✈️", n:"Reisen", c:"var(--urlaub)", neu:"Neue Reise", f:[["t", "Wohin? (Ort oder Region)", "txt", "z. B. Amsterdam"], ["land", "Land", "txt", "z. B. Niederlande"], ["d", "Von", "date"], ["bis", "Bis", "date"], ["mit", "Mit wem?", "mit"], ["art", "Wie hingekommen?", "sel", ["", "🚗 Auto", "🚆 Zug", "✈️ Flugzeug", "🚌 Bus", "🚢 Schiff", "🚲 Fahrrad"]], ["notiz", "Highlights / Erinnerungen", "area", "Was war besonders?"]]},
+    person:  {ic:"👥", n:"Freunde", c:"var(--frei)", neu:"Neue Person", f:[["t", "Name oder Spitzname", "txt", "Vorname reicht"], ["art", "Wer ist das für dich?", "sel", ["Freund/in", "Beste/r Freund/in", "Schulfreund/in", "Kindheitsfreund/in", "Arbeitskollege/in", "Gaming-Freund/in", "Gym-Partner/in", "Nachbar/in", "Sonstige"]], ["wo", "Woher kennt ihr euch?", "txt", "z. B. Grundschule, Verein, Arbeit"], ["d", "Kennengelernt (wann?)", "date"], ["bis", "Kontakt bis (leer = noch Kontakt)", "date"], ["geb", "Geburtstag", "geb"], ["notiz", "Notiz (was macht ihr zusammen?)", "area"]]},
+    familie: {ic:"👨‍👩‍👦", n:"Familie", c:"var(--ferien)", neu:"Neues Familienmitglied", f:[["t", "Name oder wie du sie/ihn nennst", "txt", "z. B. Mama, Opa Heinz"], ["art", "Rolle", "sel", ["Mutter", "Vater", "Bruder", "Schwester", "Oma", "Opa", "Tante", "Onkel", "Cousin", "Cousine", "Stiefmutter", "Stiefvater", "Halbbruder", "Halbschwester", "Sonstige"]], ["geb", "Geburtstag", "geb"], ["wo", "Wohnt in", "txt"], ["notiz", "Notiz", "area"]]},
+    hobby:   {ic:"🎮", n:"Hobbys", c:"var(--gym)", neu:"Neues Hobby", f:[["t", "Hobby", "txt", "z. B. Fußball, Gaming, Gym"], ["d", "Seit wann?", "date"], ["bis", "Bis wann? (leer = mache ich noch)", "date"], ["wo", "Wo? (Verein, Ort)", "txt"], ["mit", "Mit wem?", "mit"], ["notiz", "Notiz (Erfolge, Level, Lieblingsmoment)", "area"]]},
+    schule:  {ic:"🎓", n:"Schullaufbahn", c:"var(--schule)", neu:"Neue Schule", f:[["t", "Name der Schule / Kita", "txt"], ["art", "Art", "sel", ["Kindergarten", "Grundschule", "Hauptschule", "Realschule", "Gesamtschule", "Sekundarschule", "Gymnasium", "Förderschule", "Berufskolleg", "Berufsschule", "Hochschule / Uni", "Sonstige"]], ["wo", "Ort", "txt"], ["d", "Von", "date"], ["bis", "Bis (leer = noch da)", "date"], ["abschluss", "Abschluss", "txt", "z. B. Fachoberschulreife (FOR)"], ["notiz", "Erinnerungen (Lieblingsfach, Klassenfahrt …)", "area"]]},
+    wohnen:  {ic:"🏠", n:"Wohnorte", c:"var(--privat)", neu:"Neuer Wohnort", f:[["t", "Ort / Stadtteil", "txt", "Nur Ort, keine Hausnummer"], ["d", "Eingezogen", "date"], ["bis", "Ausgezogen (leer = wohne ich noch)", "date"], ["mit", "Mit wem gewohnt?", "mit"], ["notiz", "Notiz", "area"]]},
+    job:     {ic:"💼", n:"Jobs & Praktika", c:"var(--arbeit)", neu:"Neuer Job / Praktikum", f:[["t", "Was? (Tätigkeit / Firma)", "txt", "z. B. Praktikum im Elektromarkt"], ["art", "Art", "sel", ["Schülerpraktikum", "Praktikum", "Ferienjob", "Minijob", "Nebenjob", "Ausbildung", "Ehrenamt", "Sonstige"]], ["wo", "Ort", "txt"], ["d", "Von", "date"], ["bis", "Bis (leer = läuft noch)", "date"], ["notiz", "Was hast du gemacht / gelernt?", "area"]]},
+    erfolg:  {ic:"🏆", n:"Erfolge & Meilensteine", c:"var(--warn)", neu:"Neuer Meilenstein", f:[["t", "Was?", "txt", "z. B. Führerschein bestanden"], ["d", "Wann?", "date"], ["wo", "Wo?", "txt"], ["mit", "Mit wem gefeiert?", "mit"], ["notiz", "Notiz", "area"]]},
+    erlebnis:{ic:"⭐", n:"Erlebnisse & Events", c:"var(--ok)", neu:"Neues Erlebnis", f:[["t", "Was?", "txt", "z. B. erstes Konzert, Stadion-Besuch"], ["art", "Art", "sel", ["Ausflug", "Konzert", "Festival", "Sport / Stadion", "Party / Feier", "Erstes Mal", "Urlaubstag", "Gaming", "Sonstiges"]], ["d", "Wann?", "date"], ["wo", "Wo?", "txt"], ["mit", "Mit wem?", "mit"], ["notiz", "Erinnerung", "area"]]},
+    paar:    {ic:"💞", n:"Momente zu zweit", c:"var(--feiertag)", neu:"Neuer Moment zu zweit", f:[["t", "Was?", "txt", "z. B. erstes Date, erster gemeinsamer Urlaub"], ["d", "Wann?", "date"], ["wo", "Wo?", "txt"], ["notiz", "Erinnerung", "area"]]},
+    tier:    {ic:"🐾", n:"Haustiere", c:"var(--frei)", neu:"Neues Haustier", f:[["t", "Name", "txt"], ["art", "Tierart", "txt", "z. B. Katze, Hund, Hamster"], ["d", "Seit wann?", "date"], ["bis", "Bis wann? (leer = noch da)", "date"], ["notiz", "Notiz", "area"]]},
+    wunsch:  {ic:"📝", n:"Bucket List", c:"var(--privat)", neu:"Neuer Wunsch", f:[["t", "Was willst du mal machen?", "txt", "z. B. Japan sehen, Fallschirmsprung"], ["art", "Art", "sel", ["Reise", "Erlebnis", "Lernen", "Kaufen", "Sport", "Sonstiges"]], ["done", "Schon geschafft", "chk"], ["d", "Geschafft am", "date"], ["notiz", "Notiz", "area"]]}
+  };
+  const KAT_ORDER = ["reise", "person", "familie", "hobby", "schule", "wohnen", "job", "erfolg", "erlebnis", "tier", "wunsch"];
+  const OFFEN = {person:1, hobby:1, schule:1, wohnen:1, job:1, tier:1};   // Zeitraum darf offen sein („seit …“)
+
+  /* ---------- Lieblingsdinge (nur Beschriftungen) ---------- */
+  const FAV = [["essen", "🍕", "Lieblingsessen"], ["trinken", "🥤", "Lieblingsgetränk"], ["suess", "🍫", "Süßigkeit / Snack"], ["film", "🎬", "Lieblingsfilm"], ["serie", "📺", "Lieblingsserie"], ["anime", "🍥", "Lieblings-Anime"], ["musik", "🎵", "Musikrichtung"], ["kuenstler", "🎤", "Lieblings-Künstler / Band"], ["song", "🎧", "Lieblingssong"], ["spiel", "🎮", "Lieblingsspiel"], ["verein", "⚽", "Lieblingsverein"], ["sport", "🏃", "Lieblingssport"], ["buch", "📚", "Lieblingsbuch / Comic"], ["farbe", "🎨", "Lieblingsfarbe"], ["tier", "🐶", "Lieblingstier"], ["ort", "📍", "Lieblingsort"], ["reiseziel", "🌍", "Traum-Reiseziel"], ["jahreszeit", "🍂", "Lieblingsjahreszeit"], ["auto", "🚗", "Traumauto"], ["app", "📱", "Lieblings-App"], ["youtuber", "▶️", "YouTuber / Streamer"], ["zitat", "💬", "Lieblingsspruch"]];
+  /* ---------- Freundin (nur Beschriftungen) ---------- */
+  const PAAR = [["name", "Name / Spitzname", "txt"], ["kennenD", "Kennengelernt am", "date"], ["kennenWo", "Wo kennengelernt?", "txt"], ["seit", "Zusammen seit", "iso"], ["geb", "Ihr Geburtstag", "geb"], ["lieb", "Ihre Lieblingssachen (Essen, Blumen, Farbe …)", "area"], ["ideen", "Geschenk- und Date-Ideen", "area"], ["notiz", "Notiz", "area"]];
+
+  /* =====================================================================
+     DATUM: ungenaue Angaben erlauben
+     ===================================================================== */
+  const okYMD = (y, m, d) => { const dt = new Date(y, m - 1, d); return dt.getFullYear() === y && dt.getMonth() === m - 1 && dt.getDate() === d; };
+  const p2 = n => String(n).padStart(2, "0");
+  const jahrOk = y => y >= 1900 && y <= new Date().getFullYear() + 30;
+  // Eingabe → "2019" | "2019-07" | "2019-07-14"; "" = leer, null = ungültig
+  function normD(s) {
+    s = String(s || "").trim().replace(/^(ca\.?|um|etwa)\s*/i, ""); if (!s) return "";
+    let m;
+    if ((m = s.match(/^(\d{4})$/))) return jahrOk(+m[1]) ? m[1] : null;
+    if ((m = s.match(/^(\d{4})-(\d{1,2})$/)) || (m = s.match(/^(\d{1,2})[./-](\d{4})$/)) && (m = [m[0], m[2], m[1]])) {
+      const y = +m[1], mo = +m[2]; return jahrOk(y) && mo >= 1 && mo <= 12 ? y + "-" + p2(mo) : null;
+    }
+    if ((m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/))) { const y = +m[1], mo = +m[2], d = +m[3]; return jahrOk(y) && okYMD(y, mo, d) ? y + "-" + p2(mo) + "-" + p2(d) : null; }
+    if ((m = s.match(/^(\d{1,2})\.(\d{1,2})\.(\d{2}|\d{4})$/))) {
+      let y = +m[3]; if (m[3].length === 2) y += y <= new Date().getFullYear() % 100 ? 2000 : 1900;
+      const mo = +m[2], d = +m[1]; return jahrOk(y) && okYMD(y, mo, d) ? y + "-" + p2(mo) + "-" + p2(d) : null;
+    }
+    const mn = MON.findIndex(x => s.toLowerCase().startsWith(x.toLowerCase().slice(0, 3)));   // „Juli 2019“
+    if (mn >= 0 && (m = s.match(/(\d{4})$/)) && jahrOk(+m[1])) return m[1] + "-" + p2(mn + 1);
+    return null;
+  }
+  // Gespeichert → schön lesbar
+  const fmtL = k => !k ? "" : k.length === 4 ? k : k.length === 7 ? MON[+k.slice(5) - 1] + " " + k.slice(0, 4) : +k.slice(8) + ". " + MON[+k.slice(5, 7) - 1] + " " + k.slice(0, 4);
+  // Gespeichert → Eingabefeld (deutsches Format)
+  const toInp = k => !k ? "" : k.length === 4 ? k : k.length === 7 ? k.slice(5) + "." + k.slice(0, 4) : k.slice(8) + "." + k.slice(5, 7) + "." + k.slice(0, 4);
+  // Geburtstag: „14.07.“ (ohne Jahr) → "07-14", „14.07.2007“ → "2007-07-14"
+  function normG(s) {
+    s = String(s || "").trim(); if (!s) return "";
+    let m;
+    if ((m = s.match(/^(\d{1,2})\.(\d{1,2})\.?$/))) return okYMD(2000, +m[2], +m[1]) ? p2(+m[2]) + "-" + p2(+m[1]) : null;
+    const v = normD(s); return v && v.length === 10 ? v : null;
+  }
+  const fmtG = g => !g ? "" : g.length === 5 ? g.slice(3) + "." + g.slice(0, 2) + "." : g.slice(8) + "." + g.slice(5, 7) + "." + g.slice(0, 4);
+  // Nächster Geburtstag/Jahrestag: Tage bis dahin (+ wie alt / wievielter)
+  function naechster(g) {
+    if (!g) return null;
+    const md = g.length === 5 ? g : g.slice(5), t = todayKey(), y = +t.slice(0, 4);
+    const mk = yy => { let k = yy + "-" + md; if (md === "02-29" && !okYMD(yy, 2, 29)) k = yy + "-02-28"; return k; };
+    let k = mk(y); if (k < t) k = mk(y + 1);
+    return {k, tage:diffDays(t, k), alter:g.length === 10 ? +k.slice(0, 4) - +g.slice(0, 4) : null};
+  }
+  // Alter an einem Datum (nur wenn Monat bekannt und Geburtstag eingetragen)
+  function alterAm(k) {
+    const g = IF("geb"); if (!g || !/^\d{4}-\d{2}-\d{2}$/.test(g) || !k || k.length < 7) return null;
+    let a = +k.slice(0, 4) - +g.slice(0, 4);
+    const kmd = k.length === 10 ? k.slice(5) : k.slice(5, 7) + "-31";
+    if (kmd < g.slice(5)) a--;
+    return a >= 0 ? a : null;
+  }
+  // Dauer zwischen zwei (ungenauen) Daten
+  function monate(a, b) { return (+b.slice(0, 4) - +a.slice(0, 4)) * 12 + ((b.length >= 7 ? +b.slice(5, 7) : 1) - (a.length >= 7 ? +a.slice(5, 7) : 1)); }
+  function dauer(d, bis, offen) {
+    if (!d) return "";
+    const end = bis || (offen ? todayKey() : ""); if (!end || end < d) return "";
+    const seit = !bis;
+    let n, u;
+    if (d.length === 10 && end.length === 10 && diffDays(d, end) < 45) { n = diffDays(d, end) + (seit ? 0 : 1); u = "t"; }
+    else { const mo = monate(d, end); if (mo < 1) return ""; if (mo < 24) { n = mo; u = "m"; } else { n = Math.floor(mo / 12); u = "j"; } }
+    if (n <= 0) return "";
+    const W = {t:[["Tag", "Tage"], ["Tag", "Tagen"]], m:[["Monat", "Monate"], ["Monat", "Monaten"]], j:[["Jahr", "Jahre"], ["Jahr", "Jahren"]]}[u][seit ? 1 : 0];
+    return (seit ? "seit " : "") + n + " " + (n === 1 ? W[0] : W[1]);
+  }
+
+  /* ---------- Namen („mit wem“) ---------- */
+  const teile = s => String(s || "").split(/\s*(?:,|;|&|\+|\bund\b)\s*/i).map(x => x.trim()).filter(Boolean);
+  function namen() {
+    const o = L(), m = new Map(), add = n => { n = String(n || "").trim(); if (n && !m.has(n.toLowerCase())) m.set(n.toLowerCase(), n); };
+    if (o.paar.name) add(o.paar.name);
+    o.e.filter(e => e.kat === "person" || e.kat === "familie").forEach(e => add(e.t));
+    o.e.forEach(e => teile(e.mit).forEach(add));
+    return [...m.values()];
+  }
+  function mitDabei(e, name) {
+    const n = String(name).toLowerCase(), o = L();
+    if ((e.kat === "person" || e.kat === "familie") && String(e.t).trim().toLowerCase() === n) return true;
+    if (e.kat === "paar" && o.paar.name && o.paar.name.trim().toLowerCase() === n) return true;
+    return teile(e.mit).some(x => x.toLowerCase() === n);
+  }
+
+  /* =====================================================================
+     ZEITSTRAHL: alle Punkte mit Datum sammeln
+     ===================================================================== */
+  function punkte() {
+    const o = L(), P = [];
+    const sub = (e, extra) => [extra, e.wo, e.land && e.kat !== "reise" ? e.land : "", e.mit ? "mit " + e.mit : ""].filter(Boolean).join(" · ");
+    o.e.forEach(e => {
+      const K = KAT[e.kat]; if (!K) return;
+      const lauf = dauer(e.d, e.bis, OFFEN[e.kat]);
+      const pt = (d, t, s, ic) => P.push({d, t, s, ic:ic || K.ic, c:K.c, kat:e.kat, id:e.id, n:e.notiz || "", e});
+      switch (e.kat) {
+        case "reise":   pt(e.d, (e.art ? e.art.split(" ")[0] + " " : "") + "Reise: " + e.t + (e.land ? " (" + e.land + ")" : ""), sub(e, lauf)); break;
+        case "person":  if (e.d) pt(e.d, "Kennengelernt: " + e.t, sub(e, [e.art, lauf].filter(Boolean).join(", "))); break;
+        case "hobby":   pt(e.d, "Angefangen: " + e.t, sub(e, lauf)); if (e.bis && e.d) pt(e.bis, "Aufgehört: " + e.t, ""); break;
+        case "schule":  pt(e.d, "Start: " + e.t + (e.art ? " (" + e.art + ")" : ""), sub(e, lauf)); if (e.bis) pt(e.bis, (e.abschluss ? "Abschluss: " + e.abschluss : "Ende: " + e.t), e.abschluss ? e.t : "", "📜"); break;
+        case "wohnen":  pt(e.d, "Umzug nach " + e.t, sub(e, lauf)); break;
+        case "job":     pt(e.d, "Start: " + e.t + (e.art ? " (" + e.art + ")" : ""), sub(e, lauf)); break;
+        case "tier":    pt(e.d, e.t + " kam dazu" + (e.art ? " (" + e.art + ")" : ""), sub(e, lauf)); break;
+        case "wunsch":  if (e.done) pt(e.d, "Bucket List geschafft: " + e.t, "", "✅"); break;
+        case "familie": break;   // Familie hat keinen Zeitpunkt (Geburtstage stehen unten)
+        default:        pt(e.d, e.t, sub(e, e.art || ""));
+      }
+    });
+    // Automatische Punkte aus „Über mich“ und „Freundin“
+    const g = IF("geb");
+    if (g) P.push({d:g, t:"Geboren" + (IF("gebOrt") ? " in " + IF("gebOrt") : ""), s:"automatisch aus Über mich", ic:"👶", c:"var(--privat)", kat:"auto", auto:"ich"});
+    if (IF("ausbVon") && !o.e.some(e => e.kat === "job" && /ausbildung/i.test(e.art || ""))) P.push({d:IF("ausbVon"), t:"Ausbildung gestartet" + (IF("beruf") ? ": " + IF("beruf").replace(/\s*\(.*\)$/, "") : ""), s:"automatisch aus Über mich", ic:"💼", c:"var(--arbeit)", kat:"auto", auto:"ich"});
+    const pa = o.paar, wer = pa.name || "meiner Freundin";
+    if (pa.kennenD) P.push({d:pa.kennenD, t:"Kennengelernt: " + wer, s:pa.kennenWo || "", ic:"💘", c:"var(--feiertag)", kat:"paar", auto:"paar"});
+    if (pa.seit) P.push({d:pa.seit, t:"Zusammengekommen mit " + wer, s:"", ic:"❤️", c:"var(--feiertag)", kat:"paar", auto:"paar"});
+    return P;
+  }
+
+  /* =====================================================================
+     ANSICHT: Zustand der Seite (nur für diese Sitzung)
+     ===================================================================== */
+  const SS = {get:k => { try { return sessionStorage.getItem("wk.l." + k) || ""; } catch (e) { return ""; } }, set:(k, v) => { try { sessionStorage.setItem("wk.l." + k, v); } catch (e) {} }};
+  let LQ = "";   // Suchtext im Zeitstrahl
+
+  // Drei Tabs: Über mich · Mein Leben · Gesundheit
+  const tabs3 = aktiv => '<nav class="ichtabs t3" aria-label="Ich-Bereich"><a href="#ich"' + (aktiv === "ich" ? ' aria-current="page"' : '') + '>🪪 Über mich</a><a href="#leben"' + (aktiv === "leben" ? ' aria-current="page"' : '') + '>📖 Mein Leben</a><a href="#gesund"' + (aktiv === "gesund" ? ' aria-current="page"' : '') + '>❤️ Gesundheit</a></nav>';
+  const tabsTauschen = (h, aktiv) => h.replace(/<nav class="ichtabs"[\s\S]*?<\/nav>/, tabs3(aktiv));
+
+  function viewLeben() {
+    const o = L(), tab = SS.get("tab") || "zeit";
+    let h = '<div class="stack view"><div><p class="eyebrow">Über dich und deine Gesundheit</p><h1>🪪 Ich</h1></div>' + tabs3("leben");
+    const T = [["zeit", "🕰️ Zeitstrahl"], ["bereiche", "🗂️ Bereiche"], ["paar", "❤️ Freundin"], ["fav", "💛 Lieblingsdinge"], ["tage", "🎂 Geburtstage"]];
+    const aktiv = tab.startsWith("k:") ? "bereiche" : tab;
+    h += '<div class="ltabs" role="group" aria-label="Mein Leben">' + T.map(([k, n]) => '<button type="button" data-act="l-tab" data-v="' + k + '" aria-pressed="' + (aktiv === k) + '">' + n + '</button>').join("") + '</div>';
+    if (tab === "zeit") h += zeitHtml();
+    else if (tab === "bereiche") h += bereicheHtml();
+    else if (tab.startsWith("k:") && KAT[tab.slice(2)]) h += katHtml(tab.slice(2));
+    else if (tab === "paar") h += paarHtml();
+    else if (tab === "fav") h += favHtml();
+    else if (tab === "tage") h += tageHtml();
+    else h += zeitHtml();
+    return h + '</div>';
+  }
+
+  /* ---------- 🕰️ Zeitstrahl ---------- */
+  function zeitHtml() {
+    const o = L(), P = punkte(), fk = SS.get("fk"), fm = SS.get("fm"), alt = SS.get("alt") === "1", q = LQ.trim().toLowerCase(), t = todayKey();
+    let h = '';
+    // Zahlen
+    const reisen = o.e.filter(e => e.kat === "reise"), laender = new Set(reisen.map(e => (e.land || "").trim().toLowerCase()).filter(Boolean));
+    h += '<div class="card"><h3>📖 Dein Leben in Zahlen</h3><div class="lzahl" style="margin-top:8px">'
+      + [[P.filter(p => p.d).length, "Momente"], [reisen.length, "Reisen"], [laender.size, "Länder"], [o.e.filter(e => e.kat === "person").length, "Freunde"], [o.e.filter(e => e.kat === "hobby").length, "Hobbys"], [o.e.filter(e => e.kat === "wunsch" && e.done).length + "/" + o.e.filter(e => e.kat === "wunsch").length, "Bucket List"]].map(([n, l]) => '<div><b>' + n + '</b><span>' + l + '</span></div>').join("") + '</div><button class="btn primary block" data-act="l-neu" style="margin-top:10px">➕ Neuen Moment eintragen</button></div>';
+    // Noch leer?
+    if (!o.e.length) h += '<div class="card note"><h3>✍️ Noch fast leer</h3><p class="small">Trag deine Reisen, Schulen, Freunde und Erlebnisse ein. Daten dürfen ungenau sein: nur das Jahr (2019) oder Monat und Jahr (07.2019) reicht.</p><p class="small">Oder: Fragebogen (Word) ausfüllen, an Claude schicken, und du bekommst ein <b>Leben-Paket</b> zum Laden (unter 🗂️ Bereiche ganz unten).</p><div class="btn-row"><button class="btn sm primary" data-act="l-neu">➕ Ersten Moment eintragen</button><button class="btn sm" data-act="l-tab" data-v="bereiche">🗂️ Bereiche ansehen</button></div></div>';
+    // Heute vor X Jahren
+    const heute = P.filter(p => p.d && p.d.length === 10 && p.d.slice(5) === t.slice(5) && p.d < t);
+    if (heute.length) h += '<div class="card" style="border:2px solid var(--urlaub)"><h3>📸 Heute vor …</h3>' + heute.map(p => '<p class="small"><b>' + (+t.slice(0, 4) - +p.d.slice(0, 4)) + ' Jahren:</b> ' + esc(p.ic + " " + p.t) + '</p>').join("") + '</div>';
+    // Filter
+    const da = new Set(P.map(p => p.kat === "auto" ? "" : p.kat));
+    const chip = (v, txt, c) => '<button type="button" class="chipbtn" data-act="l-fk" data-v="' + v + '" style="--c:' + c + '" aria-pressed="' + (fk === v) + '">' + txt + '</button>';
+    h += '<div class="card"><input id="lQ" class="inp" type="search" placeholder="Im Zeitstrahl suchen, z. B. Holland, Konzert, 2019 …" value="' + esc(LQ) + '" aria-label="Im Zeitstrahl suchen">'
+      + '<div class="lchips" style="margin-top:8px">' + chip("", "Alle", "var(--fg)") + KAT_ORDER.concat(["paar"]).filter(k => da.has(k)).map(k => chip(k, KAT[k].ic + " " + KAT[k].n, KAT[k].c)).join("") + '</div>';
+    const N = namen();
+    if (N.length) h += '<div class="field" style="margin-top:8px"><label for="lMit">👤 Mit wem?</label><select id="lMit" class="inp"><option value="">Alle Personen</option>' + N.map(n => '<option' + (fm.toLowerCase() === n.toLowerCase() ? " selected" : "") + '>' + esc(n) + '</option>').join("") + '</select></div>';
+    h += '<div class="btn-row" style="margin-top:8px"><button class="btn sm" data-act="l-alt">' + (alt ? "⬇️ Neueste zuerst" : "⬆️ Älteste zuerst") + '</button><button class="btn sm" data-act="l-text">📋 Als Text kopieren</button></div></div>';
+    // Filtern
+    let F = P.filter(p => {
+      if (fk && p.kat !== fk) return false;
+      if (fm && !(p.e ? mitDabei(p.e, fm) : (p.auto === "paar" && o.paar.name && o.paar.name.toLowerCase() === fm.toLowerCase()))) return false;
+      if (q && !(p.t + " " + p.s + " " + p.n + " " + (p.d || "") + " " + fmtL(p.d)).toLowerCase().includes(q)) return false;
+      return true;
+    });
+    const mitD = F.filter(p => p.d).sort((a, b) => alt ? (a.d < b.d ? -1 : a.d > b.d ? 1 : 0) : (a.d < b.d ? 1 : a.d > b.d ? -1 : 0));
+    const ohneD = F.filter(p => !p.d);
+    if (!mitD.length && !ohneD.length && o.e.length) h += '<p class="muted small">Nichts gefunden. Filter oder Suche ändern.</p>';
+    // Nach Jahren gruppieren
+    const gJ = IF("geb") ? +IF("geb").slice(0, 4) : null;
+    let jahr = null, offenList = false;
+    if (!alt && mitD.length && !fk && !fm && !q) { h += '<div class="zs-jahr"><b>Heute</b><span class="small muted">' + esc(fmtL(t)) + '</span></div><div class="zs-list"><div class="zs-it jetzt"><span class="zs-dot" style="--c:var(--fg)">📍</span><span class="zs-card"><span class="zs-t">Du bist hier' + (alterAm(t) != null ? ' – ' + alterAm(t) + ' Jahre' : '') + '</span><span class="zs-s">Die Geschichte geht weiter …</span></span></div></div>'; }
+    mitD.forEach(p => {
+      const y = p.d.slice(0, 4);
+      if (y !== jahr) {
+        if (offenList) h += '</div>';
+        jahr = y;
+        const a = gJ ? +y - gJ : null;
+        h += '<div class="zs-jahr"><b>' + y + '</b>' + (a != null && a >= 0 ? '<span class="small muted">' + (a === 0 ? "Geburtsjahr" : (a - 1) + "–" + a + " Jahre") + '</span>' : '') + '</div><div class="zs-list">';
+        offenList = true;
+      }
+      h += punktHtml(p);
+    });
+    if (offenList) h += '</div>';
+    if (ohneD.length) h += '<div class="card" style="margin-top:12px"><h3>❔ Noch ohne Datum (' + ohneD.length + ')</h3><p class="small muted">Antippen und ungefähr das Jahr eintragen, dann landen sie im Zeitstrahl.</p><div class="zs-list" style="margin-top:8px">' + ohneD.map(punktHtml).join("") + '</div></div>';
+    return h;
+  }
+  function punktHtml(p) {
+    const a = p.d && p.auto !== "ich" ? alterAm(p.d) : null;
+    const act = p.id ? 'data-act="l-edit" data-id="' + esc(p.id) + '"' : 'data-act="l-tab" data-v="' + (p.auto === "paar" ? "paar" : "zeit") + '"' + (p.auto === "ich" ? ' data-go="ich"' : '');
+    return '<button type="button" class="zs-it' + (p.auto ? " auto" : "") + '" ' + act + '><span class="zs-dot" style="--c:' + p.c + '" aria-hidden="true">' + p.ic + '</span><span class="zs-card">'
+      + '<span class="zs-d">' + (p.d ? esc(fmtL(p.d)) : "ohne Datum") + (a != null ? ' · mit ' + a : '') + '</span>'
+      + '<span class="zs-t">' + esc(p.t) + '</span>' + (p.s ? '<span class="zs-s">' + esc(p.s) + '</span>' : '') + (p.n ? '<span class="zs-n">' + esc(p.n.length > 160 ? p.n.slice(0, 157) + "…" : p.n) + '</span>' : '') + '</span></button>';
+  }
+  function zeitText() {
+    return punkte().filter(p => p.d).sort((a, b) => a.d < b.d ? -1 : a.d > b.d ? 1 : 0).map(p => toInp(p.d) + "  " + p.t + (p.s ? " (" + p.s + ")" : "")).join("\n");
+  }
+
+  /* ---------- 🗂️ Bereiche ---------- */
+  function bereicheHtml() {
+    const o = L(), n = k => o.e.filter(e => e.kat === k).length;
+    let h = '<div class="lgrid">' + KAT_ORDER.map(k => '<button type="button" data-act="l-tab" data-v="k:' + k + '" style="--c:' + KAT[k].c + '"><span class="em" aria-hidden="true">' + KAT[k].ic + '</span><b>' + KAT[k].n + '</b><small>' + (k === "wunsch" ? o.e.filter(e => e.kat === k && e.done).length + " von " + n(k) + " geschafft" : n(k) + (n(k) === 1 ? " Eintrag" : " Einträge")) + '</small></button>').join("")
+      + '<button type="button" data-act="l-tab" data-v="paar" style="--c:var(--feiertag)"><span class="em" aria-hidden="true">❤️</span><b>Freundin</b><small>' + (o.paar.seit ? dauer(o.paar.seit, "", true) : "noch leer") + '</small></button>'
+      + '<button type="button" data-act="l-tab" data-v="fav" style="--c:var(--warn)"><span class="em" aria-hidden="true">💛</span><b>Lieblingsdinge</b><small>' + FAV.filter(([k]) => (o.fav[k] || "").trim()).length + " von " + FAV.length + '</small></button>'
+      + '<button type="button" data-act="l-tab" data-v="tage" style="--c:var(--urlaub)"><span class="em" aria-hidden="true">🎂</span><b>Geburtstage</b><small>' + geburtstage().length + ' eingetragen</small></button></div>';
+    // Leben-Paket laden
+    h += '<div class="card"><h3>📦 Leben-Paket laden</h3><p class="small">Wenn Claude dir aus deinem Fragebogen ein <b>leben-paket.json</b> gemacht hat: hier laden. Es füllt nur, was noch fehlt, und trägt nichts doppelt ein.</p><div class="btn-row"><button class="btn sm primary" data-act="l-paket">📂 Datei wählen</button><button class="btn sm" data-act="l-pakettext">📋 Text einfügen</button></div><div id="lPaketBox"></div></div>'
+      + '<p class="tip"><b>Tipp:</b> Freunde nur mit Vornamen oder Spitznamen eintragen. Alles bleibt nur auf diesem Gerät. Sichern: Einstellungen → 💾 Backup.</p>';
+    return h;
+  }
+  function katHtml(k) {
+    const o = L(), K = KAT[k], E = o.e.filter(e => e.kat === k).sort((a, b) => (b.d || "") < (a.d || "") ? -1 : (b.d || "") > (a.d || "") ? 1 : 0);
+    let h = '<button class="btn sm" data-act="l-tab" data-v="bereiche" style="align-self:flex-start">← Alle Bereiche</button>'
+      + '<div class="card"><div class="card-h"><h3>' + K.ic + ' ' + esc(K.n) + '</h3><button class="btn sm primary" data-act="l-neu" data-v="' + k + '">➕ Neu</button></div>';
+    if (!E.length) h += '<p class="small muted">Noch nichts eingetragen.</p>';
+    h += E.map(e => {
+      const zeit = e.d || e.bis ? [e.d ? fmtL(e.d) : "?", e.bis ? fmtL(e.bis) : (OFFEN[k] && e.d ? "heute" : "")].filter(Boolean).join(" – ") : "";
+      const zus = [zeit, dauer(e.d, e.bis, OFFEN[k]), e.art && k !== "reise" ? e.art : "", e.land, e.wo, e.abschluss, e.mit ? "mit " + e.mit : "", e.geb ? "🎂 " + fmtG(e.geb) : ""].filter(Boolean);
+      const mitE = (k === "person" || k === "familie") ? o.e.filter(x => x !== e && mitDabei(x, e.t)).length : 0;
+      return '<div class="lent">' + (k === "wunsch" ? chk("l-done", e.id, e.done, "Geschafft") : '<span class="em" aria-hidden="true">' + (k === "reise" && e.art ? e.art.split(" ")[0] : K.ic) + '</span>')
+        + '<span class="li-main' + (k === "wunsch" && e.done ? " done" : "") + '"><b>' + esc(e.t) + '</b>' + (zus.length ? '<small>' + esc(zus.join(" · ")) + '</small>' : '') + (mitE ? '<small>🤝 ' + mitE + ' gemeinsame Momente</small>' : '') + (e.notiz ? '<small style="white-space:pre-line">' + esc(e.notiz) + '</small>' : '') + '</span>'
+        + '<button type="button" class="mini" data-act="l-edit" data-id="' + esc(e.id) + '" aria-label="Bearbeiten">✏️</button></div>';
+    }).join("");
+    return h + '</div>';
+  }
+
+  /* ---------- ❤️ Freundin ---------- */
+  function paarHtml() {
+    const o = L(), P = o.paar, t = todayKey();
+    let h = '<div class="card ink" style="text-align:center"><div class="lherz" aria-hidden="true">❤️</div><h2>' + esc(P.name || "Deine Freundin") + '</h2>';
+    if (P.seit) {
+      const tage = diffDays(P.seit, t), jt = naechster(P.seit);
+      h += '<p>Zusammen ' + esc(dauer(P.seit, "", true)) + ' · <b>' + tage.toLocaleString("de-DE") + ' Tage</b></p>'
+        + (jt ? '<p class="small">' + (jt.tage === 0 ? "🎉 Heute ist euer " + jt.alter + ". Jahrestag!" : "💍 " + jt.alter + ". Jahrestag in " + jt.tage + (jt.tage === 1 ? " Tag" : " Tagen") + " (" + esc(fmt(jt.k, {day:"2-digit", month:"2-digit", year:"numeric"})) + ")") + '</p>' : '')
+        + (tage > 0 && tage % 100 > 85 ? '<p class="small">💯 In ' + (100 - tage % 100) + ' Tagen sind es ' + (Math.floor(tage / 100) + 1) * 100 + ' Tage!</p>' : '');
+    } else h += '<p class="small">Trag unten ein, seit wann ihr zusammen seid. Dann zählt die App die Tage und erinnert dich an den Jahrestag.</p>';
+    const gb = naechster(P.geb);
+    if (gb) h += '<p class="small">🎂 Ihr Geburtstag ' + (gb.tage === 0 ? "ist <b>heute</b>!" : "in <b>" + gb.tage + (gb.tage === 1 ? " Tag" : " Tagen") + "</b>" + (gb.alter ? " (wird " + gb.alter + ")" : "")) + '</p>';
+    const vd = naechster("02-14");
+    if (vd && vd.tage <= 30) h += '<p class="small">💌 Valentinstag in ' + vd.tage + ' Tagen</p>';
+    h += '</div>';
+    // Steckbrief zum Ausfüllen
+    h += '<div class="card"><h3>📋 Steckbrief</h3>' + PAAR.map(([k, l, ty]) => {
+      const v = P[k] || "", idv = 'lp-' + k;
+      const inp = ty === "area" ? '<textarea id="' + idv + '" data-l-paar="' + k + '" maxlength="1500" rows="3">' + esc(v) + '</textarea>'
+        : ty === "iso" ? '<input id="' + idv + '" data-l-paar="' + k + '" type="date" value="' + esc(v) + '">'
+        : '<input id="' + idv + '" data-l-paar="' + k + '" data-ty="' + ty + '" maxlength="80" value="' + esc(ty === "date" ? toInp(v) : ty === "geb" ? fmtG(v) : v) + '" placeholder="' + (ty === "date" ? DATE_PH : ty === "geb" ? "TT.MM. oder TT.MM.JJJJ" : "") + '">';
+      return '<div class="lrow"><label for="' + idv + '">' + esc(l) + '</label>' + inp + '</div>';
+    }).join("") + '</div>';
+    // Unsere Momente: eigene Momente + alles, wo sie bei „mit wem“ steht
+    const M = o.e.filter(e => e.kat === "paar" || (P.name && e.kat !== "person" && e.kat !== "familie" && mitDabei(e, P.name))).sort((a, b) => (b.d || "") < (a.d || "") ? -1 : (b.d || "") > (a.d || "") ? 1 : 0);
+    h += '<div class="card"><div class="card-h"><h3>💞 Unsere Momente</h3><button class="btn sm primary" data-act="l-neu" data-v="paar">➕ Moment</button></div>'
+      + (M.length ? M.map(e => '<div class="lent"><span class="em" aria-hidden="true">' + (KAT[e.kat] || KAT.paar).ic + '</span><span class="li-main"><b>' + esc(e.t) + '</b><small>' + esc([e.d ? fmtL(e.d) : "ohne Datum", e.wo, e.land].filter(Boolean).join(" · ")) + '</small>' + (e.notiz ? '<small style="white-space:pre-line">' + esc(e.notiz) + '</small>' : '') + '</span><button type="button" class="mini" data-act="l-edit" data-id="' + esc(e.id) + '" aria-label="Bearbeiten">✏️</button></div>').join("") : '<p class="small muted">Erstes Date, erster Urlaub, Jahrestage … Tipp: Steht ihr Name bei einer Reise unter „Mit wem?“, erscheint die Reise hier auch.</p>')
+      + '</div>';
+    return h;
+  }
+
+  /* ---------- 💛 Lieblingsdinge ---------- */
+  function favHtml() {
+    const o = L();
+    return '<div class="card"><h3>💛 Meine Lieblingsdinge</h3><p class="small muted">Einfach reinschreiben, wird sofort gespeichert.</p>' + FAV.map(([k, ic, l]) => '<div class="lrow"><label for="lv-' + k + '">' + ic + ' ' + esc(l) + '</label><input id="lv-' + k + '" data-l-fav="' + k + '" maxlength="120" value="' + esc(o.fav[k] || "") + '"></div>').join("") + '</div>';
+  }
+
+  /* ---------- 🎂 Geburtstage ---------- */
+  function geburtstage() {
+    const o = L(), G = [];
+    o.e.filter(e => (e.kat === "person" || e.kat === "familie") && e.geb).forEach(e => G.push({n:e.t, g:e.geb, ic:KAT[e.kat].ic, id:e.id, rolle:e.art || ""}));
+    if (o.paar.geb) G.push({n:o.paar.name || "Freundin", g:o.paar.geb, ic:"❤️", rolle:"Freundin"});
+    return G.map(x => Object.assign(x, naechster(x.g))).filter(x => x.k).sort((a, b) => a.tage - b.tage);
+  }
+  function tageHtml() {
+    const G = geburtstage();
+    let h = '<div class="card"><h3>🎂 Nächste Geburtstage</h3>';
+    if (!G.length) h += '<p class="small muted">Trag bei Freunden, Familie oder deiner Freundin einen Geburtstag ein (z. B. 14.07. – das Jahr ist freiwillig).</p>';
+    h += G.map(x => '<div class="frist"><b class="d">' + x.tage + '</b><span class="li-main"><b>' + esc(x.ic + " " + x.n) + '</b><br><small class="muted">' + esc([fmt(x.k, {weekday:"short", day:"2-digit", month:"2-digit", year:"numeric"}), x.rolle, x.alter ? "wird " + x.alter : ""].filter(Boolean).join(" · ")) + (x.tage === 0 ? " · 🎉 HEUTE" : x.tage === 1 ? " · morgen" : " · in " + x.tage + " Tagen") + '</small></span>' + (x.id ? '<button type="button" class="mini" data-act="l-edit" data-id="' + esc(x.id) + '" aria-label="Bearbeiten">✏️</button>' : '') + '</div>').join("");
+    return h + '</div><p class="tip"><b>Tipp:</b> Geburtstage in den nächsten 7 Tagen zeigt dir auch die Startseite.</p>';
+  }
+
+  /* =====================================================================
+     FORMULAR (Fenster von unten): Eintrag neu / bearbeiten
+     ===================================================================== */
+  function formSheet(arg) {
+    const o = L();
+    // Erst Bereich wählen
+    if (!arg || !arg.kat) {
+      return '<div class="sheet-top"><h2>➕ Was willst du eintragen?</h2><button class="icon-btn" data-act="close" aria-label="Schließen">' + ICON.x + '</button></div>'
+        + '<div class="lgrid">' + KAT_ORDER.concat(["paar"]).map(k => '<button type="button" data-act="l-neu" data-v="' + k + '" style="--c:' + KAT[k].c + '"><span class="em" aria-hidden="true">' + KAT[k].ic + '</span><b>' + KAT[k].n + '</b></button>').join("") + '</div>';
+    }
+    const K = KAT[arg.kat], e = (arg.id && o.e.find(x => x.id === arg.id)) || {};
+    const N = namen();
+    let h = '<div class="sheet-top"><h2>' + K.ic + ' ' + esc(arg.id ? K.n : K.neu) + '</h2><button class="icon-btn" data-act="close" aria-label="Schließen">' + ICON.x + '</button></div><div class="lform">';
+    K.f.forEach(([k, l, ty, x]) => {
+      const v = e[k] == null ? "" : e[k], fid = "lf-" + k;
+      if (ty === "chk") { h += '<label class="field" style="display:flex;gap:10px;align-items:center;font-weight:700"><input type="checkbox" id="' + fid + '"' + (v ? " checked" : "") + ' style="width:24px;height:24px"> ' + esc(l) + '</label>'; return; }
+      h += '<div class="field"><label for="' + fid + '">' + esc(l) + (k === "t" ? " *" : "") + '</label>';
+      if (ty === "sel") h += '<select id="' + fid + '" class="inp">' + x.map(op => '<option value="' + esc(op) + '"' + (op === v ? " selected" : "") + '>' + esc(op || "– bitte wählen –") + '</option>').join("") + (v && !x.includes(v) ? '<option selected>' + esc(v) + '</option>' : '') + '</select>';
+      else if (ty === "area") h += '<textarea id="' + fid + '" rows="3" maxlength="1500" placeholder="' + esc(x || "") + '">' + esc(v) + '</textarea>';
+      else if (ty === "date") h += '<input id="' + fid + '" class="inp" maxlength="20" value="' + esc(toInp(v)) + '" placeholder="' + DATE_PH + '">';
+      else if (ty === "geb") h += '<input id="' + fid + '" class="inp" maxlength="12" value="' + esc(fmtG(v)) + '" placeholder="TT.MM. oder TT.MM.JJJJ">';
+      else if (ty === "mit") h += '<input id="' + fid + '" class="inp" maxlength="200" value="' + esc(v) + '" placeholder="Namen mit Komma trennen">' + (N.length ? '<div class="lnamen">' + N.slice(0, 24).map(n => '<button type="button" data-act="l-mitadd" data-v="' + esc(n) + '">＋ ' + esc(n) + '</button>').join("") + '</div>' : '');
+      else h += '<input id="' + fid + '" class="inp" maxlength="120" value="' + esc(v) + '" placeholder="' + esc(x || "") + '">';
+      h += '</div>';
+    });
+    // Bei Personen: gemeinsame Momente zeigen
+    if (arg.id && (arg.kat === "person" || arg.kat === "familie") && e.t) {
+      const M = o.e.filter(x => x !== e && mitDabei(x, e.t));
+      if (M.length) h += '<p class="lbl">🤝 Gemeinsam erlebt</p><ul class="dots">' + M.map(x => '<li>' + esc((KAT[x.kat] || {}).ic + " " + x.t + (x.d ? " (" + fmtL(x.d) + ")" : "")) + '</li>').join("") + '</ul>';
+    }
+    h += '</div><div class="btn-row" style="margin-top:12px"><button class="btn primary" data-act="l-save" data-v="' + arg.kat + '"' + (arg.id ? ' data-id="' + esc(arg.id) + '"' : '') + '>💾 Speichern</button>'
+      + (arg.id ? '<button class="btn danger" data-act="l-del" data-id="' + esc(arg.id) + '">🗑️ Löschen</button>' : '') + '<button class="btn" data-act="close">Abbrechen</button></div>';
+    return h;
+  }
+  // Formular auslesen und speichern; gibt Fehlertext zurück oder ""
+  function formSpeichern(kat, id) {
+    const o = L(), K = KAT[kat]; if (!K) return "Unbekannter Bereich.";
+    const val = k => { const el = $("#lf-" + k); return el ? (el.type === "checkbox" ? el.checked : el.value.trim()) : ""; };
+    const neu = {};
+    for (const [k, l, ty] of K.f) {
+      let v = val(k);
+      if (ty === "date") { const n = normD(v); if (n === null) return "„" + l + "“: Datum nicht verstanden. " + DATE_PH; v = n; }
+      if (ty === "geb") { const n = normG(v); if (n === null) return "„" + l + "“: so schreiben: 14.07. oder 14.07.2007"; v = n; }
+      if (typeof v === "string" && v && typeof sensitive === "function") { const m = sensitive(v); if (m) return m; }
+      if (typeof v === "string" && /\d{11,}/.test(v.replace(/\s/g, ""))) return "Bitte keine langen Nummern (Ausweis, Konto) speichern.";
+      neu[k] = v;
+    }
+    if (!neu.t) return "Bitte oben „" + K.f[0][1] + "“ ausfüllen.";
+    if (neu.d && neu.bis && neu.bis < neu.d.slice(0, neu.bis.length)) return "„Bis“ liegt vor „Von“. Bitte prüfen.";
+    if (id) { const e = o.e.find(x => x.id === id); if (!e) return "Eintrag nicht gefunden."; Object.assign(e, neu); }
+    else o.e.push(Object.assign({id:id6(), key:"l" + id6(), kat}, neu));
+    save(); return "";
+  }
+
+  // Fenster-Typ „leben“ in die App einhängen
+  const _rs = renderSheet;
+  renderSheet = function () {
+    const s = UI.sheet;
+    if (s && s.kind === "leben") { $("#sheet").innerHTML = formSheet(s.arg); return; }
+    if (s && s.kind === "leben-text") { $("#sheet").innerHTML = '<div class="sheet-top"><h2>📋 Zeitstrahl als Text</h2><button class="icon-btn" data-act="close" aria-label="Schließen">' + ICON.x + '</button></div><textarea rows="12" readonly style="width:100%">' + esc(s.arg || "") + '</textarea>'; return; }
+    return _rs.apply(this, arguments);
+  };
+
+  /* =====================================================================
+     LEBEN-PAKET laden (aus dem Fragebogen, nur in den Browser-Speicher)
+     ===================================================================== */
+  function paketLaden(p) {
+    if (!p || p.app !== "Wochenkompass-Leben-Paket" || !p.leben) { toast("Das ist kein Leben-Paket.", 3500); return false; }
+    const o = L(), Q = p.leben; let n = 0;
+    (Q.e || []).forEach(x => { if (!x || !x.key || !KAT[x.kat] || !x.t || o.e.some(y => y.key === x.key)) return; const c = {id:id6()}; Object.keys(x).forEach(k => { if (k !== "id") c[k] = x[k]; }); o.e.push(c); n++; });
+    ["paar", "fav"].forEach(z => Object.keys(Q[z] || {}).forEach(k => { const v = Q[z][k]; if (v && !o[z][k]) { o[z][k] = String(v); n++; } }));
+    o.paket = todayKey(); save(); rerender(); toast("Leben-Paket geladen ✓ (" + n + " neue Einträge)", 3500); return true;
+  }
+  $("#lebenFile").addEventListener("change", e => {
+    const f = e.target.files && e.target.files[0]; if (!f) return;
+    const r = new FileReader(); r.onload = () => { try { paketLaden(JSON.parse(r.result)); } catch (x) { toast("Datei konnte nicht gelesen werden.", 3500); } }; r.readAsText(f); e.target.value = "";
+  });
+  // Nur die private Claude-Version hat window.LEBEN_PAKET_AUTO (eigener PRIVAT-Block). Jede Paket-Version einmal.
+  try { const AP = window.LEBEN_PAKET_AUTO; if (AP && AP.erstellt && L().autoV !== AP.erstellt && paketLaden(AP)) { L().autoV = AP.erstellt; save(); } } catch (e) {}
+
+  /* =====================================================================
+     KLICKS
+     ===================================================================== */
+  document.addEventListener("click", ev => {
+    const b = ev.target.closest("[data-act]"); if (!b) return;
+    const act = b.dataset.act; if (!act.startsWith("l-")) return;
+    const o = L();
+    switch (act) {
+      case "l-go": SS.set("tab", b.dataset.v || "zeit"); go("leben"); break;
+      case "l-tab":
+        if (b.dataset.go) { go(b.dataset.go); break; }
+        SS.set("tab", b.dataset.v); if (currentView() !== "leben") go("leben"); else { rerender(); window.scrollTo(0, 0); } break;
+      case "l-fk": SS.set("fk", b.dataset.v); rerender(); break;
+      case "l-alt": SS.set("alt", SS.get("alt") === "1" ? "" : "1"); rerender(); break;
+      case "l-text": { const txt = zeitText(); if (!txt) { toast("Noch nichts mit Datum eingetragen."); break; } (navigator.clipboard && navigator.clipboard.writeText ? navigator.clipboard.writeText(txt) : Promise.reject()).then(() => toast("Zeitstrahl kopiert ✓")).catch(() => openSheet("leben-text", txt)); break; }
+      case "l-neu": openSheet("leben", {kat:b.dataset.v || null}); break;
+      case "l-edit": { const e = o.e.find(x => x.id === b.dataset.id); if (e) openSheet("leben", {kat:e.kat, id:e.id}); break; }
+      case "l-mitadd": { const inp = $("#lf-mit"); if (!inp) break; const L2 = teile(inp.value); if (!L2.some(x => x.toLowerCase() === b.dataset.v.toLowerCase())) L2.push(b.dataset.v); inp.value = L2.join(", "); break; }
+      case "l-save": { const err = formSpeichern(b.dataset.v, b.dataset.id); if (err) { toast(err, 4500); break; } closeSheet(); rerender(); toast("Gespeichert ✓"); break; }
+      case "l-del":
+        if (b.dataset.sure !== "1") { b.dataset.sure = "1"; b.textContent = "⚠️ Wirklich löschen?"; break; }
+        o.e = o.e.filter(x => x.id !== b.dataset.id); save(); closeSheet(); rerender(); toast("Gelöscht"); break;
+      case "l-done": { const e = o.e.find(x => x.id === b.dataset.id); if (e) { e.done = !e.done; if (e.done && !e.d) e.d = todayKey(); if (e.done) toast("Geschafft! 🎉"); save(); rerender(); } break; }
+      case "l-paket": $("#lebenFile").click(); break;
+      case "l-pakettext": { const box = $("#lPaketBox"); if (box) box.innerHTML = '<div class="field" style="margin-top:10px"><label for="lPaketTxt">Inhalt der Datei hier einfügen</label><textarea id="lPaketTxt" rows="5"></textarea></div><button class="btn sm primary" data-act="l-paketok">Übernehmen</button>'; break; }
+      case "l-paketok": { const el = $("#lPaketTxt"); try { paketLaden(JSON.parse(el ? el.value : "")); } catch (x) { toast("Text ist kein gültiges Paket.", 3500); } break; }
+    }
+  });
+
+  /* ---------- Eingaben: Suche, Freundin-Steckbrief, Lieblingsdinge ---------- */
+  let warnT = 0;
+  document.addEventListener("input", ev => {
+    const el = ev.target; if (!el || !el.dataset) return;
+    if (el.id === "lQ") { LQ = el.value; clearTimeout(warnT); warnT = setTimeout(() => { rerender(); const q = $("#lQ"); if (q) { q.focus(); try { q.setSelectionRange(q.value.length, q.value.length); } catch (e) {} } }, 250); return; }
+    const o = L();
+    if (el.dataset.lFav) { const m = typeof sensitive === "function" ? sensitive(el.value) : null; if (m) { el.style.borderColor = "var(--feiertag)"; return; } el.style.borderColor = ""; o.fav[el.dataset.lFav] = el.value.trim(); save(); return; }
+    if (el.dataset.lPaar) {
+      const k = el.dataset.lPaar, ty = el.dataset.ty;
+      if (ty === "date" || ty === "geb") return;   // erst beim Verlassen prüfen (change)
+      const m = typeof sensitive === "function" ? sensitive(el.value) : null; if (m) { el.style.borderColor = "var(--feiertag)"; return; }
+      el.style.borderColor = ""; o.paar[k] = el.value.trim(); save();
+    }
+  });
+  document.addEventListener("change", ev => {
+    const el = ev.target; if (!el || !el.dataset) return;
+    if (el.id === "lMit") { SS.set("fm", el.value); setTimeout(rerender, 0); return; }
+    if (!el.dataset.lPaar) return;
+    const o = L(), k = el.dataset.lPaar, ty = el.dataset.ty;
+    if (ty === "date" || ty === "geb") {
+      const n = ty === "date" ? normD(el.value) : normG(el.value);
+      if (n === null) { el.style.borderColor = "var(--feiertag)"; toast(ty === "date" ? "Datum nicht verstanden. " + DATE_PH : "So schreiben: 14.07. oder 14.07.2007", 4000); return; }
+      o.paar[k] = n;
+    } else o.paar[k] = el.value.trim();
+    save(); if (k === "seit" || k === "geb" || k === "name" || ty === "date") setTimeout(rerender, 0);   // verzögert: change kommt oft beim Verlassen (blur)
+  });
+
+  /* =====================================================================
+     IN DIE APP EINHÄNGEN
+     ===================================================================== */
+  VIEWS.leben = viewLeben; TITLES.leben = "Ich"; SUB.push("leben");
+  // Tabs in „Über mich“ und „Gesundheit“ auf drei erweitern
+  const _vi = VIEWS.ich, _vg = VIEWS.gesund;
+  if (_vi) VIEWS.ich = function () { return tabsTauschen(_vi.apply(this, arguments), "ich"); };
+  if (_vg) VIEWS.gesund = function () { return tabsTauschen(_vg.apply(this, arguments), "gesund"); };
+  // Im Ich-Baum: Kurz-Verweis auf „Mein Leben“ (unter dem Suchfeld)
+  const _vi2 = VIEWS.ich;
+  VIEWS.ich = function () {
+    const h = _vi2.apply(this, arguments), n = L().e.length;
+    return h.replace('<div class="tree" id="ichTree">', '<button type="button" class="card" data-act="l-tab" data-v="zeit" style="text-align:left;border-left:4px solid var(--privat)"><div class="card-h"><h3>📖 Mein Leben</h3><span class="small muted">' + n + (n === 1 ? " Eintrag" : " Einträge") + '</span></div><p class="small muted">Zeitstrahl, Reisen, Freundin, Freunde, Schullaufbahn, Hobbys …</p></button><div class="tree" id="ichTree">');
+  };
+
+  // Startseite: Geburtstage (7 Tage), Jahrestag, „Heute vor X Jahren“
+  const _se = startExtras;
+  startExtras = function (t) {
+    let h = _se.apply(this, arguments);
+    try {
+      const G = geburtstage().filter(x => x.tage <= 7);
+      if (G.length) h += '<button type="button" class="card" data-act="l-go" data-v="tage" style="text-align:left;border:2px solid var(--urlaub)"><h3>🎂 ' + (G[0].tage === 0 ? "Heute Geburtstag: " : "Bald Geburtstag: ") + esc(G[0].n) + '</h3><p class="small muted">' + G.map(x => esc(x.n) + (x.tage === 0 ? " heute" : x.tage === 1 ? " morgen" : " in " + x.tage + " Tagen")).join(" · ") + '</p></button>';
+      const P = L().paar, jt = P.seit ? naechster(P.seit) : null;
+      if (jt && jt.alter > 0 && jt.tage <= 7) h += '<button type="button" class="card" data-act="l-go" data-v="paar" style="text-align:left;border:2px solid var(--feiertag)"><h3>💍 ' + (jt.tage === 0 ? "Heute ist euer " + jt.alter + ". Jahrestag!" : jt.alter + ". Jahrestag in " + jt.tage + (jt.tage === 1 ? " Tag" : " Tagen")) + '</h3><p class="small muted">Geschenk- und Date-Ideen stehen unter Ich → Mein Leben → Freundin.</p></button>';
+      const tk = todayKey(), H = punkte().filter(p => p.d && p.d.length === 10 && p.d.slice(5) === tk.slice(5) && p.d < tk && p.kat !== "auto");
+      if (H.length) h += '<button type="button" class="card" data-act="l-go" data-v="zeit" style="text-align:left"><h3>📸 Heute vor ' + (+tk.slice(0, 4) - +H[0].d.slice(0, 4)) + ' Jahren</h3><p class="small muted">' + esc(H[0].ic + " " + H[0].t) + '</p></button>';
+    } catch (e) {}
+    return h;
+  };
+
+  // Suche über alles: Einträge aus „Mein Leben“ mitfinden
+  const _sa = searchAll;
+  searchAll = function (q) {
+    const r = _sa.apply(this, arguments) || [], s = String(q || "").trim().toLowerCase();
+    if (s.length < 2 || !Array.isArray(r)) return r;
+    const hit = x => String(x || "").toLowerCase().includes(s);
+    L().e.forEach(e => { const K = KAT[e.kat]; if (!K) return; if (hit([e.t, e.land, e.wo, e.mit, e.art, e.notiz, e.abschluss].join(" "))) r.push({cat:K.n, title:K.ic + " " + e.t, text:[e.d ? fmtL(e.d) : "", e.wo, e.mit ? "mit " + e.mit : ""].filter(Boolean).join(" · ") || K.n, go:() => { closeSheet(); go("leben"); setTimeout(() => openSheet("leben", {kat:e.kat, id:e.id}), 30); }, s:1}); });
+    const P = L().paar; if (P.name && hit(P.name + " freundin")) r.push({cat:"Freundin", title:"❤️ " + P.name, text:P.seit ? "zusammen " + dauer(P.seit, "", true) : "Freundin", go:() => { closeSheet(); SS.set("tab", "paar"); go("leben"); }, s:1});
+    FAV.forEach(([k, ic, l]) => { const v = L().fav[k]; if (v && hit(l + " " + v)) r.push({cat:"Lieblingsding", title:ic + " " + l, text:v, go:() => { closeSheet(); SS.set("tab", "fav"); go("leben"); }, s:1}); });
+    if (hit("mein leben zeitstrahl reisen freunde freundin hobbys schullaufbahn bucket list geburtstage")) r.push({cat:"Bereich", title:"📖 Mein Leben", text:"Zeitstrahl, Reisen, Freundin, Freunde …", go:() => { closeSheet(); SS.set("tab", "zeit"); go("leben"); }, s:0});
+    return r.sort((a, b) => (a.s || 0) - (b.s || 0));
+  };
+
+  // Zum Testen von außen (nur Hilfsfunktionen, keine Daten)
+  window.__leben = {normD, normG, fmtL, dauer, alterAm, naechster, punkte, paketLaden};
+  if (typeof rerender === "function" && ["leben", "ich", "gesund", "start"].includes(currentView())) rerender();
+})();
+</script>
+
 <script>
 /* Service Worker: App startet auch mit schlechtem Netz */
 if ("serviceWorker" in navigator) addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));
