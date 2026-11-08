@@ -7188,6 +7188,123 @@ h1,h2,h3{padding-top:.06em;padding-bottom:.04em}
 })();
 </script>
 
+<!-- ERWEITERUNG v38 (09.11.2026): Berichtsheft-Paket aus dem IHK-Portal + IHK-Status pro Woche.
+     Ohne persönliche Werte – darf auch in die GitHub-Pages-Version.
+     - Paket laden: Arbeit → Berichtsheft → „📥 Berichtsheft-Paket laden“ (Datei oder Text einfügen).
+     - Pro Woche: W.ihk ("genehmigt" | "wartet"), W.tage (5 Tagestypen Mo–Fr laut IHK), W.hinweis {Tag-Index: Text}.
+     - W.tage tauscht an einzelnen Tagen Schule ↔ Betrieb (z. B. Schule noch nicht gestartet, Unterrichtsausfall).
+       Krank und Urlaub werden über S.sick / S.vacation eingetragen, falls sie dort noch fehlen.
+     - Die private Claude-Version hat window.BH_PAKET_AUTO (eigener PRIVAT-Block) → wird einmal pro Paket-Version übernommen. -->
+<script>
+(function () {
+  "use strict";
+  if (typeof S !== "object" || !S || typeof bhHtml !== "function" || typeof dayBlocks !== "function") return;
+
+  const ST = {genehmigt: "genehmigt", wartet: "wartet auf Genehmigung"};
+  const TYPEN = ["betrieb", "schule", "urlaub", "krank", "feiertag"];
+
+  /* ---------- 1. Tagestyp laut IHK in die Tageslogik einhängen ---------- */
+  const _dayBlocks = dayBlocks;
+  dayBlocks = function (k) {
+    const out = _dayBlocks.apply(this, arguments);
+    try {
+      const d = wdOf(k); if (d < 1 || d > 5) return out;
+      const W = S.work && S.work.bh && S.work.bh[addDays(k, 1 - d)];
+      const t = W && Array.isArray(W.tage) ? W.tage[d - 1] : null;
+      const hin = (W && W.hinweis && W.hinweis[d - 1]) || "";
+      const r = S.settings.rhythm, i = out.findIndex(b => b.area === "schule"), j = out.findIndex(b => b.area === "arbeit");
+      if (t === "betrieb" && i >= 0 && j < 0)        // laut IHK Betrieb statt Schule
+        out[i] = {area: "arbeit", von: r.arbeit.von, bis: r.arbeit.bis, label: "Arbeit · IT-Support", sub: (hin || "laut Berichtsheft") + " → Betrieb"};
+      else if (t === "schule" && j >= 0 && i < 0) {  // laut IHK Schule statt Betrieb
+        const sp = (typeof ttSpan === "function" && ttSpan(d)) || {von: r.schule.von, bis: r.schule.bis};
+        out[j] = {area: "schule", von: sp.von, bis: sp.bis, label: "Berufsschule", sub: hin || "laut Berichtsheft"};
+      }
+    } catch (e) {}
+    return out;
+  };
+
+  /* ---------- 2. Paket übernehmen ---------- */
+  // Ersetzt die Stichpunkte der Wochen im Paket (IHK-Portal ist die Quelle), setzt Status und „übertragen“.
+  function bhPaketLaden(p) {
+    if (!p || p.app !== "Wochenkompass-Berichtsheft-Paket" || !p.wochen) { toast("Das ist kein Berichtsheft-Paket.", 3500); return false; }
+    if (!Array.isArray(S.sick)) S.sick = [];
+    if (!Array.isArray(S.vacation)) S.vacation = [];
+    let nW = 0, nP = 0;
+    Object.keys(p.wochen).forEach(mon => {
+      const Q = p.wochen[mon];
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(mon) || wdOf(mon) !== 1 || !Q || !Array.isArray(Q.tage) || Q.tage.length !== 5) return;
+      const W = bhWeek(mon);
+      W.betrieb = []; W.schule = [];
+      W.text = {betrieb: "", schule: ""};          // alter Text passt nicht mehr → neu mit „Text erstellen“
+      W.tage = []; W.hinweis = {};
+      Q.tage.forEach((tag, i) => {
+        const a = TYPEN.includes(tag && tag.a) ? tag.a : "betrieb", k = addDays(mon, i);
+        W.tage.push(a);
+        if (tag.h) W.hinweis[i] = String(tag.h).slice(0, 80);
+        if (a === "betrieb" || a === "schule") (tag.l || []).forEach(text => { text = String(text).trim().slice(0, 300); if (text) { W[a].push({id: uid(), day: k, text}); nP++; } });
+        if (a === "krank" && !sickOn(k)) S.sick.push({id: uid(), von: k, bis: k, au: false, note: "laut IHK-Berichtsheft"});
+        if (a === "urlaub" && !vacationOn(k)) S.vacation.push({id: uid(), von: k, bis: k, note: "laut IHK-Berichtsheft"});
+      });
+      W.ihk = ST[Q.ihk] ? Q.ihk : "";
+      W.done = true;                                 // steht im IHK-Portal → übertragen
+      W.paket = p.erstellt || "";
+      nW++;
+    });
+    save(); rerender();
+    toast("Berichtsheft-Paket geladen ✓ (" + nW + " Wochen, " + nP + " Stichpunkte)", 4000);
+    return true;
+  }
+  window.bhPaketLaden = bhPaketLaden;
+
+  /* ---------- 3. Anzeige im Berichtsheft-Helfer ---------- */
+  const _bhHtml = bhHtml;
+  bhHtml = function () {
+    let h = _bhHtml.apply(this, arguments);
+    const W = bhPeek(BH_WEEK), st = W.ihk || "";
+    const farbe = st === "genehmigt" ? "var(--ok)" : "var(--warn)";
+    if (st) h = h.replace('<h3>✍️ Berichtsheft-Helfer</h3>', '<h3>✍️ Berichtsheft-Helfer</h3><span class="tag" style="--c:' + farbe + '">IHK: ' + esc(ST[st]) + '</span>');
+    // Status-Auswahl über dem Haken „ins IHK-Portal übertragen“
+    const sel = '<div class="field"><label for="bhIhk">IHK-Status der Woche</label><select id="bhIhk" class="inp">'
+      + [["", "—"], ["wartet", ST.wartet], ["genehmigt", ST.genehmigt]].map(([v, t]) => '<option value="' + v + '"' + (v === st ? " selected" : "") + '>' + t + '</option>').join("")
+      + '</select></div>';
+    h = h.replace('<label class="chipbtn" style="--c:var(--ok);justify-content:flex-start;border-radius:14px"><input type="checkbox" id="bhDone"', sel + '<label class="chipbtn" style="--c:var(--ok);justify-content:flex-start;border-radius:14px"><input type="checkbox" id="bhDone"');
+    // Paket laden (Datei oder Text)
+    h += '<details class="card"><summary><b>📥 Berichtsheft-Paket laden</b> <span class="small muted">(Stand aus dem IHK-Portal)</span></summary>'
+      + '<p class="small muted">Ersetzt die Stichpunkte der Wochen im Paket. Andere Wochen bleiben, wie sie sind.</p>'
+      + '<div class="field"><label for="bhpFile">Datei (.json)</label><input id="bhpFile" type="file" accept=".json,application/json,text/plain" class="inp"></div>'
+      + '<div class="field"><label for="bhpText">… oder Text einfügen</label><textarea id="bhpText" rows="3" placeholder="{&quot;app&quot;:&quot;Wochenkompass-Berichtsheft-Paket&quot;, …}"></textarea></div>'
+      + '<button class="btn primary" data-bhp="text">Text laden</button></details>';
+    return h;
+  };
+
+  /* ---------- 4. Eingaben ---------- */
+  document.addEventListener("change", e => {
+    const el = e.target;
+    if (el && el.id === "bhIhk") { const W = bhWeek(BH_WEEK); W.ihk = ST[el.value] ? el.value : ""; save(); rerender(); }
+    if (el && el.id === "bhpFile") {
+      const f = el.files && el.files[0]; if (!f) return;
+      const r = new FileReader();
+      r.onload = () => { try { bhPaketLaden(JSON.parse(r.result)); } catch (x) { toast("Datei konnte nicht gelesen werden.", 3500); } };
+      r.readAsText(f); el.value = "";
+    }
+  });
+  document.addEventListener("click", e => {
+    const b = e.target.closest && e.target.closest("[data-bhp]"); if (!b) return;
+    const ta = document.getElementById("bhpText"), txt = ta ? ta.value.trim() : "";
+    if (!txt) { toast("Bitte erst den Paket-Text einfügen.", 3000); return; }
+    try { if (bhPaketLaden(JSON.parse(txt))) ta.value = ""; } catch (x) { toast("Der Text ist kein gültiges Paket.", 3500); }
+  });
+
+  /* ---------- 5. Private Claude-Version: Paket automatisch (einmal pro Paket-Version) ---------- */
+  try {
+    const AP = window.BH_PAKET_AUTO;
+    if (AP && AP.erstellt && S.work.bhPaketV !== AP.erstellt && bhPaketLaden(AP)) { S.work.bhPaketV = AP.erstellt; save(); }
+  } catch (e) {}
+
+  window.__v38 = {laden: bhPaketLaden};
+})();
+</script>
+
 <script>
 /* Service Worker: App startet auch mit schlechtem Netz */
 if ("serviceWorker" in navigator) addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));
