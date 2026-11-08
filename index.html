@@ -6204,7 +6204,7 @@ h1,h2,h3{padding-top:.06em;padding-bottom:.04em}
     (Q.e || []).forEach(x => {
       if (!x || !x.key || !KAT[x.kat] || !x.t) return;
       const alt = o.e.find(y => y.key === x.key);
-      if (alt) { if (x.upd) { Object.keys(x).forEach(k => { if (k !== "id" && k !== "upd" && alt[k] !== x[k]) { alt[k] = x[k]; } }); n++; } return; }
+      if (alt) { if (x.upd) { let geaendert = false; Object.keys(x).forEach(k => { if (k !== "id" && k !== "upd" && alt[k] !== x[k]) { alt[k] = x[k]; geaendert = true; } }); if (geaendert) n++; } return; }
       const c = {id:id6()}; Object.keys(x).forEach(k => { if (k !== "id" && k !== "upd") c[k] = x[k]; }); o.e.push(c); n++;
     });
     // Veraltete Einträge entfernen (nur über key, also nur Einträge, die aus einem Paket kamen)
