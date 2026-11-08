@@ -7380,6 +7380,130 @@ h1,h2,h3{padding-top:.06em;padding-bottom:.04em}
   try { rerender(); } catch (e) {}
 })();
 </script>
+<!-- ERWEITERUNG v40 (09.11.2026): Urlaubskarte schöner – Jahres-Zeitstrahl, Karten mit Wetter-Icon, typischem Wetter (Köln),
+     Countdown und „frei am Stück“. Keine persönlichen Werte (darf auf GitHub Pages). -->
+<style>
+.v40-line{position:relative;height:30px;border-radius:10px;background:color-mix(in srgb,var(--fg) 6%,var(--surface));border:1px solid var(--line);overflow:hidden}
+.v40-line i{position:absolute;top:5px;bottom:5px;border-radius:6px;background:var(--c);min-width:5px}
+.v40-line i.past{opacity:.35}
+.v40-line b{position:absolute;top:0;bottom:0;width:2px;background:var(--fg)}
+.v40-line .v40-m{position:absolute;top:0;bottom:0;width:1px;background:var(--line)}
+.v40-mon{display:grid;grid-template-columns:repeat(12,1fr);font-size:11px;font-weight:700;color:var(--muted);text-align:center;margin-top:-6px}
+.v40-list{display:flex;flex-direction:column;gap:10px;margin:0;padding:0;list-style:none}
+.v40-item{display:flex;gap:12px;align-items:flex-start;padding:12px;border-radius:16px;border:1px solid color-mix(in srgb,var(--c) 45%,var(--line));background:linear-gradient(135deg,color-mix(in srgb,var(--c) 18%,var(--surface)),var(--surface) 70%);min-width:0}
+.v40-item.past{opacity:.6}
+.v40-ic{flex:0 0 52px;height:52px;border-radius:14px;display:grid;place-items:center;font-size:30px;background:color-mix(in srgb,var(--c) 22%,var(--surface));border:1px solid color-mix(in srgb,var(--c) 40%,transparent)}
+.v40-body{flex:1;min-width:0;display:flex;flex-direction:column;gap:4px;overflow-wrap:anywhere}
+.v40-body>b{font-size:16px}
+.v40-date{font-size:13px;color:var(--muted);font-weight:600}
+.v40-tags{display:flex;flex-wrap:wrap;gap:6px;margin-top:2px}
+.v40-tags .tag{--c:var(--c2,var(--fg))}
+.v40-wx{font-size:13px;line-height:1.4;padding:7px 10px;border-radius:10px;background:color-mix(in srgb,var(--c) 10%,var(--surface));border:1px dashed color-mix(in srgb,var(--c) 45%,transparent)}
+.v40-wx{display:flex;flex-direction:column;gap:6px}
+.v40-wx>small{color:var(--muted);font-size:11px}
+.v40-wxs{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:6px}
+.v40-wxs span{display:grid;grid-template-columns:auto 1fr;column-gap:6px;align-items:center;padding:6px 8px;border-radius:9px;background:var(--surface);border:1px solid var(--line);min-width:0}
+.v40-wxs em{font-style:normal;font-size:18px;grid-row:span 2}
+.v40-wxs b{font-size:14px;white-space:nowrap}
+.v40-wxs small{font-size:10.5px;color:var(--muted);line-height:1.2}
+</style>
+<script>
+(function () {
+  "use strict";
+  /* Typisches Wetter in Köln pro Monat (Station Köln-Stammheim, Mittel 09/2019–08/2024, wetterdienst.de, abgerufen 09.11.2026).
+     [Höchstwert °C, Tiefstwert °C, Regentage im Monat]. Das ist ein Durchschnitt, keine Vorhersage. */
+  const KLIMA = [[7.1, 2.4, 20], [10.2, 3.8, 17], [12.9, 4.2, 16], [15.8, 5.6, 12], [20.6, 9.7, 13], [25.1, 14.2, 13],
+                 [25.0, 15.0, 15], [26.1, 15.9, 15], [22.3, 12.3, 10], [16.9, 9.7, 18], [10.9, 5.2, 16], [8.0, 3.6, 19]];
+  // Icon, Farbe und kurze Beschreibung pro Monat (Jan … Dez)
+  const WX = [
+    ["❄️", "#5b8def", "kalt und meist grau"], ["🌨️", "#5b8def", "kalt, oft nass"], ["🌦️", "#3fa796", "frisch und wechselhaft"],
+    ["🌷", "#3fa796", "mild, wenig Regen"], ["🌤️", "#3fa796", "angenehm warm"], ["☀️", "#f0a020", "warm und sommerlich"],
+    ["☀️", "#f0a020", "warm, aber viel Regen auf einmal"], ["☀️", "#f0a020", "der wärmste Monat"], ["🌤️", "#d9773b", "noch mild, wenig Regentage"],
+    ["🍂", "#d9773b", "kühl und oft nass"], ["🌧️", "#8a7fd6", "kühl und grau"], ["❄️", "#5b8def", "kalt und nass"]];
+  const MON = ["J", "F", "M", "A", "M", "J", "J", "A", "S", "O", "N", "D"];
+  const r0 = x => Math.round(x);
+
+  // Monat, in den die meisten Tage des Urlaubs fallen
+  function hauptMonat(v) {
+    const n = {}; let best = +v.von.slice(5, 7) - 1, max = 0;
+    for (let k = v.von; k <= v.bis; k = addDays(k, 1)) { const m = +k.slice(5, 7) - 1; n[m] = (n[m] || 0) + 1; if (n[m] > max) { max = n[m]; best = m; } }
+    return best;
+  }
+  // Freie Tage am Stück: Urlaub + angrenzende Wochenenden, Feiertage und weiterer Urlaub
+  const frei = k => wdOf(k) === 0 || wdOf(k) === 6 || !!holidayOf(k) || vacationOn(k);
+  function amStueck(v) {
+    let a = v.von, b = v.bis;
+    while (frei(addDays(a, -1))) a = addDays(a, -1);
+    while (frei(addDays(b, 1))) b = addDays(b, 1);
+    return {a, b, n: diffDays(a, b) + 1};
+  }
+  const tagDat = (k, j) => fmt(k, j ? {weekday: "short", day: "2-digit", month: "2-digit", year: "numeric"} : {weekday: "short", day: "2-digit", month: "2-digit"});
+  function countdown(v, t) {
+    if (t > v.bis) return ["✓ vorbei", "var(--muted)"];
+    if (t >= v.von) return ["🎉 läuft gerade", "var(--ok)"];
+    const d = diffDays(t, v.von);
+    if (d === 1) return ["⏳ morgen", "var(--ok)"];
+    if (d < 7) return ["⏳ in " + d + " Tagen", "var(--ok)"];
+    if (d < 60) return ["⏳ in " + d + " Tagen (" + Math.round(d / 7) + " Wo.)", "var(--urlaub)"];
+    return ["⏳ in " + d + " Tagen (" + Math.round(d / 30.4) + " Mon.)", "var(--urlaub)"];
+  }
+
+  function zeitstrahl(y, rows, t) {
+    const start = y + "-01-01", len = diffDays(start, (y + 1) + "-01-01"), pos = k => Math.max(0, Math.min(100, diffDays(start, k) / len * 100));
+    let h = '<div class="v40-line" role="img" aria-label="Urlaub im Jahr ' + y + '">';
+    for (let m = 1; m < 12; m++) h += '<span class="v40-m" style="left:' + pos(y + "-" + String(m + 1).padStart(2, "0") + "-01").toFixed(2) + '%"></span>';
+    rows.forEach(v => {
+      const a = v.von < start ? start : v.von, bEnd = v.bis > y + "-12-31" ? y + "-12-31" : v.bis;
+      if (a > bEnd) return;
+      h += '<i class="' + (t > v.bis ? "past" : "") + '" style="--c:' + WX[hauptMonat(v)][1] + ';left:' + pos(a).toFixed(2) + '%;width:' + (pos(addDays(bEnd, 1)) - pos(a)).toFixed(2) + '%" title="' + esc(v.note || "Urlaub") + '"></i>';
+    });
+    if (+t.slice(0, 4) === y) h += '<b style="left:' + pos(t).toFixed(2) + '%" title="heute"></b>';
+    return h + '</div><div class="v40-mon" aria-hidden="true">' + MON.map(m => '<span>' + m + '</span>').join("") + '</div>';
+  }
+
+  function eintrag(v, y, t) {
+    const m = hauptMonat(v), w = WX[m], kl = KLIMA[m], tage = vacDays(v, y), st = amStueck(v), cd = countdown(v, t);
+    const gleich = v.von === v.bis, j = v.von.slice(0, 4) !== v.bis.slice(0, 4);
+    const dat = gleich ? tagDat(v.von, true) : tagDat(v.von, j) + ' – ' + tagDat(v.bis, true);
+    const del = UI.confirm === "vac-" + v.id ? '<button class="btn sm danger primary" data-act="vacdel2" data-id="' + v.id + '">Löschen?</button>' : delBtn("vacdel", v.id, "Urlaub löschen");
+    return '<li class="v40-item' + (t > v.bis ? " past" : "") + '" style="--c:' + w[1] + '"><div class="v40-ic" aria-hidden="true">' + w[0] + '</div>'
+      + '<div class="v40-body"><b>' + esc(v.note || "Urlaub") + '</b><span class="v40-date">' + esc(dat) + '</span>'
+      + '<div class="v40-tags"><span class="tag" style="--c2:var(--urlaub)">📅 ' + tage + (tage === 1 ? " Urlaubstag" : " Urlaubstage") + (j ? " in " + y : "") + '</span>'
+      + (st.n > 1 ? '<span class="tag" style="--c2:var(--ok)" title="' + esc(tagDat(st.a) + " – " + tagDat(st.b)) + '">🛋️ ' + st.n + ' Tage frei am Stück</span>' : '')
+      + '<span class="tag" style="--c2:' + cd[1] + '">' + cd[0] + '</span></div>'
+      + '<div class="v40-wx"><b>' + w[0] + ' ' + esc(w[2].charAt(0).toUpperCase() + w[2].slice(1)) + '</b>'
+      + '<div class="v40-wxs"><span><em>🌡️</em><b>' + r0(kl[1]) + '–' + r0(kl[0]) + ' °C</b><small>nachts – tagsüber</small></span><span><em>🌧️</em><b>ca. ' + kl[2] + ' Tage</b><small>mit Regen im Monat</small></span></div>'
+      + '<small>Durchschnitt Köln – keine Vorhersage</small></div></div>'
+      + del + '</li>';
+  }
+
+  // Ersetzt die alte Urlaubskarte komplett (Felder, Knöpfe und IDs bleiben gleich)
+  vacHtml = function () {
+    const t = todayKey(), y = VAC_YEAR, used = vacUsed(y), total = vacTotalOf(y), left = total - used, p = total > 0 ? Math.min(1, used / total) : (used ? 1 : 0);
+    const rows = S.vacation.filter(v => vacDays(v, y) > 0 || +v.von.slice(0, 4) === y || +v.bis.slice(0, 4) === y).sort((a, b) => a.von < b.von ? -1 : 1);
+    const genommen = rows.filter(v => v.bis < t).reduce((a, v) => a + vacDays(v, y), 0), next = rows.find(v => v.bis >= t);
+    let h = '<div class="card"><div class="card-h"><h3>🌴 Urlaubstage</h3><div class="seg" style="min-width:150px">' + [...new Set([2026, 2027, +t.slice(0, 4)])].sort().map(x => '<button type="button" data-act="vacyear" data-v="' + x + '" aria-pressed="' + (x === y) + '">' + x + '</button>').join("") + '</div></div>'
+      + '<div class="counters"><div class="counter"><b>' + used + '</b><span>verplant' + (genommen && genommen < used ? ' (' + genommen + ' schon genommen)' : '') + '</span></div><div class="counter"><b style="color:' + (left < 0 ? "var(--feiertag)" : left === 0 ? "var(--ok)" : "inherit") + '">' + left + '</b><span>übrig von ' + total + '</span></div></div>'
+      + '<div class="bar" style="--c:var(--urlaub)"><i style="width:' + (p * 100).toFixed(1) + '%"></i></div>'
+      + (left < 0 ? '<p class="small" style="color:var(--feiertag)">⚠️ ' + (-left) + (left === -1 ? ' Tag' : ' Tage') + ' mehr eingetragen, als du ' + y + ' hast. Bitte einen Urlaub kürzen.</p>' : '')
+      + (next && next.von > t ? '<p class="small">Nächster Urlaub: <b>' + esc(next.note || "Urlaub") + '</b> ' + WX[hauptMonat(next)][0] + ' – noch ' + diffDays(t, next.von) + ' Tage 🙌</p>' : '')
+      + (rows.length ? zeitstrahl(y, rows, t) + '<ul class="v40-list">' + rows.map(v => eintrag(v, y, t)).join("") + '</ul>' : '<p class="empty">Kein Urlaub in ' + y + ' eingetragen.</p>')
+      + '<details class="callout"><summary>➕ Urlaub eintragen</summary>'
+      + '<div class="grid2"><div class="field"><label for="vVon">Von</label><input id="vVon" type="date"></div><div class="field"><label for="vBis">Bis</label><input id="vBis" type="date"></div><div class="field"><label for="vNote">Notiz</label><input id="vNote" maxlength="60" placeholder="z. B. Osterferien"></div></div>'
+      + '<p class="small muted" id="vPrev">Zählt nur Betriebstage: Mo, Di, Do – in den Schulferien auch Mi und Fr. Feiertage und Wochenenden zählen nicht.</p><button class="btn primary" data-act="vacadd">Urlaub eintragen</button></details>'
+      + '<details class="callout"><summary>⚙️ Urlaubsanspruch ' + y + '</summary><div class="field"><label for="vAnspruch">Urlaubsanspruch ' + y + ' (Tage)' + ((S.settings.vacByYear || {})[y] != null ? ' · nur für ' + y : ' · Standard') + '</label><input id="vAnspruch" type="number" min="0" max="60" inputmode="numeric" data-y="' + y + '" value="' + total + '"></div></details>'
+      + '<details class="callout"><summary>📥 Urlaubs-Paket laden</summary>'
+      + '<p class="small muted">Füge hier den Text aus der Datei <b>urlaub-paket.json</b> ein. Schon vorhandener Urlaub wird nicht doppelt eingetragen.</p>'
+      + '<div class="field"><label for="vPaket">Paket-Text</label><textarea id="vPaket" rows="4" placeholder="{&quot;app&quot;:&quot;Wochenkompass-Urlaub-Paket&quot;, …}"></textarea></div>'
+      + '<button class="btn" data-act="v39paket">Paket übernehmen</button></details>'
+      + '<p class="small muted">Wetter: Durchschnitt der Wetterstation Köln-Stammheim (09/2019–08/2024, wetterdienst.de). Die echte Vorhersage gibt es erst ein paar Tage vorher in deiner Wetter-App.</p></div>';
+    return h;
+  };
+  window.__v40 = {hauptMonat, amStueck, KLIMA};
+  try { rerender(); } catch (e) {}
+})();
+</script>
+
 
 
 <script>
