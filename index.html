@@ -6578,7 +6578,8 @@ h1,h2,h3{padding-top:.06em;padding-bottom:.04em}
       if (G.schlaf && G.schlaf[k] != null && G.schlaf[k] !== "") R.schlaf.push(+G.schlaf[k]);
       if (G.wasser && G.wasser[k]) R.wasser.push(+G.wasser[k]);
       if ((S.sick || []).some(x => x.von <= k && (x.bis || x.von) >= k)) R.krank++;
-      if (wdOf(k) === 1) { try { R.bhW++; if (bhPeek(k).done) R.bh++; } catch (e) {} }
+      // Berichtsheft erst ab Ausbildungsstart zählen (vorher gab es keine Berichtsheft-Wochen)
+      if (wdOf(k) === 1 && k >= ((typeof AUSB !== "undefined" && AUSB.von) || "2026-08-01")) { try { R.bhW++; if (bhPeek(k).done) R.bh++; } catch (e) {} }
     }
     R.aufg = (S.items || []).filter(x => x.done && x.kind !== "notiz" && x.date && x.date >= von && x.date <= bis).length + (S.homework || []).filter(x => x.done && x.due && x.due >= von && x.due <= bis).length;
     ((S.geld && S.geld.ausgaben) || []).forEach(x => { if (x.d >= von && x.d <= bis) { const n = zahlDE(x.betrag) || 0; R.aus += n; R.ausN++; R.ausKat[x.kat || "rest"] = (R.ausKat[x.kat || "rest"] || 0) + n; } });
@@ -6612,7 +6613,7 @@ h1,h2,h3{padding-top:.06em;padding-bottom:.04em}
       + kachel("🏋️", R.gym + (R.gymPlan ? "/" + R.gymPlan : ""), "Gym-Tage", delta(R.gym, P.gym, true))
       + kachel("✅", R.aufg, "Aufgaben erledigt", delta(R.aufg, P.aufg, true))
       + kachel("⏱️", komma(R.lern / 60), "Std. gelernt", delta(R.lern / 60, P.lern / 60, true, "Std."))
-      + kachel("📝", R.bh + "/" + R.bhW, "Berichtsheft-Wochen", "")
+      + (R.bhW ? kachel("📝", R.bh + "/" + R.bhW, "Berichtsheft-Wochen", "") : kachel("📝", "–", "Berichtsheft (vor der Ausbildung)", ""))
       + kachel("💸", euro(R.aus).replace(/,00\s/, " "), "ausgegeben", delta(R.aus, P.aus, false, "€"))
       + kachel("🤒", R.krank, R.krank === 1 ? "Krankheitstag" : "Krankheitstage", "")
       + '</div></div>';
