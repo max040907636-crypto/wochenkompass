@@ -5477,7 +5477,7 @@ h1,h2,h3{padding-top:.06em;padding-bottom:.04em}
 })();
 </script>
 <!-- ERWEITERUNG v33 (08.11.2026): Kurz-Übersicht der Ausgaben aus der Finanz-App „Bilanz“ (Arbeit → Geld → Überblick).
-     Feste Zahlen (Juli bis 08.10.2026), nur Beträge pro Kategorie, keine Namen. Max hat erlaubt, dass sie öffentlich im Code stehen. -->
+     Nur gerundete Durchschnittswerte pro Monat und Kategorie, kein Datum, keine Namen. Max hat erlaubt, dass sie öffentlich im Code stehen. -->
 <style>
 .bk-pie{display:flex;align-items:center;gap:16px;flex-wrap:wrap}
 .bk-pie svg{width:140px;height:140px;flex:none}
@@ -5493,43 +5493,39 @@ h1,h2,h3{padding-top:.06em;padding-bottom:.04em}
   "use strict";
   if (typeof arbGeld !== "function") return;
 
-  // Ausgaben aus Bilanz, Juli bis 08.10.2026 (in Euro)
+  // Durchschnitt pro Monat je Kategorie (aus der Finanz-App, gerundet)
   const KAT = [
-    ["🍔", "Auswärts essen", 435.79, "#e8590c"],
-    ["🎉", "Freizeit & Ausgehen", 177.88, "#7048e8"],
-    ["📦", "Sonstiges", 130.99, "#868e96"],
-    ["🚗", "Transport & Parken", 92.58, "#1c7ed6"],
-    ["🛒", "Lebensmittel", 37.64, "#2f9e44"],
-    ["💈", "Friseur", 35.00, "#c2255c"],
-    ["🎮", "Gaming & Technik", 23.37, "#0c8599"],
-    ["🧴", "Drogerie", 15.35, "#e0a800"]
+    ["🍔", "Auswärts essen", 130, "#e8590c"],
+    ["🎉", "Freizeit & Ausgehen", 60, "#7048e8"],
+    ["📦", "Sonstiges", 35, "#868e96"],
+    ["🚗", "Transport & Parken", 30, "#1c7ed6"],
+    ["🛒", "Lebensmittel", 15, "#2f9e44"],
+    ["💈", "Friseur", 10, "#c2255c"],
+    ["🎮", "Gaming & Technik", 10, "#0c8599"],
+    ["🧴", "Drogerie", 5, "#e0a800"]
   ];
-  const PRO_MONAT = 296.03, EINKAEUFE = 102;   // Ø pro Monat = Juli bis September
-
-  const euro = v => v.toLocaleString("de-DE", {minimumFractionDigits:2, maximumFractionDigits:2}) + " €";
-  const gesamt = KAT.reduce((a, x) => a + x[2], 0);
-  const pct = v => Math.round(v / gesamt * 100) + " %";
+  const summe = KAT.reduce((a, x) => a + x[2], 0);
+  const pct = v => Math.round(v / summe * 100) + " %";
 
   // Kreisdiagramm (Donut) als SVG
   function torte() {
     const R = 52, U = 2 * Math.PI * R; let off = 0;
     const ringe = KAT.map(([, n, v, c]) => {
-      const len = v / gesamt * U;
-      const s = '<circle cx="75" cy="75" r="' + R + '" fill="none" stroke="' + c + '" stroke-width="26" stroke-dasharray="' + len.toFixed(2) + ' ' + (U - len).toFixed(2) + '" stroke-dashoffset="' + (-off).toFixed(2) + '" transform="rotate(-90 75 75)"><title>' + n + ': ' + euro(v) + '</title></circle>';
+      const len = v / summe * U;
+      const s = '<circle cx="75" cy="75" r="' + R + '" fill="none" stroke="' + c + '" stroke-width="26" stroke-dasharray="' + len.toFixed(2) + ' ' + (U - len).toFixed(2) + '" stroke-dashoffset="' + (-off).toFixed(2) + '" transform="rotate(-90 75 75)"><title>' + n + ': ca. ' + v + ' € im Monat</title></circle>';
       off += len; return s;
     }).join("");
-    return '<svg viewBox="0 0 150 150" role="img" aria-label="Kreisdiagramm: Ausgaben nach Kategorie">' + ringe
-      + '<text x="75" y="72" text-anchor="middle" font-size="18" font-weight="700" fill="currentColor">' + Math.round(gesamt) + ' €</text>'
-      + '<text x="75" y="90" text-anchor="middle" font-size="11" fill="currentColor" opacity=".65">ausgegeben</text></svg>';
+    return '<svg viewBox="0 0 150 150" role="img" aria-label="Kreisdiagramm: Ausgaben pro Monat nach Kategorie">' + ringe
+      + '<text x="75" y="72" text-anchor="middle" font-size="17" font-weight="700" fill="currentColor">ca. ' + summe + ' €</text>'
+      + '<text x="75" y="90" text-anchor="middle" font-size="11" fill="currentColor" opacity=".65">pro Monat</text></svg>';
   }
 
   function karte() {
-    return '<div class="card"><p class="eyebrow" style="color:var(--muted);opacity:1">💰 Aus deiner Finanz-App · Juli bis 8. Okt. 2026</p>'
-      + '<h3>Wofür geht dein Geld weg?</h3>'
-      + '<p class="small">Im Schnitt gibst du <b>' + euro(PRO_MONAT) + ' pro Monat</b> aus. Insgesamt ' + euro(gesamt) + ' bei ' + EINKAEUFE + ' Einkäufen, also ca. ' + euro(gesamt / EINKAEUFE) + ' pro Einkauf. Am meisten geht für <b>Auswärts essen</b> drauf (' + pct(KAT[0][2]) + ').</p>'
+    return '<div class="card"><h3>💰 Wofür geht dein Geld weg?</h3>'
+      + '<p class="small">Im Schnitt gibst du <b>ca. ' + summe + ' € im Monat</b> aus. Ein Einkauf kostet meistens <b>zwischen 4 und 10 €</b>. Am meisten geht für <b>Auswärts essen</b> drauf, ca. ' + KAT[0][2] + ' € im Monat.</p>'
       + '<div class="bk-pie">' + torte() + '<ul class="bk-leg">'
-      + KAT.map(([ic, n, v, c]) => '<li><i style="background:' + c + '"></i><span>' + ic + ' ' + n + '</span><b>' + euro(v) + '</b><small>' + pct(v) + '</small></li>').join("")
-      + '</ul></div></div>';
+      + KAT.map(([ic, n, v, c]) => '<li><i style="background:' + c + '"></i><span>' + ic + ' ' + n + '</span><b>ca. ' + v + ' €</b><small>' + pct(v) + '</small></li>').join("")
+      + '</ul></div><p class="small muted">Durchschnitt pro Monat, gerundet.</p></div>';
   }
 
   // Nur im Unterbereich „Überblick“, direkt unter den Geld-Knöpfen
