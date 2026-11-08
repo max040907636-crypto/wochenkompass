@@ -7091,6 +7091,104 @@ h1,h2,h3{padding-top:.06em;padding-bottom:.04em}
 </script>
 
 <script>
+/* =====================================================================
+   ERWEITERUNG v37 (08.11.2026): Tastatur verdeckt Eingabefelder nicht mehr
+   Problem: Auf dem iPhone schiebt sich die Tastatur über Fenster (Sheets),
+   besonders im Gym (Hantelbuch im Rahmen) – man sieht nicht, was man tippt.
+   Lösung: Ist die Tastatur offen, werden Gym-Rahmen und Fenster genau auf
+   den sichtbaren Bereich (visualViewport) verkleinert, und das aktive
+   Eingabefeld wird in die Mitte gescrollt.
+   ===================================================================== */
+(function () {
+  "use strict";
+  var vv = window.visualViewport;
+  if (!vv) return;
+  var FELD = "input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=button]),textarea,select,[contenteditable]";
+  var basis = null; // Abstand des Gym-Rahmens nach oben ohne Tastatur
+
+  // Ist die Tastatur offen? (sichtbarer Bereich deutlich kleiner als das Fenster)
+  function tastaturOffen() { return window.innerHeight - vv.height > 120; }
+
+  // Aktives Feld (auch im Gym-Rahmen) in die Mitte holen
+  function feldZeigen(doc) {
+    try {
+      var a = doc && doc.activeElement;
+      if (!a || !a.matches || !a.matches(FELD)) return;
+      a.scrollIntoView({block: "center", inline: "nearest"});
+    } catch (e) {}
+  }
+  function spaeterZeigen(doc) { [80, 320, 650].forEach(function (t) { setTimeout(function () { feldZeigen(doc); }, t); }); }
+
+  function anpassen() {
+    var wrap = document.getElementById("gymWrap");
+    var sw = document.getElementById("sheetWrap");
+    var top = document.getElementById("top");
+    var gym = document.body.classList.contains("gym-mode");
+    var offen = tastaturOffen();
+
+    // 1) Gym-Rahmen
+    if (wrap) {
+      if (gym && offen) {
+        if (basis === null) basis = Math.max(0, Math.round(wrap.getBoundingClientRect().top));
+        wrap.style.top = Math.round(vv.offsetTop + basis) + "px";
+        wrap.style.bottom = "auto";
+        wrap.style.height = Math.max(160, Math.round(vv.height - basis)) + "px";
+        wrap.style.paddingBottom = "0px";
+        if (top) top.style.transform = "translateY(" + Math.round(vv.offsetTop) + "px)";
+      } else if (wrap.style.height) {
+        wrap.style.top = wrap.style.bottom = wrap.style.height = wrap.style.paddingBottom = "";
+        if (top) top.style.transform = "";
+        basis = null;
+      }
+    }
+    // 2) Fenster (Sheet) im Wochenkompass selbst
+    if (sw) {
+      if (offen && !sw.hidden) {
+        sw.style.top = Math.round(vv.offsetTop) + "px";
+        sw.style.bottom = "auto";
+        sw.style.height = Math.round(vv.height) + "px";
+      } else if (sw.style.height) {
+        sw.style.top = sw.style.bottom = sw.style.height = "";
+      }
+    }
+    if (offen) {
+      feldZeigen(document);
+      try { if (gym && typeof gymFrame !== "undefined" && gymFrame && gymFrame.contentDocument) spaeterZeigen(gymFrame.contentDocument); } catch (e) {}
+    }
+  }
+  vv.addEventListener("resize", anpassen);
+  vv.addEventListener("scroll", anpassen);
+  window.addEventListener("orientationchange", function () { setTimeout(anpassen, 350); });
+  document.addEventListener("focusin", function (e) { if (e.target.matches && e.target.matches(FELD)) spaeterZeigen(document); });
+  document.addEventListener("focusout", function () { setTimeout(anpassen, 120); });
+
+  // Im Gym-Rahmen: beim Antippen eines Feldes ebenfalls hinscrollen
+  function rahmenAnbinden() {
+    try {
+      if (typeof gymFrame === "undefined" || !gymFrame) return;
+      var d = gymFrame.contentDocument;
+      if (!d || d.__v37) return;
+      d.__v37 = true;
+      d.addEventListener("focusin", function (e) { if (e.target.matches && e.target.matches(FELD)) spaeterZeigen(d); });
+      d.addEventListener("focusout", function () { setTimeout(anpassen, 120); });
+      if (gymFrame.contentWindow) gymFrame.contentWindow.addEventListener("resize", function () { spaeterZeigen(d); });
+    } catch (e) {}
+  }
+  if (typeof ensureGym === "function") {
+    var _eg = ensureGym;
+    ensureGym = function () {
+      var r = _eg.apply(this, arguments);
+      try { if (gymFrame && !gymFrame.__v37L) { gymFrame.__v37L = true; gymFrame.addEventListener("load", rahmenAnbinden); rahmenAnbinden(); } } catch (e) {}
+      return r;
+    };
+  }
+  rahmenAnbinden();
+  try { if (typeof gymFrame !== "undefined" && gymFrame && !gymFrame.__v37L) { gymFrame.__v37L = true; gymFrame.addEventListener("load", rahmenAnbinden); } } catch (e) {}
+  window.__v37 = {anpassen: anpassen};
+})();
+</script>
+
+<script>
 /* Service Worker: App startet auch mit schlechtem Netz */
 if ("serviceWorker" in navigator) addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));
 </script>
