@@ -6326,6 +6326,770 @@ h1,h2,h3{padding-top:.06em;padding-bottom:.04em}
 })();
 </script>
 
+<!-- ERWEITERUNG v36 (08.11.2026): 🛒 Einkaufsliste · 🧾 Geräte & Garantien (Ich-Baum) · 📊 Monats- und Jahresrückblick ·
+     🎯 Alle Ziele auf einer Seite · 🔐 Passwort-Tresor (AES-GCM 256, Schlüssel per PBKDF2 aus dem Master-Passwort).
+     Ohne persönliche Werte im Code (darf auf GitHub Pages). Passwörter liegen NUR verschlüsselt im Browser-Speicher. -->
+<style>
+/* ---------- Zweite Schnellzugriff-Reihe ---------- */
+.quick.z6q{margin-top:8px}
+.qbtn .z6n{display:inline-block;min-width:20px;padding:0 6px;border-radius:10px;background:var(--fg);color:var(--bg);font-size:11px;line-height:18px;font-weight:800;margin-left:2px}
+/* ---------- Einkaufsliste ---------- */
+.z6-add{display:flex;gap:8px}
+.z6-add input{flex:1;min-width:0}
+.z6-kat{display:flex;align-items:center;gap:6px;margin:14px 0 4px;font-size:13px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+.z6-it{display:flex;align-items:center;gap:10px;padding:8px 0;border-top:1px solid var(--line)}
+.z6-kat + .z6-it{border-top:0}
+.z6-it .li-main{flex:1;min-width:0;overflow-wrap:anywhere}
+.z6-it .li-main small{display:block;color:var(--muted)}
+.z6-it.done .li-main b{text-decoration:line-through;color:var(--muted)}
+.z6-m{font-weight:800;color:var(--muted);margin-right:4px}
+/* ---------- Ampel ---------- */
+.z6-amp{display:inline-block;width:10px;height:10px;border-radius:50%;background:var(--c);margin-right:6px;vertical-align:middle;flex:none}
+/* ---------- Balken (Rückblick, Ziele) ---------- */
+.z6-bar{height:10px;border-radius:5px;background:var(--soft);overflow:hidden;margin-top:6px}
+.z6-bar i{display:block;height:100%;border-radius:5px;background:var(--c,var(--ok))}
+.z6-delta{font-size:12px;font-weight:800;margin-left:4px}
+.z6-delta.up{color:var(--ok)}
+.z6-delta.down{color:var(--feiertag)}
+.z6-mon{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:4px;align-items:end;height:110px;margin-top:10px}
+.z6-mon div{display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;gap:3px;min-width:0}
+.z6-mon i{display:block;width:100%;max-width:22px;border-radius:4px 4px 0 0;background:var(--c);min-height:2px}
+.z6-mon span{font-size:10px;color:var(--muted);font-weight:700}
+.z6-mon b{font-size:10px;line-height:1}
+/* ---------- Tresor ---------- */
+.z6-tr{display:flex;gap:10px;align-items:flex-start;padding:10px 0;border-top:1px solid var(--line)}
+.z6-tr:first-child{border-top:0}
+.z6-tr .em{font-size:22px;line-height:1.2;width:28px;text-align:center;flex:none}
+.z6-tr .li-main{flex:1;min-width:0;overflow-wrap:anywhere}
+.z6-tr .li-main small{display:block;color:var(--muted)}
+.z6-pw{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:15px;letter-spacing:.02em;overflow-wrap:anywhere;word-break:break-all}
+.z6-btns{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
+.z6-btns .btn{min-height:36px}
+.z6-warn{display:inline-block;font-size:11px;font-weight:800;padding:1px 7px;border-radius:9px;background:color-mix(in srgb,var(--feiertag) 18%,var(--surface));color:var(--feiertag);margin:3px 4px 0 0}
+.z6-ok{background:color-mix(in srgb,var(--ok) 18%,var(--surface));color:var(--ok)}
+.z6-lock{font-size:46px;line-height:1;text-align:center}
+.z6-pwrow{display:flex;gap:6px}
+.z6-pwrow input{flex:1;min-width:0}
+.z6-pwrow .btn{flex:none;min-width:44px;padding:0 10px}
+#sheet .z6-form .field{margin-bottom:10px}
+#sheet .z6-form select,#sheet .z6-form textarea,#sheet .z6-form input{width:100%}
+#sheet .z6-form .z6-pwrow input{width:auto}
+</style>
+<script>
+/* =====================================================================
+   ERWEITERUNG v36
+   1. 🛒 Einkaufsliste       (#einkauf)    Speicher S.einkauf = {e:[{id,t,m,k,done,ts}], h:{name:{t,n,k}}}
+   2. 🧾 Geräte & Garantien  (Ich-Baum)    Speicher S.geraete = [{id,t,kat,kauf,wo,preis,gar,beleg,sn,notiz}]
+   3. 📊 Rückblick           (#rueckblick) liest nur vorhandene Daten (Gym, Aufgaben, Lernen, Geld, Gesundheit …)
+   4. 🎯 Ziele               (#ziele)      eigene Ziele = S.ich.ziele (gleiche Liste wie im Ich-Baum)
+   5. 🔐 Tresor              (#tresor)     Speicher S.tresor = {v,it,salt,iv,ct,hint,erstellt,geaendert}
+      Verschlüsselung: PBKDF2-SHA-256 (600.000 Runden) → AES-GCM 256. Das Master-Passwort wird NIE
+      gespeichert. Entschlüsselte Einträge liegen nur im Arbeitsspeicher, solange der Tresor offen ist.
+   ===================================================================== */
+(function () {
+  "use strict";
+
+  /* ---------- Kleine Helfer ---------- */
+  const id6 = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+  const p2 = n => String(n).padStart(2, "0");
+  const MON = ["Januar", "Februar", "März", "April", "Mai", "Juni", "Juli", "August", "September", "Oktober", "November", "Dezember"];
+  const MON_K = ["Jan", "Feb", "Mär", "Apr", "Mai", "Jun", "Jul", "Aug", "Sep", "Okt", "Nov", "Dez"];
+  const SS = {get:k => { try { return sessionStorage.getItem("wk.z6." + k) || ""; } catch (e) { return ""; } }, set:(k, v) => { try { sessionStorage.setItem("wk.z6." + k, v); } catch (e) {} }};
+  // Zahl aus deutscher Schreibweise: „1.234,56“ → 1234.56
+  const zahlDE = v => { if (v == null || v === "") return null; let s = String(v).trim().replace(/\s|€/g, ""); if (/,/.test(s)) s = s.replace(/\./g, "").replace(",", "."); const n = parseFloat(s); return isFinite(n) ? n : null; };
+  const euro = n => (n || 0).toLocaleString("de-DE", {style:"currency", currency:"EUR"});
+  const komma = (n, d) => n == null ? "–" : n.toLocaleString("de-DE", {maximumFractionDigits:d == null ? 1 : d, minimumFractionDigits:0});
+  const dDE = k => k ? fmt(k, {day:"2-digit", month:"2-digit", year:"numeric"}) : "";
+  const plusJahre = (k, n) => { const d = parseKey(k); d.setFullYear(d.getFullYear() + n); if (d.getDate() !== +k.slice(8)) d.setDate(0); return keyOf(d); };
+  const istDatum = k => /^\d{4}-\d{2}-\d{2}$/.test(k || "");
+  const val = id => { const el = document.getElementById(id); return el ? String(el.value || "").trim() : ""; };
+  const tage = n => n === 1 ? "1 Tag" : n + " Tagen";
+  const sheetTop = titel => '<div class="sheet-top"><h2>' + titel + '</h2><button class="icon-btn" data-act="close" aria-label="Schließen">' + ICON.x + '</button></div>';
+  const kopieren = (txt, ok) => (navigator.clipboard && navigator.clipboard.writeText ? navigator.clipboard.writeText(txt) : Promise.reject()).then(() => { toast(ok || "Kopiert ✓"); return true; }).catch(() => false);
+
+  /* =====================================================================
+     1. 🛒 EINKAUFSLISTE
+     ===================================================================== */
+  function EK() {
+    if (!S.einkauf || typeof S.einkauf !== "object") S.einkauf = {};
+    const o = S.einkauf;
+    if (!Array.isArray(o.e)) o.e = [];
+    if (!o.h || typeof o.h !== "object") o.h = {};
+    return o;
+  }
+  // Reihenfolge wie im Laden
+  const EK_KAT = [["obst", "🥦", "Obst & Gemüse"], ["brot", "🥖", "Brot & Backwaren"], ["kuehl", "🧀", "Kühlregal"], ["fleisch", "🥩", "Fleisch & Fisch"], ["vorrat", "🍝", "Vorrat"], ["tk", "🧊", "Tiefkühl"], ["getraenke", "🥤", "Getränke"], ["snacks", "🍫", "Snacks & Süßes"], ["drogerie", "🧴", "Drogerie"], ["haushalt", "🧽", "Haushalt"], ["sonst", "📦", "Sonstiges"]];
+  const ekKat = k => EK_KAT.find(x => x[0] === k) || EK_KAT[EK_KAT.length - 1];
+  // Stichwörter für die automatische Kategorie (längster Treffer gewinnt; kurze Wörter nur bei genauem Treffer)
+  const EK_WORT = {
+    obst:"apfel äpfel banane bananen birne orange orangen mandarine zitrone limette tomate tomaten gurke paprika salat zwiebel zwiebeln knoblauch kartoffel kartoffeln möhre möhren karotte karotten brokkoli zucchini avocado beeren erdbeeren heidelbeeren himbeeren trauben kiwi mango ananas melone wassermelone pilze champignons spinat lauch ingwer kräuter petersilie basilikum obst gemüse mais",
+    brot:"brot brötchen toast toastbrot baguette croissant wraps tortilla laugen kuchen semmel",
+    kuehl:"milch hafermilch joghurt quark skyr käse gouda butter sahne eier frischkäse mozzarella feta hüttenkäse aufschnitt schinken salami wurst würstchen margarine pudding ei",
+    fleisch:"hähnchen hähnchenbrust huhn pute putenbrust rind rindfleisch hack hackfleisch schwein steak lachs thunfisch fisch garnelen fleisch döner hähnchenschenkel",
+    vorrat:"nudeln pasta spaghetti reis mehl zucker salz pfeffer olivenöl öl essig haferflocken müsli cornflakes konserve dosen bohnen linsen kichererbsen soße sauce ketchup mayo mayonnaise senf gewürz gewürze honig marmelade nutella tee kaffee kaffeebohnen brühe proteinpulver whey",
+    tk:"tiefkühlpizza tiefkühl pizza pommes eis tk gefrier fischstäbchen",
+    getraenke:"wasser mineralwasser saft orangensaft apfelsaft cola fanta sprite limo limonade bier energy energydrink redbull eistee getränke sprudel mate",
+    snacks:"chips schokolade kekse gummibärchen süßigkeiten snack snacks nüsse riegel proteinriegel popcorn",
+    drogerie:"zahnpasta zahnbürste zahnseide shampoo duschgel deo seife creme rasierer rasierschaum taschentücher klopapier toilettenpapier watte pflaster tabletten haargel haarwachs wachs",
+    haushalt:"spülmittel waschmittel weichspüler müllbeutel mülltüten schwamm schwämme küchenrolle alufolie frischhaltefolie putzmittel batterien glühbirne spülmaschinentabs tabs"
+  };
+  function rateKat(t) {
+    const W = String(t).toLowerCase().split(/[^a-zäöüß]+/).filter(Boolean);
+    let best = "sonst", len = 0;
+    Object.keys(EK_WORT).forEach(k => EK_WORT[k].split(" ").forEach(w => {
+      const treffer = w.length <= 3 ? W.includes(w) : W.some(x => x === w || x.startsWith(w) || x.endsWith(w));
+      if (treffer && w.length > len) { best = k; len = w.length; }
+    }));
+    return best;
+  }
+  // „2 Milch“, „Milch 2x“, „500g Hack“ → {m:"2", t:"Milch"}
+  const EINH = "x|×|stk\\.?|stück|g|kg|l|ml|pack|packung|packungen|pck\\.?|dose|dosen|flasche|flaschen|becher|beutel|bund|netz|kiste|tüte|tüten";
+  function teileMenge(s) {
+    s = String(s || "").trim().replace(/\s+/g, " ");
+    let m = s.match(new RegExp("^(\\d+(?:[.,]\\d+)?\\s*(?:" + EINH + ")?)\\s+(.+)$", "i"));
+    if (m) return {m:m[1].replace(/\s+/g, " "), t:m[2]};
+    m = s.match(new RegExp("^(.+?)\\s+(\\d+(?:[.,]\\d+)?\\s*(?:" + EINH + ")?)$", "i"));
+    if (m) return {m:m[2].replace(/\s+/g, " "), t:m[1]};
+    return {m:"", t:s};
+  }
+  const gross = t => t ? t.charAt(0).toUpperCase() + t.slice(1) : t;
+  function ekAdd(roh) {
+    const o = EK(), x = teileMenge(roh); x.t = gross(x.t.slice(0, 60)); if (!x.t) return "";
+    if (typeof sensitive === "function") { const w = sensitive(x.t); if (w) { toast(w, 3500); return ""; } }
+    const key = x.t.toLowerCase(), da = o.e.find(e => e.t.toLowerCase() === key);
+    if (da && !da.done) { if (x.m) da.m = x.m; save(); return "„" + da.t + "“ steht schon drauf"; }
+    if (da) { da.done = false; da.m = x.m || da.m; da.ts = Date.now(); }
+    else o.e.push({id:id6(), t:x.t, m:x.m, k:(o.h[key] && o.h[key].k) || rateKat(x.t), done:false, ts:Date.now()});
+    const h = o.h[key] || {t:x.t, n:0, k:(da && da.k) || (o.h[key] && o.h[key].k) || rateKat(x.t)}; h.n++; h.t = x.t; o.h[key] = h;
+    save(); return "ok";
+  }
+  function viewEinkauf() {
+    const o = EK(), offen = o.e.filter(e => !e.done), drin = o.e.filter(e => e.done);
+    let h = '<div class="stack view"><div><p class="eyebrow">Für den nächsten Einkauf</p><h1>🛒 Einkaufsliste</h1></div>';
+    h += '<div class="card"><div class="z6-add"><input id="z6EkIn" class="inp" maxlength="70" placeholder="z. B. Milch, 2 Bananen, Quark 3x" aria-label="Was brauchst du?" enterkeyhint="done" autocomplete="off"><button class="btn primary" data-act="z6-ekadd" aria-label="Hinzufügen">➕</button></div>';
+    // Häufig gekauft (was gerade nicht auf der Liste steht)
+    const offenK = new Set(offen.map(e => e.t.toLowerCase()));
+    const oft = Object.keys(o.h).map(k => o.h[k]).filter(x => x && x.t && !offenK.has(x.t.toLowerCase())).sort((a, b) => b.n - a.n || a.t.localeCompare(b.t)).slice(0, 12);
+    if (oft.length) h += '<p class="lbl" style="margin-top:10px">⚡ Schnell wieder drauf</p><div class="lnamen">' + oft.map(x => '<button type="button" data-act="z6-ekoft" data-v="' + esc(x.t) + '">＋ ' + esc(x.t) + '</button>').join("") + '</div>';
+    h += '</div>';
+    // Offene Sachen nach Bereichen im Laden
+    h += '<div class="card"><div class="card-h"><h3>📝 Noch holen</h3><span class="small muted">' + offen.length + (offen.length === 1 ? ' Sache' : ' Sachen') + '</span></div>';
+    if (!offen.length) h += '<p class="empty">' + (o.e.length ? 'Alles im Wagen. 🎉' : 'Noch leer. Oben eintippen und ➕ drücken.') + '</p>';
+    EK_KAT.forEach(([k, ic, n]) => {
+      const L = offen.filter(e => (ekKat(e.k)[0]) === k).sort((a, b) => a.ts - b.ts);
+      if (!L.length) return;
+      h += '<p class="z6-kat"><span aria-hidden="true">' + ic + '</span>' + esc(n) + '</p>' + L.map(ekZeile).join("");
+    });
+    h += '</div>';
+    if (drin.length) h += '<div class="card"><div class="card-h"><h3>✅ Im Wagen</h3><span class="small muted">' + drin.length + '</span></div>' + drin.sort((a, b) => b.ts - a.ts).map(ekZeile).join("")
+      + '<div class="btn-row" style="margin-top:10px"><button class="btn sm primary" data-act="z6-ekclean">🧹 Erledigte entfernen</button></div></div>';
+    if (o.e.length) h += '<div class="btn-row"><button class="btn sm" data-act="z6-ekcopy">📋 Liste kopieren / teilen</button><button class="btn sm danger" data-act="z6-ekalle">🗑️ Ganze Liste leeren</button></div>';
+    h += '<p class="tip"><b>Tipp:</b> Menge einfach mit eintippen („2 Milch“ oder „Quark 3x“). Die App sortiert alles so, wie du durch den Laden läufst. Antippen = abhaken.</p>';
+    return h + '</div>';
+  }
+  function ekZeile(e) {
+    return '<div class="z6-it' + (e.done ? " done" : "") + '">' + chk("z6-ekdone", e.id, e.done, e.done ? "Wieder auf die Liste" : "Abhaken")
+      + '<span class="li-main" data-act="z6-ekdone" data-id="' + esc(e.id) + '" style="cursor:pointer"><b>' + (e.m ? '<span class="z6-m">' + esc(e.m) + '</span>' : '') + esc(e.t) + '</b></span>'
+      + '<button type="button" class="mini" data-act="z6-ekedit" data-id="' + esc(e.id) + '" aria-label="' + esc(e.t) + ' bearbeiten">✏️</button></div>';
+  }
+  function ekSheet(id) {
+    const e = EK().e.find(x => x.id === id); if (!e) return sheetTop("🛒 Eintrag") + '<p>Nicht gefunden.</p>';
+    return sheetTop("🛒 Bearbeiten") + '<div class="z6-form"><div class="field"><label for="z6EkT">Was?</label><input id="z6EkT" class="inp" maxlength="60" value="' + esc(e.t) + '"></div>'
+      + '<div class="field"><label for="z6EkM">Menge (optional)</label><input id="z6EkM" class="inp" maxlength="20" value="' + esc(e.m || "") + '" placeholder="z. B. 2, 500 g, 3x"></div>'
+      + '<div class="field"><label for="z6EkK">Bereich im Laden</label><select id="z6EkK" class="inp">' + EK_KAT.map(([k, ic, n]) => '<option value="' + k + '"' + (ekKat(e.k)[0] === k ? " selected" : "") + '>' + ic + ' ' + esc(n) + '</option>').join("") + '</select></div></div>'
+      + '<div class="btn-row" style="margin-top:12px"><button class="btn primary" data-act="z6-eksave" data-id="' + esc(id) + '">💾 Speichern</button><button class="btn danger" data-act="z6-ekdel" data-id="' + esc(id) + '">🗑️ Löschen</button><button class="btn" data-act="close">Abbrechen</button></div>';
+  }
+  const ekText = () => { const o = EK(); return EK_KAT.map(([k, ic, n]) => { const L = o.e.filter(e => !e.done && ekKat(e.k)[0] === k); return L.length ? ic + " " + n + "\n" + L.map(e => "- " + (e.m ? e.m + " " : "") + e.t).join("\n") : ""; }).filter(Boolean).join("\n\n"); };
+
+  /* =====================================================================
+     2. 🧾 GERÄTE & GARANTIEN (im Ich-Baum)
+     ===================================================================== */
+  const GR = () => { if (!Array.isArray(S.geraete)) S.geraete = []; return S.geraete; };
+  const GR_KAT = [["pc", "🖥️", "PC & Teile"], ["laptop", "💻", "Laptop & Tablet"], ["handy", "📱", "Handy & Zubehör"], ["gaming", "🎮", "Konsole & Gaming"], ["audio", "🎧", "Audio & TV"], ["haushalt", "🏠", "Haushalt"], ["sport", "🏋️", "Sport"], ["kleidung", "👟", "Kleidung & Schuhe"], ["sonst", "📦", "Sonstiges"]];
+  const grKat = k => GR_KAT.find(x => x[0] === k) || GR_KAT[GR_KAT.length - 1];
+  // Gewährleistung (gesetzlich, beim Händler): 2 Jahre ab Kauf. Garantie (freiwillig, Hersteller): eigenes Datum.
+  function grStatus(g) {
+    const t = todayKey(), gwl = istDatum(g.kauf) ? plusJahre(g.kauf, 2) : "", gar = istDatum(g.gar) ? g.gar : "";
+    const ende = [gwl, gar].filter(Boolean).sort().pop() || "";
+    if (!ende) return {gwl, gar, ende, tage:null, c:"var(--muted)", txt:"Kaufdatum fehlt"};
+    const n = diffDays(t, ende);
+    return {gwl, gar, ende, tage:n, c:n < 0 ? "var(--feiertag)" : n <= 60 ? "var(--warn)" : "var(--ok)", txt:n < 0 ? "abgelaufen seit " + dDE(ende) : n === 0 ? "endet heute" : "noch " + tage(n).replace("Tagen", "Tage") + " (bis " + dDE(ende) + ")"};
+  }
+  let GR_OPEN = false;
+  function grAst() {
+    const L = GR().slice().sort((a, b) => (grStatus(a).ende || "9") < (grStatus(b).ende || "9") ? -1 : 1);
+    const bald = L.filter(g => { const s = grStatus(g); return s.tage != null && s.tage >= 0 && s.tage <= 60; }).length;
+    let inner = L.map(g => {
+      const s = grStatus(g), K = grKat(g.kat);
+      const zus = [g.kauf ? "gekauft " + dDE(g.kauf) : "", g.wo ? "bei " + g.wo : "", g.preis ? euro(zahlDE(g.preis)) : "", g.beleg ? "Beleg: " + g.beleg : ""].filter(Boolean).join(" · ");
+      return '<div class="tr-row box" data-s="' + esc((g.t + " " + K[2] + " " + (g.wo || "") + " " + (g.notiz || "") + " gerät garantie gewährleistung").toLowerCase()) + '"><div class="z6-it" style="border:0;padding:0;width:100%"><span class="em" aria-hidden="true" style="font-size:22px">' + K[1] + '</span><span class="li-main"><b>' + esc(g.t) + '</b>'
+        + '<small><span class="z6-amp" style="--c:' + s.c + '"></span>' + esc(s.txt) + '</small>' + (zus ? '<small>' + esc(zus) + '</small>' : '') + '</span><button type="button" class="mini" data-act="z6-gredit" data-id="' + esc(g.id) + '" aria-label="' + esc(g.t) + ' bearbeiten">✏️</button></div></div>';
+    }).join("");
+    if (!L.length) inner += '<div class="tr-row box" data-s="geräte garantie gewährleistung"><p class="small muted">Noch keine Geräte. Trag z. B. deine Grafikkarte, dein Handy oder Kopfhörer ein. Dann siehst du, wie lange du noch Garantie hast.</p></div>';
+    inner += '<div class="tr-row box" data-s="geräte garantie gewährleistung neu"><button class="btn sm primary" data-act="z6-grneu">➕ Gerät eintragen</button><p class="small muted" style="margin-top:8px"><b>Gewährleistung</b> (gesetzlich, beim Händler): 2 Jahre ab Kauf. <b>Garantie</b> (freiwillig, vom Hersteller): steht auf dem Garantieschein. Kassenbon oder Rechnung aufheben!</p></div>';
+    return '<details class="tr-ast" data-k="z6geraete"' + (GR_OPEN ? " open" : "") + '><summary>🧾 Geräte & Garantien<span class="cnt">' + (bald ? "⚠️ " + bald : L.length) + '</span></summary><div class="tr-in">' + inner + '</div></details>';
+  }
+  function grSheet(id) {
+    const g = (id && GR().find(x => x.id === id)) || {};
+    const f = (k, l, ph, ty, max) => '<div class="field"><label for="z6g-' + k + '">' + l + '</label><input id="z6g-' + k + '" class="inp" ' + (ty === "date" ? 'type="date"' : 'maxlength="' + (max || 80) + '"' + (ty === "num" ? ' inputmode="decimal"' : '')) + ' value="' + esc(g[k] || "") + '" placeholder="' + esc(ph || "") + '"></div>';
+    return sheetTop(id ? "🧾 Gerät bearbeiten" : "🧾 Neues Gerät") + '<div class="z6-form">'
+      + f("t", "Was ist es? *", "z. B. Grafikkarte, iPhone, Kopfhörer")
+      + '<div class="field"><label for="z6g-kat">Art</label><select id="z6g-kat" class="inp">' + GR_KAT.map(([k, ic, n]) => '<option value="' + k + '"' + ((g.kat || "") === k ? " selected" : "") + '>' + ic + ' ' + esc(n) + '</option>').join("") + '</select></div>'
+      + f("kauf", "Gekauft am", "", "date") + f("wo", "Wo gekauft?", "z. B. Online-Shop, Elektromarkt") + f("preis", "Preis (€)", "z. B. 599,00", "num", 12)
+      + f("gar", "Herstellergarantie bis (optional)", "", "date") + f("beleg", "Wo liegt der Kassenbon / die Rechnung?", "z. B. Ordner Verträge, Mail-Postfach")
+      + f("sn", "Seriennummer (optional)", "steht auf dem Gerät oder der Verpackung", "", 40)
+      + '<div class="field"><label for="z6g-notiz">Notiz</label><textarea id="z6g-notiz" rows="3" maxlength="600">' + esc(g.notiz || "") + '</textarea></div></div>'
+      + '<div class="btn-row" style="margin-top:12px"><button class="btn primary" data-act="z6-grsave"' + (id ? ' data-id="' + esc(id) + '"' : '') + '>💾 Speichern</button>' + (id ? '<button class="btn danger" data-act="z6-grdel" data-id="' + esc(id) + '">🗑️ Löschen</button>' : '') + '<button class="btn" data-act="close">Abbrechen</button></div>';
+  }
+  function grSpeichern(id) {
+    const n = {t:val("z6g-t"), kat:val("z6g-kat"), kauf:val("z6g-kauf"), wo:val("z6g-wo"), preis:val("z6g-preis"), gar:val("z6g-gar"), beleg:val("z6g-beleg"), sn:val("z6g-sn"), notiz:val("z6g-notiz")};
+    if (!n.t) return "Bitte eintragen, was es ist.";
+    if (n.preis && zahlDE(n.preis) == null) return "Preis bitte als Zahl, z. B. 599,00";
+    if (n.kauf && n.kauf > todayKey()) return "Das Kaufdatum liegt in der Zukunft.";
+    if (n.gar && n.kauf && n.gar < n.kauf) return "Die Garantie endet vor dem Kauf. Bitte prüfen.";
+    for (const k of ["t", "wo", "beleg", "notiz"]) { if (n[k] && typeof sensitive === "function") { const w = sensitive(n[k]); if (w) return w; } }
+    if (/\d{15,}/.test((n.notiz + n.beleg).replace(/\s/g, ""))) return "Bitte keine langen Nummern (Konto, Karte) in die Notiz.";
+    if (id) { const g = GR().find(x => x.id === id); if (!g) return "Nicht gefunden."; Object.assign(g, n); }
+    else GR().push(Object.assign({id:id6()}, n));
+    GR_OPEN = true; save(); return "";
+  }
+
+  /* =====================================================================
+     3. 📊 RÜCKBLICK (Monat / Jahr)
+     ===================================================================== */
+  const GKAT_IC = {wohnen:"🏠", handy:"📱", fahrt:"🚆", gym:"🏋️", abos:"📺", essen:"🍔", kleidung:"👕", freizeit:"🎉", vers:"🛡️", spar:"🐷", rest:"📦"};
+  const gKatName = k => { try { const x = (BUDGET.aus || []).find(y => y[0] === k); return x ? x[1] : "Sonstiges"; } catch (e) { return "Sonstiges"; } };
+  function zeitraum(mode, ref) {
+    if (mode === "j") return {von:ref + "-01-01", bis:ref + "-12-31", name:"Jahr " + ref};
+    const y = +ref.slice(0, 4), m = +ref.slice(5, 7), last = new Date(y, m, 0).getDate();
+    return {von:ref + "-01", bis:ref + "-" + p2(last), name:MON[m - 1] + " " + y};
+  }
+  const vorher = (mode, ref) => { if (mode === "j") return String(+ref - 1); const y = +ref.slice(0, 4), m = +ref.slice(5, 7); return m === 1 ? (y - 1) + "-12" : y + "-" + p2(m - 1); };
+  const danach = (mode, ref) => { if (mode === "j") return String(+ref + 1); const y = +ref.slice(0, 4), m = +ref.slice(5, 7); return m === 12 ? (y + 1) + "-01" : y + "-" + p2(m + 1); };
+  function zahlen(von, bis) {
+    const t = todayKey(), end = bis < t ? bis : t, H = readHB(), R = {gym:0, gymPlan:0, aufg:0, lern:0, bh:0, bhW:0, aus:0, ausN:0, ausKat:{}, krank:0, mood:[], schlaf:[], wasser:[], kg:null, momente:[], ziele:[], tage:0};
+    if (von > t) return R;
+    for (let k = von; k <= end; k = addDays(k, 1)) {
+      R.tage++;
+      try { const gs = gymStatus(k, H); if (gs === "done") { R.gym++; R.gymPlan++; } else if (gs === "missed") R.gymPlan++; } catch (e) {}
+      if (S.study && S.study[k]) R.lern += +S.study[k] || 0;
+      const G = S.gesund || {};
+      if (G.mood && G.mood[k] && G.mood[k].s) R.mood.push(G.mood[k].s);
+      if (G.schlaf && G.schlaf[k] != null && G.schlaf[k] !== "") R.schlaf.push(+G.schlaf[k]);
+      if (G.wasser && G.wasser[k]) R.wasser.push(+G.wasser[k]);
+      if ((S.sick || []).some(x => x.von <= k && (x.bis || x.von) >= k)) R.krank++;
+      if (wdOf(k) === 1) { try { R.bhW++; if (bhPeek(k).done) R.bh++; } catch (e) {} }
+    }
+    R.aufg = (S.items || []).filter(x => x.done && x.kind !== "notiz" && x.date && x.date >= von && x.date <= bis).length + (S.homework || []).filter(x => x.done && x.due && x.due >= von && x.due <= bis).length;
+    ((S.geld && S.geld.ausgaben) || []).forEach(x => { if (x.d >= von && x.d <= bis) { const n = zahlDE(x.betrag) || 0; R.aus += n; R.ausN++; R.ausKat[x.kat || "rest"] = (R.ausKat[x.kat || "rest"] || 0) + n; } });
+    try { const E = ((H.body && H.body.entries) || []).filter(e => +e.kg > 0 && e.d >= von && e.d <= bis).sort((a, b) => a.d < b.d ? -1 : 1); if (E.length) R.kg = {a:+E[0].kg, b:+E[E.length - 1].kg, n:E.length}; } catch (e) {}
+    // Momente aus „Mein Leben“ (nur mit Monat oder Tag) + geschaffte Bucket-List-Wünsche
+    ((S.leben && S.leben.e) || []).forEach(e => { if (e.d && e.d.length >= 7) { const d = e.d.length === 7 ? e.d + "-01" : e.d; if (d >= von && d <= bis) R.momente.push(e); } });
+    ((S.ich && S.ich.ziele) || []).forEach(z => { if (z.done && z.am && z.am >= von && z.am <= bis) R.ziele.push(z); });
+    return R;
+  }
+  const avg = A => A.length ? A.reduce((a, b) => a + b, 0) / A.length : null;
+  function delta(a, b, gutHoch, einheit) {
+    if (b == null || a == null || (a === 0 && b === 0)) return "";
+    const d = a - b; if (Math.abs(d) < 0.05) return '<span class="z6-delta">= wie vorher</span>';
+    const gut = gutHoch ? d > 0 : d < 0;
+    return '<span class="z6-delta ' + (gut ? "up" : "down") + '">' + (d > 0 ? "▲ +" : "▼ −") + komma(Math.abs(d), einheit === "€" ? 2 : 1) + (einheit ? " " + einheit : "") + '</span>';
+  }
+  function viewRueckblick() {
+    const t = todayKey(), mode = SS.get("rbm") === "j" ? "j" : "m";
+    let ref = SS.get("rb" + mode);
+    if (!ref || (mode === "m" && !/^\d{4}-\d{2}$/.test(ref)) || (mode === "j" && !/^\d{4}$/.test(ref))) ref = mode === "j" ? t.slice(0, 4) : t.slice(0, 7);
+    const Z = zeitraum(mode, ref), R = zahlen(Z.von, Z.bis), PV = zeitraum(mode, vorher(mode, ref)), P = zahlen(PV.von, PV.bis);
+    const zukunft = Z.von > t, laeuft = Z.von <= t && Z.bis >= t;
+    let h = '<div class="stack view"><div><p class="eyebrow">Was ist passiert?</p><h1>📊 Rückblick</h1></div>'
+      + '<div class="seg" role="group" aria-label="Zeitraum"><button type="button" data-act="z6-rbmode" data-v="m" aria-pressed="' + (mode === "m") + '">📅 Monat</button><button type="button" data-act="z6-rbmode" data-v="j" aria-pressed="' + (mode === "j") + '">🗓️ Jahr</button></div>'
+      + '<div class="wk-nav"><button class="icon-btn" data-act="z6-rbnav" data-v="' + vorher(mode, ref) + '" aria-label="Zurück">' + ICON.left + '</button><div class="mid"><p class="eyebrow">' + (laeuft ? "läuft gerade" : zukunft ? "kommt noch" : "abgeschlossen") + '</p><h2>' + esc(Z.name) + '</h2></div><button class="icon-btn" data-act="z6-rbnav" data-v="' + danach(mode, ref) + '" aria-label="Weiter">' + ICON.right + '</button></div>';
+    if (zukunft) return h + '<p class="empty">Dieser Zeitraum liegt in der Zukunft.</p></div>';
+    const vs = mode === "j" ? "Vorjahr" : MON[+vorher(mode, ref).slice(5, 7) - 1];
+    // Große Zahlen
+    const kachel = (ic, zahl, lbl, d) => '<div><b>' + zahl + '</b><span>' + ic + ' ' + lbl + '</span>' + (d ? '<span style="display:block">' + d + '</span>' : '') + '</div>';
+    h += '<div class="card"><h3>✨ Auf einen Blick</h3><p class="small muted">Pfeile = Vergleich mit ' + esc(vs) + (laeuft ? ' (der laufende Zeitraum ist noch nicht fertig)' : '') + '</p><div class="lzahl" style="margin-top:8px">'
+      + kachel("🏋️", R.gym + (R.gymPlan ? "/" + R.gymPlan : ""), "Gym-Tage", delta(R.gym, P.gym, true))
+      + kachel("✅", R.aufg, "Aufgaben erledigt", delta(R.aufg, P.aufg, true))
+      + kachel("⏱️", komma(R.lern / 60), "Std. gelernt", delta(R.lern / 60, P.lern / 60, true, "Std."))
+      + kachel("📝", R.bh + "/" + R.bhW, "Berichtsheft-Wochen", "")
+      + kachel("💸", euro(R.aus).replace(/,00\s/, " "), "ausgegeben", delta(R.aus, P.aus, false, "€"))
+      + kachel("🤒", R.krank, R.krank === 1 ? "Krankheitstag" : "Krankheitstage", "")
+      + '</div></div>';
+    // Gesundheit
+    const mo = avg(R.mood), sl = avg(R.schlaf), wa = avg(R.wasser), MOODS = ["😣", "😕", "😐", "🙂", "😄"];
+    if (mo != null || sl != null || wa != null || R.kg) {
+      h += '<div class="card"><h3>❤️ Körper & Kopf</h3><ul class="list">'
+        + (mo != null ? '<li><span class="li-main"><b>' + MOODS[Math.max(0, Math.min(4, Math.round(mo) - 1))] + ' Stimmung Ø ' + komma(mo) + ' von 5</b><small>' + R.mood.length + ' Tage eingetragen' + (avg(P.mood) != null ? ' · ' + vs + ': ' + komma(avg(P.mood)) : '') + '</small></span></li>' : '')
+        + (sl != null ? '<li><span class="li-main"><b>😴 Schlaf Ø ' + komma(sl) + ' Std.</b><small>' + R.schlaf.length + ' Nächte eingetragen' + (sl < 7 ? ' · Tipp: 7–9 Std. sind für Erwachsene empfohlen' : '') + '</small></span></li>' : '')
+        + (wa != null ? '<li><span class="li-main"><b>💧 Wasser Ø ' + komma(wa) + ' Gläser</b><small>' + R.wasser.length + ' Tage eingetragen</small></span></li>' : '')
+        + (R.kg ? '<li><span class="li-main"><b>⚖️ Gewicht ' + komma(R.kg.a) + ' → ' + komma(R.kg.b) + ' kg</b><small>' + R.kg.n + (R.kg.n === 1 ? ' Messung' : ' Messungen') + ' im Hantelbuch</small></span></li>' : '')
+        + '</ul></div>';
+    }
+    // Geld
+    if (R.ausN) {
+      const K = Object.keys(R.ausKat).sort((a, b) => R.ausKat[b] - R.ausKat[a]), top = K.slice(0, 4), max = R.ausKat[K[0]] || 1;
+      h += '<div class="card"><div class="card-h"><h3>💸 Wofür ging Geld weg?</h3><span class="small muted">' + R.ausN + ' Einträge</span></div>'
+        + top.map(k => '<div style="margin-top:8px"><div class="grow"><span>' + (GKAT_IC[k] || "📦") + ' ' + esc(gKatName(k)) + '</span><b>' + euro(R.ausKat[k]) + '</b></div><div class="z6-bar" style="--c:var(--arbeit)"><i style="width:' + (R.ausKat[k] / max * 100).toFixed(1) + '%"></i></div></div>').join("")
+        + '<p class="small muted" style="margin-top:8px">Aus deinem Ausgaben-Tagebuch (Arbeit → Geld). Nur was eingetragen ist.</p></div>';
+    }
+    // Jahr: Balken pro Monat
+    if (mode === "j") {
+      const M = MON_K.map((n, i) => { const zr = zeitraum("m", ref + "-" + p2(i + 1)); return {n, z:zahlen(zr.von, zr.bis)}; });
+      const bars = (titel, f, farbe, fmtW) => { const mx = Math.max(1, ...M.map(m => f(m.z))); return '<div class="card"><h3>' + titel + '</h3><div class="z6-mon" role="img" aria-label="' + esc(titel) + ' pro Monat">' + M.map(m => { const v = f(m.z); return '<div><b>' + (v ? fmtW(v) : "") + '</b><i style="--c:' + farbe + ';height:' + (v / mx * 80).toFixed(1) + 'px"></i><span>' + m.n + '</span></div>'; }).join("") + '</div></div>'; };
+      h += bars("🏋️ Gym-Tage pro Monat", z => z.gym, "var(--gym)", v => v) + bars("💸 Ausgaben pro Monat", z => Math.round(z.aus), "var(--arbeit)", v => v >= 1000 ? komma(v / 1000) + "k" : v);
+    }
+    // Highlights
+    const HL = R.momente.slice().sort((a, b) => a.d < b.d ? -1 : 1);
+    h += '<div class="card"><h3>🌟 Highlights</h3>';
+    if (!HL.length && !R.ziele.length) h += '<p class="small muted">Noch keine Momente mit Datum in diesem Zeitraum. Trag unter Ich → 📖 Mein Leben etwas ein, dann taucht es hier auf.</p>';
+    h += HL.length ? '<ul class="dots">' + HL.slice(0, 15).map(e => '<li>' + esc(e.t) + (e.d.length === 10 ? ' <small class="muted">(' + esc(fmt(e.d, {day:"numeric", month:"numeric"})) + ')</small>' : '') + '</li>').join("") + (HL.length > 15 ? '<li class="muted">… und ' + (HL.length - 15) + ' weitere</li>' : '') + '</ul>' : '';
+    if (R.ziele.length) h += '<p class="lbl" style="margin-top:8px">🎯 Ziele geschafft</p><ul class="dots">' + R.ziele.map(z => '<li>' + esc(z.t) + '</li>').join("") + '</ul>';
+    h += '</div>';
+    h += '<div class="btn-row"><button class="btn sm" data-act="z6-rbtext">📋 Als Text kopieren</button><button class="btn sm" data-act="z6-go" data-v="ziele">🎯 Zu den Zielen</button></div>';
+    h += '<p class="tip"><b>Tipp:</b> Am Monatsanfang zeigt dir die Startseite den Rückblick für den letzten Monat. Je mehr du einträgst (Stimmung, Lernen, Ausgaben), desto genauer wird er.</p>';
+    return h + '</div>';
+  }
+  function rbText() {
+    const t = todayKey(), mode = SS.get("rbm") === "j" ? "j" : "m", ref = SS.get("rb" + mode) || (mode === "j" ? t.slice(0, 4) : t.slice(0, 7)), Z = zeitraum(mode, ref), R = zahlen(Z.von, Z.bis);
+    return ["Rückblick " + Z.name, "🏋️ Gym-Tage: " + R.gym + (R.gymPlan ? " von " + R.gymPlan : ""), "✅ Aufgaben erledigt: " + R.aufg, "⏱️ Gelernt: " + komma(R.lern / 60) + " Std.", "📝 Berichtsheft: " + R.bh + " von " + R.bhW + " Wochen", "💸 Ausgegeben: " + euro(R.aus), "🤒 Krankheitstage: " + R.krank]
+      .concat(R.momente.length ? ["", "🌟 Highlights:"].concat(R.momente.map(e => "- " + e.t)) : []).join("\n");
+  }
+
+  /* =====================================================================
+     4. 🎯 ZIELE (alles auf einer Seite)
+     ===================================================================== */
+  const ZBER = [["", "🎯", "Allgemein"], ["schule", "📚", "Schule"], ["arbeit", "💼", "Arbeit"], ["gym", "🏋️", "Gym"], ["geld", "💰", "Geld"], ["privat", "🏠", "Privat"]];
+  const zBer = k => ZBER.find(x => x[0] === (k || "")) || ZBER[0];
+  function ZL() { if (!S.ich || typeof S.ich !== "object") S.ich = {}; if (!Array.isArray(S.ich.ziele)) S.ich.ziele = []; return S.ich.ziele; }
+  function wocheGym() { const t = todayKey(), mon = mondayOf(t), H = readHB(); let d = 0, p = 0; for (let i = 0; i < 7; i++) { const k = addDays(mon, i); try { const gs = gymStatus(k, H); if (gs === "done") { d++; p++; } else if (gs && gs !== "excused") p++; } catch (e) {} } return {d, p}; }
+  function wocheLern() { const mon = mondayOf(todayKey()); let n = 0; for (let i = 0; i < 7; i++) n += (S.study && +S.study[addDays(mon, i)]) || 0; return n; }
+  function viewZiele() {
+    const Z = ZL(), offen = Z.filter(z => !z.done), fertig = Z.filter(z => z.done), t = todayKey();
+    const spar = ((S.geld && S.geld.ziele) || []), wunsch = ((S.leben && S.leben.e) || []).filter(e => e.kat === "wunsch");
+    const g = wocheGym(), lern = wocheLern(), lz = +S.lernZiel || 120;
+    let h = '<div class="stack view"><div><p class="eyebrow">Alle Ziele an einem Ort</p><h1>🎯 Ziele</h1></div>';
+    h += '<div class="card"><div class="lzahl">'
+      + '<div><b>' + fertig.length + '/' + Z.length + '</b><span>🎯 eigene Ziele</span></div>'
+      + '<div><b>' + g.d + '/' + g.p + '</b><span>🏋️ Gym diese Woche</span></div>'
+      + '<div><b>' + Math.round(Math.min(1, lern / lz) * 100) + ' %</b><span>⏱️ Lernziel Woche</span></div>'
+      + (spar.length ? '<div><b>' + spar.length + '</b><span>💰 Sparziele</span></div>' : '')
+      + (wunsch.length ? '<div><b>' + wunsch.filter(e => e.done).length + '/' + wunsch.length + '</b><span>📝 Bucket List</span></div>' : '')
+      + '</div></div>';
+    // Eigene Ziele
+    h += '<div class="card"><div class="card-h"><h3>🎯 Meine Ziele</h3><span class="small muted">gleiche Liste wie unter Ich</span></div>'
+      + '<div class="z6-add"><input id="z6ZT" class="inp" maxlength="100" placeholder="Neues Ziel, z. B. Teil 1 mit 80+ Punkten" aria-label="Neues Ziel" enterkeyhint="done"><button class="btn primary" data-act="z6-zadd" aria-label="Ziel hinzufügen">➕</button></div>'
+      + '<div class="grid2" style="margin-top:8px"><div class="field"><label for="z6ZB">Bereich</label><select id="z6ZB" class="inp">' + ZBER.map(([k, ic, n]) => '<option value="' + k + '">' + ic + ' ' + n + '</option>').join("") + '</select></div><div class="field"><label for="z6ZD">Bis wann? (optional)</label><input id="z6ZD" type="date"></div></div>';
+    if (!offen.length) h += '<p class="empty" style="margin-top:8px">' + (Z.length ? "Alle Ziele geschafft! 🎉 Zeit für ein neues?" : "Noch keine Ziele. Ideen: Probezeit schaffen · 3× pro Woche Gym · Notgroschen voll · erstes Homelab-Projekt.") + '</p>';
+    else h += '<ul class="list" style="margin-top:8px">' + offen.sort((a, b) => (a.bis || "9") < (b.bis || "9") ? -1 : 1).map(z => {
+      const B = zBer(z.ber), n = z.bis ? diffDays(t, z.bis) : null;
+      const frist = n == null ? "" : n < 0 ? "⚠️ Frist vorbei (" + dDE(z.bis) + ")" : n === 0 ? "⏰ heute fällig" : "⏳ noch " + tage(n).replace("Tagen", "Tage") + " (" + dDE(z.bis) + ")";
+      return '<li>' + chk("z6-zdone", z.id, false, "Geschafft") + '<span class="li-main"><b>' + esc(z.t) + '</b><small>' + B[1] + ' ' + B[2] + (frist ? ' · ' + esc(frist) : '') + '</small></span>' + delBtn("z6-zdel", z.id, "Ziel löschen") + '</li>';
+    }).join("") + '</ul>';
+    if (fertig.length) h += '<details style="margin-top:8px"><summary class="link" style="cursor:pointer">✅ Geschafft (' + fertig.length + ')</summary><ul class="list">' + fertig.map(z => '<li>' + chk("z6-zdone", z.id, true, "Wieder öffnen") + '<span class="li-main done"><b>' + esc(z.t) + '</b>' + (z.am ? '<small>geschafft am ' + esc(dDE(z.am)) + '</small>' : '') + '</span>' + delBtn("z6-zdel", z.id, "Ziel löschen") + '</li>').join("") + '</ul></details>';
+    h += '</div>';
+    // Gym + Lernen diese Woche
+    h += '<div class="card"><h3>📅 Diese Woche</h3>'
+      + '<div style="margin-top:8px"><div class="grow"><span>🏋️ Gym</span><b>' + g.d + ' von ' + g.p + ' Trainings</b></div><div class="z6-bar" style="--c:var(--gym)"><i style="width:' + (g.p ? Math.min(100, g.d / g.p * 100) : 0).toFixed(1) + '%"></i></div></div>'
+      + '<div style="margin-top:10px"><div class="grow"><span>⏱️ Lernen</span><b>' + lern + ' von ' + lz + ' Min.</b></div><div class="z6-bar" style="--c:var(--schule)"><i style="width:' + Math.min(100, lern / lz * 100).toFixed(1) + '%"></i></div></div>'
+      + '<div class="btn-row" style="margin-top:10px"><button class="btn sm" data-act="z6-go" data-v="gym">🏋️ Zum Gym</button><button class="btn sm" data-act="z6-sch" data-v="lernen">📚 Lern-Timer</button></div></div>';
+    // Wunschnote
+    const gg = S.gradeGoal;
+    if (gg && gg.ziel) { let fach = gg.fach || ""; try { fach = subj(gg.fach).kurz || fach; } catch (e) {} h += '<div class="card"><div class="card-h"><h3>📚 Wunsch-Note</h3><button class="btn sm" data-act="z6-sch" data-v="noten">Noten ansehen</button></div><p>Ziel in <b>' + esc(fach.toUpperCase()) + '</b>: <b>' + esc(gg.ziel) + '</b></p></div>'; }
+    // Sparziele
+    if (spar.length) h += '<div class="card"><div class="card-h"><h3>💰 Sparziele</h3><button class="btn sm" data-act="arbtab" data-v="geld">Zu Geld</button></div>' + spar.map(z => {
+      const ziel = zahlDE(z.ziel) || 0, ges = zahlDE(z.gespart) || 0, p = ziel ? Math.min(1, ges / ziel) : 0;
+      return '<div style="margin-top:8px"><div class="grow"><span>' + esc((z.ic || "🎯") + " " + z.n) + '</span><b>' + Math.round(p * 100) + ' %</b></div><div class="z6-bar" style="--c:var(--ok)"><i style="width:' + (p * 100).toFixed(1) + '%"></i></div><p class="small muted">' + euro(ges) + ' von ' + euro(ziel) + (z.bis ? ' · bis ' + esc(MON[+z.bis.slice(5, 7) - 1] + " " + z.bis.slice(0, 4)) : '') + '</p></div>';
+    }).join("") + '</div>';
+    // Bucket List
+    if (wunsch.length) { const o2 = wunsch.filter(e => !e.done); h += '<div class="card"><div class="card-h"><h3>📝 Bucket List</h3><button class="btn sm" data-act="z6-bucket">Alle ansehen</button></div><p class="small muted">' + wunsch.filter(e => e.done).length + ' von ' + wunsch.length + ' geschafft</p>' + (o2.length ? '<ul class="dots">' + o2.slice(0, 5).map(e => '<li>' + esc(e.t) + '</li>').join("") + (o2.length > 5 ? '<li class="muted">… und ' + (o2.length - 5) + ' weitere</li>' : '') + '</ul>' : '') + '</div>'; }
+    h += '<p class="tip"><b>Tipp:</b> Gute Ziele sind <b>SMART</b>: konkret, messbar, machbar, wichtig für dich und mit Termin. Statt „mehr lernen“ lieber „jede Woche 120 Min. Lernkarten bis zur Klausur“.</p>';
+    return h + '</div>';
+  }
+
+  /* =====================================================================
+     5. 🔐 PASSWORT-TRESOR
+     ===================================================================== */
+  const TR_IT = 600000;                              // PBKDF2-Runden (Empfehlung OWASP für SHA-256)
+  const TR_LOCK_MS = 5 * 60 * 1000;                  // nach 5 Min. ohne Benutzung sperren
+  const TR = {key:null, items:null, t:0, fails:0, sperreBis:0, busy:false, zeig:new Set(), hid:0};
+  const TR_KAT = [["web", "🌐", "Webseite / Konto"], ["mail", "📧", "E-Mail"], ["gaming", "🎮", "Gaming"], ["social", "💬", "Social Media"], ["geld", "🏦", "Bank & Bezahlen"], ["shop", "🛍️", "Shopping"], ["schule", "📚", "Schule"], ["wlan", "📶", "WLAN & Router"], ["homelab", "🖥️", "Homelab / Server"], ["sonst", "📦", "Sonstiges"]];
+  const trKat = k => TR_KAT.find(x => x[0] === k) || TR_KAT[0];
+  const hatCrypto = () => !!(window.crypto && crypto.subtle && crypto.getRandomValues);
+  const b64 = buf => { const a = new Uint8Array(buf); let s = ""; for (let i = 0; i < a.length; i++) s += String.fromCharCode(a[i]); return btoa(s); };
+  const unb64 = s => Uint8Array.from(atob(s), c => c.charCodeAt(0));
+  async function schluessel(pw, salt, it) {
+    const roh = await crypto.subtle.importKey("raw", new TextEncoder().encode(pw), "PBKDF2", false, ["deriveKey"]);
+    return crypto.subtle.deriveKey({name:"PBKDF2", salt, iterations:it, hash:"SHA-256"}, roh, {name:"AES-GCM", length:256}, false, ["encrypt", "decrypt"]);
+  }
+  async function verschluesseln(key, obj) {
+    const iv = crypto.getRandomValues(new Uint8Array(12));
+    const ct = await crypto.subtle.encrypt({name:"AES-GCM", iv}, key, new TextEncoder().encode(JSON.stringify(obj)));
+    return {iv:b64(iv), ct:b64(ct)};
+  }
+  async function entschluesseln(key, iv, ct) {
+    const pt = await crypto.subtle.decrypt({name:"AES-GCM", iv:unb64(iv)}, key, unb64(ct));
+    return JSON.parse(new TextDecoder().decode(pt));
+  }
+  async function trSpeichern() {   // Einträge neu verschlüsseln (jedes Mal neuer IV) und speichern
+    if (!TR.key || !TR.items || !S.tresor) throw new Error("gesperrt");
+    const e = await verschluesseln(TR.key, {v:1, items:TR.items});
+    S.tresor.iv = e.iv; S.tresor.ct = e.ct; S.tresor.geaendert = new Date().toISOString(); save();
+  }
+  async function trAnlegen(pw, hint) {
+    const salt = crypto.getRandomValues(new Uint8Array(16)), key = await schluessel(pw, salt, TR_IT);
+    S.tresor = {v:1, it:TR_IT, salt:b64(salt), iv:"", ct:"", hint:hint || "", erstellt:new Date().toISOString(), geaendert:""};
+    TR.key = key; TR.items = []; TR.t = Date.now(); await trSpeichern();
+  }
+  async function trOeffnen(pw) {
+    const T = S.tresor, key = await schluessel(pw, unb64(T.salt), +T.it || TR_IT);
+    const o = await entschluesseln(key, T.iv, T.ct);   // falsches Passwort → Fehler (AES-GCM prüft die Echtheit)
+    TR.key = key; TR.items = Array.isArray(o.items) ? o.items : []; TR.t = Date.now(); TR.fails = 0; TR.zeig.clear();
+  }
+  function trSperren(still) {
+    const war = !!TR.key; TR.key = null; TR.items = null; TR.zeig.clear();
+    if (UI.sheet && String(UI.sheet.kind).startsWith("z6-tr")) closeSheet();
+    if (war && !still) { toast("🔒 Tresor gesperrt"); }
+    if (war && currentView() === "tresor") rerender();
+  }
+  // Grobe Stärke-Prüfung (ohne Internet, nur Länge, Zeichenarten und typische Muster)
+  const HAEUFIG = ["passwort", "password", "123456", "qwertz", "qwerty", "hallo", "schatz", "fussball", "fußball", "iloveyou", "abc123", "111111", "000000", "letmein", "admin", "willkommen"];
+  function staerke(pw) {
+    pw = String(pw || ""); if (!pw) return {n:0, txt:"leer"};
+    const arten = [/[a-zäöüß]/, /[A-ZÄÖÜ]/, /\d/, /[^A-Za-z0-9äöüßÄÖÜ]/].filter(r => r.test(pw)).length, low = pw.toLowerCase();
+    let n = (pw.length >= 8) + (pw.length >= 12) + (pw.length >= 16) + (arten >= 3) + (arten === 4);
+    if (HAEUFIG.some(w => low.includes(w)) || /^(.)\1+$/.test(pw) || /(0123|1234|2345|3456|4567|5678|6789|abcd)/i.test(pw)) n = Math.min(n, 1);
+    if (pw.length < 8) n = Math.min(n, 1);
+    return n <= 1 ? {n, txt:"schwach", c:"var(--feiertag)"} : n <= 3 ? {n, txt:"okay", c:"var(--warn)"} : {n, txt:"stark", c:"var(--ok)"};
+  }
+  // Zufalls-Passwort ohne Verzerrung (Rejection Sampling)
+  function erzeugen(len, zeichen) {
+    const Z = "abcdefghijkmnopqrstuvwxyz" + "ABCDEFGHJKLMNPQRSTUVWXYZ" + "23456789" + (zeichen ? "!#$%&*+-=?@_" : "");
+    const max = 256 - (256 % Z.length); let out = "";
+    while (out.length < len) { const r = crypto.getRandomValues(new Uint8Array(len * 2)); for (const b of r) { if (b < max && out.length < len) out += Z[b % Z.length]; } }
+    // mindestens je ein Klein-, Großbuchstabe und eine Ziffer (bei Zeichen auch ein Sonderzeichen)
+    const ok = /[a-z]/.test(out) && /[A-Z]/.test(out) && /\d/.test(out) && (!zeichen || /[!#$%&*+\-=?@_]/.test(out));
+    return ok ? out : erzeugen(len, zeichen);
+  }
+  const doppelt = () => { const m = {}; (TR.items || []).forEach(e => { if (e.p) m[e.p] = (m[e.p] || 0) + 1; }); return m; };
+  function viewTresor() {
+    let h = '<div class="stack view"><div><p class="eyebrow">Verschlüsselt mit deinem Master-Passwort</p><h1>🔐 Passwort-Tresor</h1></div>';
+    if (!hatCrypto()) return h + '<div class="card note"><h3>⚠️ Geht hier nicht</h3><p class="small">Dieser Browser kann hier nicht verschlüsseln (es braucht eine sichere https-Seite). Öffne den Wochenkompass über die Home-Bildschirm-App oder in Safari/Chrome.</p></div></div>';
+    // 1) Noch kein Tresor: anlegen
+    if (!S.tresor || !S.tresor.salt) {
+      return h + '<div class="card"><div class="z6-lock" aria-hidden="true">🔐</div><h3 style="text-align:center">Tresor anlegen</h3>'
+        + '<p class="small">Alle Passwörter werden mit <b>AES-256</b> verschlüsselt (wie beim Online-Banking). Der Schlüssel entsteht aus deinem <b>Master-Passwort</b>. Das Master-Passwort wird nirgends gespeichert.</p>'
+        + '<div class="card note" style="margin:10px 0"><p class="small"><b>⚠️ Wichtig:</b> Vergisst du das Master-Passwort, kann <b>niemand</b> die Einträge wiederherstellen, auch Claude nicht. Schreib es auf Papier und leg es sicher weg.</p></div>'
+        + '<div class="z6-form"><div class="field"><label for="z6TrP1">Master-Passwort (mind. 12 Zeichen)</label><div class="z6-pwrow"><input id="z6TrP1" class="inp" type="password" autocomplete="new-password" maxlength="200"><button class="btn" type="button" data-act="z6-trsicht" data-v="z6TrP1" aria-label="Anzeigen">👁️</button></div><p class="small muted" id="z6TrSt"></p></div>'
+        + '<div class="field"><label for="z6TrP2">Master-Passwort wiederholen</label><input id="z6TrP2" class="inp" type="password" autocomplete="new-password" maxlength="200"></div>'
+        + '<div class="field"><label for="z6TrH">Merkhilfe (optional, NICHT das Passwort)</label><input id="z6TrH" class="inp" maxlength="80" placeholder="z. B. Satz aus dem Lieblingsfilm"></div>'
+        + '<label class="field" style="display:flex;gap:10px;align-items:flex-start;font-weight:700"><input type="checkbox" id="z6TrOk" style="width:24px;height:24px;flex:none"> Ich habe verstanden: Master-Passwort vergessen = alle Einträge weg.</label></div>'
+        + '<button class="btn primary block" data-act="z6-tranlegen" style="margin-top:10px">🔐 Tresor anlegen</button>'
+        + '<p class="tip" style="margin-top:12px"><b>Tipp für ein gutes Master-Passwort:</b> 4–5 zufällige Wörter mit Zeichen dazwischen, z. B. nach dem Muster <i>Wort-Wort-Wort-Zahl</i>. Lang schlägt kompliziert.</p></div>'
+        + trHinweise() + '</div>';
+    }
+    // 2) Gesperrt: entsperren
+    if (!TR.key) {
+      const warte = Math.max(0, Math.ceil((TR.sperreBis - Date.now()) / 1000));
+      return h + '<div class="card"><div class="z6-lock" aria-hidden="true">🔒</div><h3 style="text-align:center">Tresor ist gesperrt</h3>'
+        + '<div class="z6-form" style="margin-top:8px"><div class="field"><label for="z6TrPw">Master-Passwort</label><div class="z6-pwrow"><input id="z6TrPw" class="inp" type="password" autocomplete="current-password" maxlength="200" enterkeyhint="go"><button class="btn" type="button" data-act="z6-trsicht" data-v="z6TrPw" aria-label="Anzeigen">👁️</button></div></div></div>'
+        + (S.tresor.hint ? '<p class="small muted">💡 Merkhilfe: ' + esc(S.tresor.hint) + '</p>' : '')
+        + (warte ? '<p class="small" style="color:var(--feiertag)">Zu viele Fehlversuche. Bitte ' + warte + ' Sek. warten.</p>' : '')
+        + '<button class="btn primary block" data-act="z6-trauf" style="margin-top:10px">🔓 Entsperren</button>'
+        + '<p class="small muted" style="margin-top:8px">Zuletzt geändert: ' + (S.tresor.geaendert ? esc(new Date(S.tresor.geaendert).toLocaleString("de-DE")) : "–") + '</p></div>'
+        + '<details class="card"><summary class="link" style="cursor:pointer">⚙️ Tresor löschen</summary><p class="small" style="margin-top:8px">Löscht den ganzen Tresor mit allen Einträgen. Das geht nur, wenn du das Wort <b>LÖSCHEN</b> eintippst.</p><div class="z6-add"><input id="z6TrDelOk" class="inp" maxlength="10" placeholder="LÖSCHEN" aria-label="Zum Bestätigen LÖSCHEN eintippen"><button class="btn danger" data-act="z6-trweg">🗑️</button></div></details>'
+        + '</div>';
+    }
+    // 3) Offen
+    TR.t = Date.now();
+    const I = TR.items, D = doppelt(), schwach = I.filter(e => e.p && staerke(e.p).n <= 1).length, dop = I.filter(e => e.p && D[e.p] > 1).length;
+    h += '<div class="card ink"><div class="card-h"><h3>🔓 Tresor ist offen</h3><button class="btn sm" data-act="z6-trzu" style="background:var(--inv);color:var(--fg);border-color:var(--inv)">🔒 Sperren</button></div><p class="small">Sperrt automatisch nach 5 Minuten ohne Benutzung und wenn die App länger als 1 Minute im Hintergrund ist.</p></div>';
+    h += '<div class="card"><div class="z6-add"><input id="z6TrQ" class="inp" type="search" placeholder="Suchen, z. B. Steam, Mail …" aria-label="Im Tresor suchen" autocomplete="off"><button class="btn primary" data-act="z6-trneu" aria-label="Neuer Eintrag">➕</button></div>';
+    if (!I.length) h += '<p class="empty" style="margin-top:8px">Noch leer. Mit ➕ den ersten Zugang eintragen.</p>';
+    h += '<div id="z6TrList" style="margin-top:6px">' + I.slice().sort((a, b) => a.n.localeCompare(b.n, "de")).map(e => {
+      const K = trKat(e.k), s = staerke(e.p), zeig = TR.zeig.has(e.id);
+      return '<div class="z6-tr" data-q="' + esc((e.n + " " + (e.u || "") + " " + (e.url || "") + " " + K[2]).toLowerCase()) + '"><span class="em" aria-hidden="true">' + K[1] + '</span><span class="li-main"><b>' + esc(e.n) + '</b>' + (e.u ? '<small>👤 ' + esc(e.u) + '</small>' : '')
+        + (e.p ? '<span class="z6-pw" style="display:block;margin-top:4px">' + (zeig ? esc(e.p) : "••••••••••") + '</span>' : '<small>kein Passwort eingetragen</small>')
+        + (e.p && s.n <= 1 ? '<span class="z6-warn">⚠️ schwach</span>' : '') + (e.p && D[e.p] > 1 ? '<span class="z6-warn">⚠️ doppelt benutzt</span>' : '')
+        + '<span class="z6-btns">' + (e.p ? '<button class="btn sm" data-act="z6-trzeig" data-id="' + esc(e.id) + '" aria-label="' + (zeig ? "Verbergen" : "Anzeigen") + '">' + (zeig ? "🙈" : "👁️") + '</button><button class="btn sm" data-act="z6-trcp" data-id="' + esc(e.id) + '" data-f="p">📋 Passwort</button>' : '') + (e.u ? '<button class="btn sm" data-act="z6-trcp" data-id="' + esc(e.id) + '" data-f="u">📋 Name</button>' : '') + '<button class="btn sm" data-act="z6-tredit" data-id="' + esc(e.id) + '" aria-label="' + esc(e.n) + ' bearbeiten">✏️</button></span></span></div>';
+    }).join("") + '</div></div>';
+    // Check
+    if (I.length) h += '<div class="card"><h3>🛡️ Tresor-Check</h3><ul class="list">'
+      + '<li><span class="li-main"><b>' + I.length + ' Einträge</b><small>alle verschlüsselt gespeichert</small></span></li>'
+      + '<li><span class="li-main"><b>' + (schwach ? "⚠️ " + schwach + " schwache Passwörter" : "✅ keine schwachen Passwörter") + '</b><small>schwach = kurz, nur eine Zeichenart oder ein bekanntes Muster</small></span></li>'
+      + '<li><span class="li-main"><b>' + (dop ? "⚠️ " + dop + " Einträge mit gleichem Passwort" : "✅ jedes Passwort nur einmal") + '</b><small>Wird ein Konto gehackt, sind sonst alle mit dem gleichen Passwort offen</small></span></li></ul></div>';
+    h += '<details class="card"><summary class="link" style="cursor:pointer">⚙️ Master-Passwort ändern</summary><div class="z6-form" style="margin-top:8px"><div class="field"><label for="z6TrA">Altes Master-Passwort</label><input id="z6TrA" class="inp" type="password" autocomplete="current-password" maxlength="200"></div><div class="field"><label for="z6TrN1">Neues Master-Passwort (mind. 12 Zeichen)</label><input id="z6TrN1" class="inp" type="password" autocomplete="new-password" maxlength="200"></div><div class="field"><label for="z6TrN2">Neues wiederholen</label><input id="z6TrN2" class="inp" type="password" autocomplete="new-password" maxlength="200"></div><div class="field"><label for="z6TrNH">Neue Merkhilfe (optional)</label><input id="z6TrNH" class="inp" maxlength="80" value="' + esc(S.tresor.hint || "") + '"></div><button class="btn primary" data-act="z6-trneupw">Master-Passwort ändern</button></div></details>';
+    return h + trHinweise() + '</div>';
+  }
+  const trHinweise = () => '<div class="card"><h3>💡 Gut zu wissen</h3><ul class="dots">'
+    + '<li>Die Einträge liegen <b>nur verschlüsselt</b> auf diesem Gerät. Ohne Master-Passwort sieht man nur Zeichensalat.</li>'
+    + '<li>Claude-Version und Home-Bildschirm-App haben <b>getrennte</b> Speicher. Umziehen: Einstellungen → Backup (der Tresor bleibt darin verschlüsselt).</li>'
+    + '<li><b>Dienst-Passwörter vom Betrieb</b> gehören nicht hierher. Da gelten die Regeln deines Betriebs.</li>'
+    + '<li>Wichtige Konten (E-Mail, Bank, Apple/Google) zusätzlich mit <b>2-Faktor-Anmeldung</b> schützen.</li>'
+    + '<li>Noch sicherer und mit Abgleich auf allen Geräten: ein echter Passwort-Manager wie <b>Bitwarden</b> oder <b>KeePassXC</b>.</li></ul></div>';
+  function trSheet(id) {
+    const e = (id && (TR.items || []).find(x => x.id === id)) || {};
+    return sheetTop(id ? "🔐 Eintrag bearbeiten" : "🔐 Neuer Eintrag") + '<div class="z6-form">'
+      + '<div class="field"><label for="z6t-n">Wofür? *</label><input id="z6t-n" class="inp" maxlength="60" value="' + esc(e.n || "") + '" placeholder="z. B. Steam, Instagram, WLAN zu Hause" autocomplete="off"></div>'
+      + '<div class="field"><label for="z6t-k">Art</label><select id="z6t-k" class="inp">' + TR_KAT.map(([k, ic, n]) => '<option value="' + k + '"' + ((e.k || "web") === k ? " selected" : "") + '>' + ic + ' ' + esc(n) + '</option>').join("") + '</select></div>'
+      + '<div class="field"><label for="z6t-u">Benutzername / E-Mail</label><input id="z6t-u" class="inp" maxlength="120" value="' + esc(e.u || "") + '" autocomplete="off" autocapitalize="off" spellcheck="false"></div>'
+      + '<div class="field"><label for="z6t-p">Passwort</label><div class="z6-pwrow"><input id="z6t-p" class="inp" type="password" maxlength="200" value="' + esc(e.p || "") + '" autocomplete="off" autocapitalize="off" spellcheck="false"><button class="btn" type="button" data-act="z6-trsicht" data-v="z6t-p" aria-label="Anzeigen">👁️</button><button class="btn" type="button" data-act="z6-trgen" aria-label="Sicheres Passwort erzeugen">🎲</button></div><p class="small muted" id="z6tSt">' + (e.p ? "Stärke: " + staerke(e.p).txt : "🎲 erzeugt ein sicheres Zufalls-Passwort (16 Zeichen)") + '</p></div>'
+      + '<div class="field"><label for="z6t-url">Webseite (optional)</label><input id="z6t-url" class="inp" maxlength="200" inputmode="url" value="' + esc(e.url || "") + '" placeholder="https://" autocapitalize="off"></div>'
+      + '<div class="field"><label for="z6t-no">Notiz (z. B. Sicherheitsfrage, Wiederherstellungs-Hinweis)</label><textarea id="z6t-no" rows="3" maxlength="800">' + esc(e.no || "") + '</textarea></div></div>'
+      + '<div class="btn-row" style="margin-top:12px"><button class="btn primary" data-act="z6-trsave"' + (id ? ' data-id="' + esc(id) + '"' : '') + '>💾 Speichern</button>' + (id ? '<button class="btn danger" data-act="z6-trdel" data-id="' + esc(id) + '">🗑️ Löschen</button>' : '') + '<button class="btn" data-act="close">Abbrechen</button></div>';
+  }
+  // Automatisch sperren: Zeit ohne Benutzung und App im Hintergrund
+  setInterval(() => { if (TR.key && Date.now() - TR.t > TR_LOCK_MS) trSperren(); }, 15000);
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) TR.hid = Date.now();
+    else if (TR.key && TR.hid && Date.now() - TR.hid > 60000) trSperren();
+  });
+  ["click", "input", "keydown", "touchstart"].forEach(ev => document.addEventListener(ev, () => { if (TR.key && (currentView() === "tresor" || (UI.sheet && String(UI.sheet.kind).startsWith("z6-tr")))) TR.t = Date.now(); }, {passive:true, capture:true}));
+
+  /* =====================================================================
+     FENSTER (Sheets) einhängen
+     ===================================================================== */
+  const _rs = renderSheet;
+  renderSheet = function () {
+    const s = UI.sheet;
+    if (s && s.kind === "z6-ek") { $("#sheet").innerHTML = ekSheet(s.arg); return; }
+    if (s && s.kind === "z6-gr") { $("#sheet").innerHTML = grSheet(s.arg); return; }
+    if (s && s.kind === "z6-tr") { if (!TR.key) { closeSheet(); return; } $("#sheet").innerHTML = trSheet(s.arg); return; }
+    if (s && s.kind === "z6-text") { $("#sheet").innerHTML = sheetTop("📋 Zum Kopieren") + '<textarea rows="12" readonly style="width:100%">' + esc(s.arg || "") + '</textarea>'; return; }
+    return _rs.apply(this, arguments);
+  };
+
+  /* =====================================================================
+     KLICKS
+     ===================================================================== */
+  document.addEventListener("click", ev => {
+    const b = ev.target.closest("[data-act]"); if (!b) return;
+    const act = b.dataset.act, id = b.dataset.id;
+    // Ziel im Ich-Baum abgehakt: Datum merken (für den Rückblick)
+    if (act === "i-zdone") { const z = ZL().find(x => x.id === id); if (z) { z.am = z.done ? (z.am || todayKey()) : ""; save(); } return; }
+    if (!act.startsWith("z6-")) return;
+    switch (act) {
+      case "z6-go": closeSheet(); go(b.dataset.v); break;
+      case "z6-sch": try { SCH_TAB = b.dataset.v; } catch (e) {} go("schule"); break;
+      case "z6-bucket": try { sessionStorage.setItem("wk.l.tab", "k:wunsch"); } catch (e) {} go("leben"); break;
+      // --- Einkauf ---
+      case "z6-ekadd": { const inp = $("#z6EkIn"); if (!inp || !inp.value.trim()) { toast("Erst eintippen, was du brauchst"); break; } const r = ekAdd(inp.value); if (r && r !== "ok") toast(r); if (r) { inp.value = ""; rerender(); setTimeout(() => { const i2 = $("#z6EkIn"); if (i2) i2.focus(); }, 0); } break; }
+      case "z6-ekoft": { const r = ekAdd(b.dataset.v); if (r && r !== "ok") toast(r); rerender(); break; }
+      case "z6-ekdone": { const e = EK().e.find(x => x.id === id); if (e) { e.done = !e.done; e.ts = Date.now(); save(); rerender(); } break; }
+      case "z6-ekedit": openSheet("z6-ek", id); break;
+      case "z6-eksave": { const e = EK().e.find(x => x.id === id), t = gross(val("z6EkT")); if (!e) break; if (!t) { toast("Bitte eintragen, was es ist"); break; } e.t = t.slice(0, 60); e.m = val("z6EkM").slice(0, 20); e.k = val("z6EkK") || e.k; const hk = EK().h[e.t.toLowerCase()]; if (hk) hk.k = e.k; save(); closeSheet(); rerender(); toast("Gespeichert ✓"); break; }
+      case "z6-ekdel": EK().e = EK().e.filter(x => x.id !== id); save(); closeSheet(); rerender(); toast("Gelöscht"); break;
+      case "z6-ekclean": { const n = EK().e.filter(x => x.done).length; EK().e = EK().e.filter(x => !x.done); save(); rerender(); toast(n + " erledigte entfernt ✓"); break; }
+      case "z6-ekalle":
+        if (b.dataset.sure !== "1") { b.dataset.sure = "1"; b.textContent = "⚠️ Wirklich alles löschen?"; break; }
+        EK().e = []; save(); rerender(); toast("Liste geleert"); break;
+      case "z6-ekcopy": {
+        const txt = "🛒 Einkaufsliste\n\n" + (ekText() || "(leer)"), kop = () => kopieren(txt, "Liste kopiert ✓").then(ok => { if (!ok) openSheet("z6-text", txt); });
+        if (navigator.share) navigator.share({text:txt}).catch(err => { if (!(err && err.name === "AbortError")) kop(); }); else kop();
+        break;
+      }
+      // --- Geräte ---
+      case "z6-grneu": openSheet("z6-gr", null); break;
+      case "z6-gredit": openSheet("z6-gr", id); break;
+      case "z6-grsave": { const err = grSpeichern(id); if (err) { toast(err, 4000); break; } closeSheet(); rerender(); toast("Gespeichert ✓"); break; }
+      case "z6-grdel":
+        if (b.dataset.sure !== "1") { b.dataset.sure = "1"; b.textContent = "⚠️ Wirklich löschen?"; break; }
+        S.geraete = GR().filter(x => x.id !== id); GR_OPEN = true; save(); closeSheet(); rerender(); toast("Gelöscht"); break;
+      // --- Rückblick ---
+      case "z6-rbmode": SS.set("rbm", b.dataset.v); rerender(); break;
+      case "z6-rbnav": SS.set("rb" + (SS.get("rbm") === "j" ? "j" : "m"), b.dataset.v); rerender(); window.scrollTo(0, 0); break;
+      case "z6-rbgo": { const m = b.dataset.m === "j" ? "j" : "m"; SS.set("rbm", m); SS.set("rb" + m, b.dataset.v); go("rueckblick"); break; }
+      case "z6-rbtext": { const txt = rbText(); kopieren(txt, "Rückblick kopiert ✓").then(ok => { if (!ok) openSheet("z6-text", txt); }); break; }
+      // --- Ziele ---
+      case "z6-zadd": {
+        const t = val("z6ZT"); if (!t) { toast("Erst das Ziel eintippen"); break; }
+        if (typeof sensitive === "function") { const w = sensitive(t); if (w) { toast(w, 3500); break; } }
+        const bis = val("z6ZD"); if (bis && bis < todayKey()) { toast("Das Datum liegt in der Vergangenheit."); break; }
+        ZL().push({id:id6(), key:"z" + id6(), t:t.slice(0, 100), done:false, ber:val("z6ZB"), bis}); save(); rerender(); toast("Ziel gespeichert ✓"); break;
+      }
+      case "z6-zdone": { const z = ZL().find(x => x.id === id); if (z) { z.done = !z.done; z.am = z.done ? todayKey() : ""; if (z.done) toast("Ziel geschafft! 🎉"); save(); rerender(); } break; }
+      case "z6-zdel":
+        if (b.dataset.sure !== "1") { b.dataset.sure = "1"; b.textContent = "⚠️"; b.setAttribute("aria-label", "Nochmal tippen zum Löschen"); toast("Nochmal tippen zum Löschen"); break; }
+        S.ich.ziele = ZL().filter(x => x.id !== id); save(); rerender(); break;
+      // --- Tresor ---
+      case "z6-trsicht": { const el = document.getElementById(b.dataset.v); if (el) { el.type = el.type === "password" ? "text" : "password"; b.textContent = el.type === "password" ? "👁️" : "🙈"; } break; }
+      case "z6-tranlegen": {
+        if (TR.busy) break;
+        const p1 = ($("#z6TrP1") || {}).value || "", p2v = ($("#z6TrP2") || {}).value || "", hint = val("z6TrH");
+        if (p1.length < 12) { toast("Master-Passwort: mindestens 12 Zeichen.", 3500); break; }
+        if (p1 !== p2v) { toast("Die beiden Passwörter sind nicht gleich.", 3500); break; }
+        if (staerke(p1).n <= 1) { toast("Zu einfach (bekanntes Muster). Bitte ein anderes nehmen.", 4000); break; }
+        if (hint && (hint.toLowerCase().includes(p1.toLowerCase()) || p1.toLowerCase().includes(hint.toLowerCase()) && hint.length >= 4)) { toast("Die Merkhilfe verrät das Passwort. Bitte ändern.", 4000); break; }
+        if (!($("#z6TrOk") || {}).checked) { toast("Bitte unten bestätigen, dass du es verstanden hast.", 3500); break; }
+        TR.busy = true; b.disabled = true; b.textContent = "⏳ Wird verschlüsselt …";
+        trAnlegen(p1, hint).then(() => { toast("🔐 Tresor angelegt und offen"); rerender(); }).catch(() => { delete S.tresor; save(); toast("Anlegen hat nicht geklappt.", 3500); rerender(); }).finally(() => { TR.busy = false; });
+        break;
+      }
+      case "z6-trauf": {
+        if (TR.busy) break;
+        if (Date.now() < TR.sperreBis) { toast("Bitte kurz warten."); rerender(); break; }
+        const pw = ($("#z6TrPw") || {}).value || ""; if (!pw) { toast("Master-Passwort eingeben"); break; }
+        TR.busy = true; b.disabled = true; b.textContent = "⏳ Entsperre …";
+        trOeffnen(pw).then(() => { rerender(); window.scrollTo(0, 0); }).catch(() => {
+          TR.fails++; if (TR.fails >= 3) TR.sperreBis = Date.now() + Math.min(300, 15 * Math.pow(2, TR.fails - 3)) * 1000;
+          toast("❌ Falsches Master-Passwort", 3000); rerender(); setTimeout(() => { const i = $("#z6TrPw"); if (i) i.focus(); }, 0);
+        }).finally(() => { TR.busy = false; });
+        break;
+      }
+      case "z6-trzu": trSperren(); break;
+      case "z6-trneu": if (TR.key) openSheet("z6-tr", null); break;
+      case "z6-tredit": if (TR.key) openSheet("z6-tr", id); break;
+      case "z6-trzeig": if (TR.zeig.has(id)) TR.zeig.delete(id); else TR.zeig.add(id); rerender(); break;
+      case "z6-trcp": {
+        const e = (TR.items || []).find(x => x.id === id); if (!e) break; const v = b.dataset.f === "u" ? e.u : e.p;
+        kopieren(v, b.dataset.f === "u" ? "Name kopiert ✓" : "Passwort kopiert ✓").then(ok => {
+          if (!ok) { toast("Kopieren geht hier nicht. 👁️ antippen und abschreiben.", 4000); return; }
+          if (b.dataset.f !== "u") setTimeout(() => { try { if (document.hasFocus()) navigator.clipboard.writeText(""); } catch (x) {} }, 30000);   // Zwischenablage nach 30 s leeren (wenn möglich)
+        });
+        break;
+      }
+      case "z6-trgen": { const el = $("#z6t-p"); if (!el) break; el.value = erzeugen(16, true); el.type = "text"; const st = $("#z6tSt"); if (st) st.textContent = "Stärke: " + staerke(el.value).txt + " · neu erzeugt"; break; }
+      case "z6-trsave": {
+        if (!TR.key || TR.busy) break;
+        const n = {n:val("z6t-n").slice(0, 60), k:val("z6t-k") || "web", u:val("z6t-u"), p:($("#z6t-p") || {}).value || "", url:val("z6t-url"), no:($("#z6t-no") || {}).value || ""};
+        if (!n.n) { toast("Bitte eintragen, wofür der Zugang ist."); break; }
+        if (n.url && !/^https?:\/\//i.test(n.url)) n.url = "https://" + n.url;
+        const alt = id ? TR.items.find(x => x.id === id) : null;
+        const vorher = alt ? Object.assign({}, alt) : null;
+        if (alt) Object.assign(alt, n, {ts:Date.now()}); else TR.items.push(Object.assign({id:id6(), ts:Date.now()}, n));
+        TR.busy = true;
+        trSpeichern().then(() => { closeSheet(); rerender(); toast("🔐 Verschlüsselt gespeichert ✓"); }).catch(() => {
+          if (alt && vorher) Object.assign(alt, vorher); else if (!alt) TR.items.pop();
+          toast("Speichern hat nicht geklappt.", 3500);
+        }).finally(() => { TR.busy = false; });
+        break;
+      }
+      case "z6-trdel": {
+        if (!TR.key || TR.busy) break;
+        if (b.dataset.sure !== "1") { b.dataset.sure = "1"; b.textContent = "⚠️ Wirklich löschen?"; break; }
+        const vorher = TR.items.slice(); TR.items = TR.items.filter(x => x.id !== id); TR.busy = true;
+        trSpeichern().then(() => { closeSheet(); rerender(); toast("Gelöscht"); }).catch(() => { TR.items = vorher; toast("Löschen hat nicht geklappt.", 3500); }).finally(() => { TR.busy = false; });
+        break;
+      }
+      case "z6-trneupw": {
+        if (!TR.key || TR.busy) break;
+        const a = ($("#z6TrA") || {}).value || "", n1 = ($("#z6TrN1") || {}).value || "", n2 = ($("#z6TrN2") || {}).value || "", hint = val("z6TrNH");
+        if (n1.length < 12) { toast("Neues Master-Passwort: mindestens 12 Zeichen.", 3500); break; }
+        if (n1 !== n2) { toast("Die neuen Passwörter sind nicht gleich.", 3500); break; }
+        if (staerke(n1).n <= 1) { toast("Zu einfach. Bitte ein anderes nehmen.", 3500); break; }
+        if (hint && hint.toLowerCase().includes(n1.toLowerCase())) { toast("Die Merkhilfe verrät das Passwort.", 3500); break; }
+        TR.busy = true; b.disabled = true; b.textContent = "⏳ Prüfe …";
+        const T = S.tresor;
+        schluessel(a, unb64(T.salt), +T.it || TR_IT).then(k => entschluesseln(k, T.iv, T.ct)).then(async () => {
+          const salt = crypto.getRandomValues(new Uint8Array(16)), key = await schluessel(n1, salt, TR_IT), alt = Object.assign({}, S.tresor);
+          TR.key = key; S.tresor.salt = b64(salt); S.tresor.it = TR_IT; S.tresor.hint = hint;
+          try { await trSpeichern(); toast("✅ Master-Passwort geändert", 3500); } catch (x) { S.tresor = alt; toast("Ändern hat nicht geklappt.", 3500); trSperren(true); }
+          rerender();
+        }).catch(() => { toast("❌ Altes Master-Passwort stimmt nicht", 3500); rerender(); }).finally(() => { TR.busy = false; });
+        break;
+      }
+      case "z6-trweg": {
+        if (val("z6TrDelOk").toUpperCase() !== "LÖSCHEN") { toast("Zum Löschen LÖSCHEN eintippen."); break; }
+        delete S.tresor; trSperren(true); save(); rerender(); toast("Tresor gelöscht"); break;
+      }
+    }
+  });
+
+  /* ---------- Tastatur & Eingaben ---------- */
+  document.addEventListener("keydown", ev => {
+    if (ev.key !== "Enter") return;
+    const id = ev.target && ev.target.id;
+    const k = {z6EkIn:"z6-ekadd", z6ZT:"z6-zadd", z6TrPw:"z6-trauf"}[id];
+    if (k) { ev.preventDefault(); const btn = document.querySelector('[data-act="' + k + '"]'); if (btn) btn.click(); }
+  });
+  document.addEventListener("input", ev => {
+    const el = ev.target; if (!el || !el.id) return;
+    if (el.id === "z6TrQ") {   // Suche im Tresor ohne Neuzeichnen
+      const q = el.value.trim().toLowerCase();
+      document.querySelectorAll("#z6TrList .z6-tr").forEach(r => { r.hidden = !!q && !r.dataset.q.includes(q); });
+      return;
+    }
+    if (el.id === "z6TrP1") { const st = $("#z6TrSt"); if (st) st.textContent = el.value ? "Stärke: " + staerke(el.value).txt + " · " + el.value.length + " Zeichen" : ""; return; }
+    if (el.id === "z6t-p") { const st = $("#z6tSt"); if (st) st.textContent = el.value ? "Stärke: " + staerke(el.value).txt : ""; }
+  });
+  document.addEventListener("toggle", e => { const d = e.target; if (d && d.dataset && d.dataset.k === "z6geraete") GR_OPEN = d.open; }, true);
+
+  /* =====================================================================
+     IN DIE APP EINHÄNGEN
+     ===================================================================== */
+  VIEWS.einkauf = viewEinkauf; VIEWS.rueckblick = viewRueckblick; VIEWS.ziele = viewZiele; VIEWS.tresor = viewTresor;
+  TITLES.einkauf = "Einkauf"; TITLES.rueckblick = "Rückblick"; TITLES.ziele = "Ziele"; TITLES.tresor = "Tresor";
+  SUB.push("einkauf", "rueckblick", "ziele", "tresor");
+
+  // Startseite: zweite Reihe im Schnellzugriff + Monatsanfang-Karte + Garantie-Hinweis
+  const _se = startExtras;
+  startExtras = function (t) {
+    let h = _se.apply(this, arguments);
+    try {
+      const offen = EK().e.filter(e => !e.done).length;
+      const reihe = '<div class="quick z6q">' + [["einkauf", "🛒", "Einkauf", offen], ["ziele", "🎯", "Ziele", 0], ["rueckblick", "📊", "Rückblick", 0], ["tresor", "🔐", "Tresor", 0]]
+        .map(([v, e, n, z]) => '<button type="button" class="qbtn" data-act="z6-go" data-v="' + v + '"><span aria-hidden="true">' + e + '</span>' + n + (z ? ' <b class="z6n" aria-label="' + z + ' offen">' + z + '</b>' : '') + '</button>').join("") + '</div>';
+      h = /<div class="quick">[\s\S]*?<\/div>/.test(h) ? h.replace(/(<div class="quick">[\s\S]*?<\/div>)/, "$1" + reihe) : reihe + h;
+      const tk = t || todayKey(), tag = +tk.slice(8);
+      if (tag <= 3) {
+        const vm = +tk.slice(5, 7) === 1 ? (+tk.slice(0, 4) - 1) + "-12" : tk.slice(0, 5) + p2(+tk.slice(5, 7) - 1);
+        h += '<button type="button" class="card" data-act="z6-rbgo" data-v="' + vm + '" data-m="m" style="text-align:left;border:2px solid var(--privat)"><h3>📊 Dein Rückblick für ' + MON[+vm.slice(5, 7) - 1] + '</h3><p class="small muted">Gym, Lernen, Ausgaben und Highlights vom letzten Monat</p></button>';
+      }
+      const G = GR().map(g => Object.assign({g}, grStatus(g))).filter(x => x.tage != null && x.tage >= 0 && x.tage <= 30).sort((a, b) => a.tage - b.tage);
+      if (G.length) h += '<button type="button" class="card" data-act="z6-go" data-v="ich" style="text-align:left;border:2px solid var(--warn)"><h3>🧾 Garantie endet bald: ' + esc(G[0].g.t) + '</h3><p class="small muted">' + G.map(x => esc(x.g.t) + (x.tage === 0 ? " heute" : " in " + tage(x.tage))).join(" · ") + '. Jetzt noch prüfen, ob alles funktioniert.</p></button>';
+    } catch (e) {}
+    return h;
+  };
+
+  // Ich-Baum: Ast „Geräte & Garantien“ vor „Meine Daten & Sicherheit“; Passwort-Hinweis auf den Tresor ändern
+  const _vi = VIEWS.ich;
+  if (_vi) VIEWS.ich = function () {
+    let h = _vi.apply(this, arguments);
+    const mark = '<details class="tr-ast" data-k="daten"';
+    h = h.includes(mark) ? h.replace(mark, grAst() + mark) : h.replace('<div class="tree" id="ichTree">', '<div class="tree" id="ichTree">' + grAst());
+    h = h.replace("IBAN, Ausweis- oder Steuernummer, Passwörter.", "IBAN, Ausweis- oder Steuernummer. <b>Passwörter</b> nur in den 🔐 Tresor (verschlüsselt): <button class=\"link small\" data-act=\"z6-go\" data-v=\"tresor\">Zum Tresor →</button>");
+    return h;
+  };
+  // Woche: Knopf zum Rückblick
+  const _vw = VIEWS.woche;
+  if (_vw) VIEWS.woche = function () {
+    const h = _vw.apply(this, arguments);
+    return h.replace('<div class="days">', '<div class="btn-row"><button class="btn sm" data-act="z6-go" data-v="rueckblick">📊 Monats- & Jahresrückblick</button><button class="btn sm" data-act="z6-go" data-v="ziele">🎯 Ziele</button></div><div class="days">');
+  };
+
+  // Suche über alles
+  const _sa = searchAll;
+  searchAll = function (q) {
+    const r = _sa.apply(this, arguments) || [], s = String(q || "").trim().toLowerCase();
+    if (s.length < 2 || !Array.isArray(r)) return r;
+    const hit = x => String(x || "").toLowerCase().includes(s);
+    EK().e.forEach(e => { if (hit(e.t)) r.push({cat:"Einkaufsliste", title:"🛒 " + e.t, text:(e.done ? "im Wagen" : "noch holen") + (e.m ? " · " + e.m : ""), go:() => { closeSheet(); go("einkauf"); }, s:1}); });
+    GR().forEach(g => { if (hit([g.t, g.wo, g.notiz, grKat(g.kat)[2]].join(" "))) r.push({cat:"Gerät", title:grKat(g.kat)[1] + " " + g.t, text:grStatus(g).txt, go:() => { closeSheet(); GR_OPEN = true; go("ich"); }, s:1}); });
+    ZL().forEach(z => { if (hit(z.t)) r.push({cat:"Ziel", title:"🎯 " + z.t, text:z.done ? "geschafft" : "offen", go:() => { closeSheet(); go("ziele"); }, s:1}); });
+    [["🛒 Einkaufsliste", "einkauf", "einkaufen einkaufsliste liste supermarkt"], ["🎯 Ziele", "ziele", "ziele ziel sparziele bucket smart"], ["📊 Rückblick", "rueckblick", "rückblick monat jahr statistik bilanz"], ["🔐 Passwort-Tresor", "tresor", "passwort passwörter tresor zugang login kennwort"], ["🧾 Geräte & Garantien", "ich", "geräte garantie gewährleistung kassenbon rechnung"]]
+      .forEach(([n, v, w]) => { if (hit(n + " " + w)) r.push({cat:"Bereich", title:n, text:w, go:() => { closeSheet(); if (v === "ich") GR_OPEN = true; go(v); }, s:0}); });
+    return r.sort((a, b) => (a.s || 0) - (b.s || 0));
+  };
+
+  // Backup-Import: neue Bereiche nicht verlieren, wenn ein älteres Backup sie noch nicht kennt
+  if (typeof applyImport === "function") {
+    const _ai = applyImport;
+    applyImport = function (o) {
+      const behalten = {};
+      try { if (o && o.wochenkompass && o.wochenkompass.settings) ["tresor", "einkauf", "geraete"].forEach(k => { if (S[k] && !o.wochenkompass[k]) behalten[k] = S[k]; }); } catch (e) {}
+      trSperren(true);
+      const r = _ai.apply(this, arguments);
+      if (r && Object.keys(behalten).length) { Object.assign(S, behalten); save(); rerender(); }
+      return r;
+    };
+  }
+
+  // Zum Testen von außen (nur Hilfsfunktionen, keine Daten)
+  window.__z6 = {rateKat, teileMenge, staerke, erzeugen, zahlen, zeitraum, grStatus, tr:{offen:() => !!TR.key, sperren:trSperren}};
+  if (typeof rerender === "function" && ["start", "ich", "woche", "einkauf", "rueckblick", "ziele", "tresor"].includes(currentView())) rerender();
+})();
+</script>
+
 <script>
 /* Service Worker: App startet auch mit schlechtem Netz */
 if ("serviceWorker" in navigator) addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));
