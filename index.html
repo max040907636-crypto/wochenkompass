@@ -428,7 +428,7 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
 button,input,textarea,select{font:inherit;color:inherit}
 button{cursor:pointer;-webkit-user-select:none;user-select:none}
 /* Kein Zoom bei schnellem Doppeltippen (z. B. auf + bei den Kilos) */
-*{touch-action:manipulation}
+*{touch-action:pan-x pan-y}
 html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
 :focus-visible{outline:3px solid var(--fg);outline-offset:2px}
 a{color:var(--fg)}
@@ -526,7 +526,7 @@ p{margin:0}
 .badge.got{border:2px solid var(--fg);background:var(--fg);color:var(--inv)}
 
 /* Video */
-.vid-box{background:#ffffff;border-radius:var(--r);overflow:hidden;border:1px solid var(--line);aspect-ratio:1;max-width:100%;filter:var(--vid-filter)}
+.vid-box{background:#ffffff;border-radius:var(--r);overflow:hidden;border:1px solid var(--line);aspect-ratio:1;width:100%;max-width:100%;flex:none;filter:var(--vid-filter)}
 .vid-box video{width:100%;height:100%;display:block;object-fit:cover}
 .vid-none{display:grid;place-items:center;color:#6b6b6b;font-size:14px;height:100%;padding:16px;text-align:center}
 
@@ -1408,7 +1408,7 @@ document.addEventListener("click", async e => {
     case "go": closeSheet(); go(b.dataset.h); break;
     case "uxf": UI.uxTag = b.dataset.v; render(); break;     // Filter auf der Übungen-Seite
     case "lvf": UI.lvTag = b.dataset.v; render(); break;     // Tag auf der Kilos-Seite
-    case "kgs": { const id = b.dataset.ex, ex = EX[id]; saveKg(id, Math.max(0, Math.round((curKg(id, t) + (+b.dataset.d) * (ex.inc || 1)) * 10) / 10), t); render(); break; }
+    case "kgs": { const id = b.dataset.ex, ex = EX[id]; saveKg(id, Math.min(400, Math.max(0, Math.round((curKg(id, t) + (+b.dataset.d) * (ex.inc || 1)) * 10) / 10)), t); render(); break; }
     case "wtsheet": { const id = curEx(); if (id) openSheet("wt", id); break; }
     case "start": {
       const p = b.dataset.p, w = S.workouts[t];
@@ -3778,7 +3778,35 @@ function ensureGym() {
   gymFrame.title = "Hantelbuch";
   gymFrame.setAttribute("allow", "fullscreen; screen-wake-lock");
   gymFrame.addEventListener("load", syncFrameTheme);
-  gymFrame.srcdoc = head + tpl.innerHTML + "</body></html>";
+  // v23: Im Rahmen gibt es sonst den iPhone-Rand (Notch/Home-Balken) ein zweites Mal -> große Lücke oben und unten
+  const inner = tpl.innerHTML.replace(/env\(safe-area-inset-(?:top|bottom)(?:,[^)]*)?\)/g, "0px");
+  const fix = '<style>html{scroll-padding-top:84px;-webkit-text-size-adjust:100%;touch-action:pan-x pan-y}.vid-box{flex:none!important}body{overflow-x:clip;-webkit-touch-callout:none}*{-webkit-tap-highlight-color:transparent}</style>'
+    + '<script>(function(){function ok(t){return t&&t.closest&&t.closest("input,textarea,.sel,[contenteditable]");}'
+    + 'document.addEventListener("selectstart",function(e){var t=e.target&&e.target.nodeType===3?e.target.parentElement:e.target;if(!ok(t))e.preventDefault();},true);'
+    + '["gesturestart","gesturechange","gestureend"].forEach(function(n){document.addEventListener(n,function(e){e.preventDefault();},{passive:false});});'
+    + 'document.addEventListener("touchmove",function(e){if(e.touches&&e.touches.length>1)e.preventDefault();},{passive:false});'
+    + 'document.addEventListener("click",function(){var s=getSelection();if(s&&s.rangeCount&&!ok(document.activeElement))s.removeAllRanges();},true);'
+    + 'function fi(){document.querySelectorAll("input,select,textarea").forEach(function(i){if(parseFloat(getComputedStyle(i).fontSize)<16)i.style.fontSize="16px";});}'
+    + 'new MutationObserver(function(){requestAnimationFrame(fi);}).observe(document.documentElement,{childList:true,subtree:true});document.addEventListener("DOMContentLoaded",fi);})();<\/script>';
+  // v24: Videos als Blob laden + Abspielen sicherstellen; Antippen startet ein angehaltenes Video
+  const vidFix = '<script>(' + function () {
+    var cache = {};
+    function play(v) { try { var p = v.play(); if (p && p.catch) p.catch(function () {}); } catch (e) {} }
+    function load(v) {
+      var src = v.getAttribute("src");
+      if (!src || src.indexOf("/_blob/") !== 0 || v.dataset.vf) return;
+      v.dataset.vf = "1"; v.muted = true; v.setAttribute("playsinline", "");
+      if (cache[src]) { v.src = cache[src]; play(v); return; }
+      fetch(src).then(function (r) { if (!r.ok) throw new Error("http"); return r.blob(); }).then(function (b) {
+        var u = URL.createObjectURL(new Blob([b], {type:"video/mp4"})); cache[src] = u; v.src = u; play(v);
+      }).catch(function () { v.src = src; play(v); });
+    }
+    function scan() { document.querySelectorAll("video").forEach(load); }
+    new MutationObserver(scan).observe(document.documentElement, {childList:true, subtree:true});
+    document.addEventListener("DOMContentLoaded", scan);
+    document.addEventListener("click", function (e) { var b = e.target.closest && e.target.closest(".vid-box"); if (b) { var v = b.querySelector("video"); if (v && v.paused) play(v); } }, true);
+  }.toString() + ')();<\/script>';
+  gymFrame.srcdoc = head + fix + vidFix + inner + "</body></html>";
   $("#gymWrap").appendChild(gymFrame);
 }
 function syncFrameTheme() {
@@ -4487,8 +4515,7 @@ gymNachtrag(); load(); applyTheme(); render();
   document.addEventListener("keydown", e => { if (e.key === "Escape" && ersatz) ersatzSetzen(false); });
 })();
 </script>
-
-<!-- ERWEITERUNG v15–v19 (03.11.2026): v19 = große Kachel „Ich“, Gesundheit als Tab im Ich-Bereich; Bereiche „Ich“ und „Gesundheit“ im Baum-Stil; v16: Gesundheit auch im Ich-Baum, Gewicht per Paket -->
+<!-- ERWEITERUNG v15–v20 (03.11.2026): v20 = verschlüsselte Daten mit Passwort (nur GitHub-Version); v19 = große Kachel „Ich“, Gesundheit als Tab im Ich-Bereich; Bereiche „Ich“ und „Gesundheit“ im Baum-Stil; v16: Gesundheit auch im Ich-Baum, Gewicht per Paket -->
 <style>
 /* ---------- Baum (wie der Schul-Baum) ---------- */
 .tree{display:flex;flex-direction:column;gap:8px}
@@ -4531,6 +4558,8 @@ gymNachtrag(); load(); applyTheme(); render();
 .ichtabs a{min-height:44px;border-radius:10px;display:flex;align-items:center;justify-content:center;gap:6px;font-weight:700;text-decoration:none;color:var(--fg)}
 .ichtabs a[aria-current="page"]{background:var(--surface);box-shadow:0 1px 0 var(--line),0 0 0 1px var(--line)}
 .tr-hit{outline:2px solid var(--privat);outline-offset:1px}
+.unlock{border:2px solid var(--privat)}
+.unlock input{height:50px;border-radius:12px;border:1px solid var(--line);background:var(--bg);padding:0 12px;width:100%;min-width:0;font-size:17px}
 </style>
 <input type="file" id="ichFile" accept=".json,application/json" hidden>
 <script>
@@ -4638,7 +4667,7 @@ gymNachtrag(); load(); applyTheme(); render();
       + (gebTxt ? '<p class="small">' + gebTxt + '</p>' : '') + '</div>';
     // Noch kein Paket geladen?
     const leer = FELDER.flatMap(([, L]) => L).filter(([k]) => !F(k));
-    if (!I.paket) h += '<div class="card note"><h3>📦 Deine Daten laden</h3><p class="small">Claude hat dir eine Datei <b>ich-paket.json</b> gemacht. Lad sie hier, dann füllt sich alles von selbst. Die Daten bleiben nur auf diesem Gerät.</p><div class="btn-row"><button class="btn primary" data-act="i-paket">Ich-Paket laden</button><button class="btn" data-act="i-pakettext">Als Text einfügen</button></div><div id="ichPaketBox"></div></div>';
+    if (!I.paket && !window.ICH_PAKET_ENC) h += '<div class="card note"><h3>📦 Deine Daten laden</h3><p class="small">Claude hat dir eine Datei <b>ich-paket.json</b> gemacht. Lad sie hier, dann füllt sich alles von selbst. Die Daten bleiben nur auf diesem Gerät.</p><div class="btn-row"><button class="btn primary" data-act="i-paket">Ich-Paket laden</button><button class="btn" data-act="i-pakettext">Als Text einfügen</button></div><div id="ichPaketBox"></div></div>';
     // Fristen
     const fr = fristen().slice(0, 6);
     if (fr.length) h += '<div class="card"><div class="card-h"><h3>⏰ Läuft bald ab</h3><span class="small muted">Karten & Ausweise</span></div><div>' + fr.map(x => '<div class="frist"><span class="ampel ' + ampel(x.tage) + '"></span><span class="li-main"><b>' + esc(x.k.name) + '</b><small>gültig bis ' + esc(fmtD(x.k.bis)) + '</small></span><b class="d">' + (x.tage < 0 ? "abgel." : x.tage > 730 ? Math.round(x.tage / 365) + " J." : x.tage + " T.") + '</b></div>').join("") + '</div></div>';
@@ -4863,10 +4892,38 @@ gymNachtrag(); load(); applyTheme(); render();
     if (S.ich.hbPending && hbAnwenden(S.ich.hbPending)) { delete S.ich.hbPending; save(); }
   } catch (e) {}
 
+  /* ---------- (v20) Verschlüsselte Daten (nur öffentliche Home-Bildschirm-Version) ----------
+     window.ICH_PAKET_ENC enthält das Ich-Paket verschlüsselt (AES-GCM, Schlüssel aus dem
+     Passwort per PBKDF2-SHA256). Ohne Passwort kann niemand die Daten lesen.
+     Nach dem Entsperren landen sie im Browser-Speicher, das Passwort wird NICHT gespeichert. */
+  const ENC = window.ICH_PAKET_ENC || null;
+  const gesperrt = () => !!(ENC && S.ich.autoV !== ENC.erstellt);
+  const b64 = t => Uint8Array.from(atob(t), c => c.charCodeAt(0));
+  async function entsperren(pw) {
+    const enc = new TextEncoder();
+    const basis = await crypto.subtle.importKey("raw", enc.encode(pw), "PBKDF2", false, ["deriveKey"]);
+    const key = await crypto.subtle.deriveKey({name:"PBKDF2", salt:b64(ENC.salt), iterations:ENC.iter, hash:"SHA-256"}, basis, {name:"AES-GCM", length:256}, false, ["decrypt"]);
+    const klar = await crypto.subtle.decrypt({name:"AES-GCM", iv:b64(ENC.iv)}, key, b64(ENC.ct));
+    return JSON.parse(new TextDecoder().decode(klar));
+  }
+  const entsperrKarte = () => !gesperrt() ? "" : '<div class="card unlock"><h3>🔒 Deine Daten entsperren</h3><p class="small">Einmal das Passwort eingeben, das Claude dir gegeben hat. Danach ist alles ausgefüllt.</p><input id="ichPw" type="password" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="Passwort" aria-label="Passwort"><button class="btn primary block" data-act="i-unlock">Entsperren</button></div>';
+  {
+    const _vs2 = VIEWS.start;
+    VIEWS.start = function () { const h = _vs2(); return gesperrt() ? h.replace('<div class="tiles', '<a class="banner" href="#ich" style="--c:var(--privat);text-decoration:none;color:var(--fg)"><span class="ic">🔒</span><div><b>Deine Daten sind noch gesperrt</b><span class="small">Tippen und einmal das Passwort eingeben.</span></div></a><div class="tiles') : h; };
+  }
+
   /* ---------- Klicks ---------- */
   document.addEventListener("click", e => {
     const b = e.target.closest("[data-act]"); if (!b) return;
     const act = b.dataset.act; if (!act.startsWith("i-")) return;
+    if (act === "i-unlock") {
+      const pw = ($("#ichPw") || {}).value || "";
+      if (!pw.trim()) { toast("Passwort eingeben"); return; }
+      b.disabled = true; b.textContent = "Entsperre …";
+      entsperren(pw.trim().toLowerCase()).then(o => { paketAnwenden(o); S.ich.autoV = ENC.erstellt; save(); rerender(); toast("Entsperrt ✓ Alles ist da.", 3500); })
+        .catch(() => { b.disabled = false; b.textContent = "Entsperren"; toast("Passwort stimmt nicht. Kleinschreibung, Bindestriche beachten.", 4000); });
+      return;
+    }
     ensureIch();
     const id = b.dataset.id, t = todayKey(), I = S.ich, G = S.gesund;
     const val = sel => { const el = $(sel); return el ? el.value.trim() : ""; };
@@ -4942,15 +4999,11 @@ gymNachtrag(); load(); applyTheme(); render();
   // Suche im Baum nach dem Neuzeichnen wieder anwenden (render wird auch per hashchange gerufen)
   const nachZeichnen = () => setTimeout(() => { const v = currentView(); if (v === "ich" && ICH_Q) filterTree("ichTree", ICH_Q); if (v === "gesund" && GES_Q) filterTree("gesTree", GES_Q); }, 0);
   const _vi = viewIch, _vg = viewGesund;
-  VIEWS.ich = function () { nachZeichnen(); return _vi(); };
-  VIEWS.gesund = function () { nachZeichnen(); return _vg(); };
+  const mitSperre = h => entsperrKarte() ? h.replace('<div class="stack view">', '<div class="stack view">' + entsperrKarte()) : h;
+  VIEWS.ich = function () { nachZeichnen(); return mitSperre(_vi()); };
+  VIEWS.gesund = function () { nachZeichnen(); return mitSperre(_vg()); };
   if (typeof rerender === "function" && (currentView() === "ich" || currentView() === "gesund" || currentView() === "start")) rerender();
 })();
-</script>
-
-<script>
-/* Service Worker: App startet auch mit schlechtem Netz */
-if ("serviceWorker" in navigator) addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));
 </script>
 
 <style>
@@ -4964,6 +5017,59 @@ body.gym-mode .top{position:fixed;left:0;right:0;top:0;padding-top:env(safe-area
 html.gym-lock,html.gym-lock body{overflow:hidden;height:100%;overscroll-behavior:none}
 body.gym-mode .back{min-height:48px;padding:0 16px 0 12px;font-size:17px}
 </style>
+<style>
+/* =====================================================================
+   ERWEITERUNG v23 (04.11.2026): Zoom, Markieren, abgeschnittene Wörter
+   ===================================================================== */
+html{-webkit-text-size-adjust:100%;touch-action:pan-x pan-y;scroll-padding-top:calc(env(safe-area-inset-top,0px) + 76px)}
+body,.wrap,.nav,.top,.sheet-wrap,.sheet{touch-action:pan-x pan-y}
+body{overflow-x:clip;-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent}
+.wrap{overflow-x:clip}
+/* Bedienelemente lassen sich nicht mehr versehentlich markieren; normaler Text (z. B. Berichtsheft) bleibt kopierbar */
+button,.tile,.nav,.nav a,.back,.icon-btn,.chk,.mini,.pill,.seg,.seg button,.stepper,summary,[data-act]{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;touch-action:pan-x pan-y}
+input,textarea,select,.sel{-webkit-user-select:text;user-select:text}
+.sel{-webkit-user-select:all;user-select:all}
+/* Überschriften und Titel nicht mehr oben/unten anschneiden (Umlaute, Emojis) */
+.brand span{line-height:1.3;padding-block:.1em}
+h1,h2,h3{padding-top:.06em;padding-bottom:.04em}
+.top-in{overflow:visible}
+</style>
+<script>
+(function () {
+  "use strict";
+  // Zoom: festes Viewport-Meta, Gesten sperren, und falls die Seite doch gezoomt ist, sofort zurücksetzen
+  var M = document.querySelector('meta[name="viewport"]');
+  var C = "width=device-width,initial-scale=1,minimum-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover";
+  if (M) M.setAttribute("content", C);
+  ["gesturestart", "gesturechange", "gestureend"].forEach(function (n) { document.addEventListener(n, function (e) { e.preventDefault(); }, {passive:false}); });
+  document.addEventListener("touchmove", function (e) { if (e.touches && e.touches.length > 1) e.preventDefault(); }, {passive:false});
+  function zuruecksetzen() {
+    var v = window.visualViewport; if (!v || !M || Math.abs(v.scale - 1) < 0.02) return;
+    M.setAttribute("content", C.replace("maximum-scale=1,", "maximum-scale=1.0001,"));
+    setTimeout(function () { M.setAttribute("content", C); window.scrollTo(window.scrollX ? 0 : 0, window.scrollY); }, 60);
+  }
+  if (window.visualViewport) { visualViewport.addEventListener("resize", zuruecksetzen); }
+  window.addEventListener("orientationchange", function () { setTimeout(zuruecksetzen, 350); });
+  window.addEventListener("pageshow", zuruecksetzen);
+  // Markieren: nur auf Bedienelementen verhindern (nicht auf normalem Text und in Eingabefeldern)
+  var BED = "button,nav,.tile,.back,.icon-btn,.chk,.mini,.pill,.seg,.stepper,summary,[data-act],[role=tab]";
+  function inEingabe(t) { return t && t.closest && t.closest("input,textarea,select,[contenteditable]"); }
+  document.addEventListener("selectstart", function (e) {
+    var t = e.target && e.target.nodeType === 3 ? e.target.parentElement : e.target;
+    if (t && t.closest && t.closest(BED) && !inEingabe(t)) e.preventDefault();
+  }, true);
+  document.addEventListener("click", function (e) {
+    if (!(e.target.closest && e.target.closest(BED))) return;
+    var s = window.getSelection && getSelection();
+    if (s && s.rangeCount && !inEingabe(document.activeElement)) s.removeAllRanges();
+  }, true);
+  document.addEventListener("dblclick", function (e) { if (e.target.closest && e.target.closest(BED) && !inEingabe(e.target)) e.preventDefault(); }, true);
+  // Eingabefelder mindestens 16 px: sonst zoomt iOS beim Antippen hinein
+  function fi() { document.querySelectorAll("input,select,textarea").forEach(function (i) { if (parseFloat(getComputedStyle(i).fontSize) < 16) i.style.fontSize = "16px"; }); }
+  new MutationObserver(function () { requestAnimationFrame(fi); }).observe(document.body, {childList:true, subtree:true});
+  fi();
+})();
+</script>
 <script>
 (function () {
   "use strict";
@@ -4981,6 +5087,344 @@ body.gym-mode .back{min-height:48px;padding:0 16px 0 12px;font-size:17px}
   window.addEventListener("orientationchange", () => setTimeout(fest, 300));
   fest(); setTimeout(fest, 300);
 })();
+</script>
+
+
+<!-- =====================================================================
+     ERWEITERUNG v24 (08.11.2026): Geld mit Unterbereichen + Icons überall
+     - Geld: Überblick · Lohn · Budget · Ausgaben · Abos · Sparen · Steuer · Wissen
+     - Neue Speicherfelder: geld.ausgaben, geld.abos, geld.ziele, geld.archiv
+     - Icons in allen Tabs und Abschnitts-Überschriften (auch im Gym)
+     Keine persönlichen Werte in diesem Block (darf auch auf GitHub Pages).
+     ===================================================================== -->
+<style>
+/* Tabs mit Icon */
+.tabs-seg .tic{margin-right:4px;font-size:1.05em}
+@media (max-width:560px){ .tabs-seg .tic{margin-right:3px} }
+/* Icon vor Überschriften */
+.hic{display:inline-block;margin-right:.35em;font-style:normal;text-transform:none;letter-spacing:0}
+/* Geld-Unterbereiche */
+.gtabs{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
+.gtabs button{min-height:58px;border-radius:14px;border:2px solid var(--line);background:var(--surface);color:var(--fg);font-weight:700;font-size:13px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;padding:4px 2px;line-height:1.1}
+.gtabs button span{font-size:20px;line-height:1}
+.gtabs button[aria-pressed="true"]{border-color:var(--arbeit);background:color-mix(in srgb,var(--arbeit) 14%,var(--surface))}
+.gbig{font-family:var(--f-display);font-size:42px;font-weight:700;line-height:1;font-variant-numeric:tabular-nums}
+.grow{display:flex;align-items:center;gap:10px;min-width:0}
+.grow .gl{flex:1;min-width:0;overflow-wrap:anywhere}
+.grow .gv{font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap}
+.gbar{height:10px;border-radius:5px;background:var(--soft);overflow:hidden;margin-top:4px}
+.gbar i{display:block;height:100%;border-radius:5px;background:var(--c,var(--arbeit))}
+.gbar.over i{background:var(--feiertag)}
+.gform{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.gform .full{grid-column:1/-1}
+.gform label{display:flex;flex-direction:column;gap:3px;font-size:13px;color:var(--muted);font-weight:700;min-width:0}
+.gform input,.gform select{height:48px;border-radius:12px;border:1px solid var(--line);background:var(--bg);padding:0 10px;width:100%;min-width:0;font-size:16px;color:var(--fg)}
+.gsum{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.gsum div{border:1px solid var(--line);border-radius:14px;padding:10px 12px;min-width:0}
+.gsum b{display:block;font-size:20px;font-variant-numeric:tabular-nums}
+.gsum span{font-size:12px;color:var(--muted);font-weight:700}
+.gchart{display:flex;align-items:flex-end;gap:6px;height:110px;padding-top:6px}
+.gchart div{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;min-width:0;height:100%;justify-content:flex-end}
+.gchart i{display:block;width:100%;max-width:38px;border-radius:6px 6px 0 0;background:var(--arbeit)}
+.gchart small{font-size:11px;color:var(--muted);white-space:nowrap}
+.gchart em{font-style:normal;font-size:11px;font-weight:700;white-space:nowrap}
+</style>
+<script>
+(function () {
+  "use strict";
+  if (typeof arbGeld !== "function" || typeof S !== "object") return;
+
+  /* ---------- Hilfen ---------- */
+  // Zahl aus deutscher Schreibweise lesen: „1.234,56“ → 1234.56, „25“ → 25
+  const zahl = v => { if (v == null || v === "") return null; let s = String(v).trim().replace(/\s|€/g, ""); if (/,/.test(s)) s = s.replace(/\./g, "").replace(",", "."); const n = parseFloat(s); return isFinite(n) ? n : null; };
+  const euro = v => (Math.round((v || 0) * 100) / 100).toLocaleString("de-DE", {minimumFractionDigits:2, maximumFractionDigits:2}) + " €";
+  const monatVon = k => k.slice(0, 7);                                   // "2026-11-08" → "2026-11"
+  const monatName = m => new Date(+m.slice(0, 4), +m.slice(5, 7) - 1, 1).toLocaleDateString("de-DE", {month:"long", year:"numeric"});
+  const monatKurz = m => new Date(+m.slice(0, 4), +m.slice(5, 7) - 1, 1).toLocaleDateString("de-DE", {month:"short"}).replace(".", "");
+  const monatPlus = (m, n) => { const d = new Date(+m.slice(0, 4), +m.slice(5, 7) - 1 + n, 1); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0"); };
+  const KAT = (typeof BUDGET === "object" ? BUDGET.aus : []).map(([k, t]) => [k, t]);
+  const KAT_IC = {wohnen:"🏠", handy:"📱", fahrt:"🚆", gym:"🏋️", abos:"📺", essen:"🍔", kleidung:"👕", freizeit:"🎉", vers:"🛡️", spar:"🐷", rest:"📦"};
+  const katName = k => (KAT.find(x => x[0] === k) || [k, "Sonstiges"])[1];
+  const RHY = {monat:["pro Monat", 1], jahr:["pro Jahr", 1 / 12], quartal:["pro Quartal", 1 / 3], woche:["pro Woche", 52 / 12]};
+
+  function ensureGeld() {
+    if (!S.geld) S.geld = {lohn:{}, budget:{}, belege:[], fahrt:{}};
+    const G = S.geld;
+    if (!Array.isArray(G.ausgaben)) G.ausgaben = [];   // {id, d, betrag, kat, t}
+    if (!Array.isArray(G.abos)) G.abos = [];           // {id, n, betrag, rhy, kat, kuend}
+    if (!Array.isArray(G.ziele)) G.ziele = [];         // {id, n, ziel, gespart, bis, ic}
+    if (!Array.isArray(G.archiv)) G.archiv = [];       // {id, m, brutto, netto, aus}
+    return G;
+  }
+  const aboMonat = () => ensureGeld().abos.reduce((a, x) => a + (zahl(x.betrag) || 0) * (RHY[x.rhy] || RHY.monat)[1], 0);
+  const ausgMonat = m => ensureGeld().ausgaben.filter(x => monatVon(x.d) === m);
+  const einnahmen = () => { const B = S.geld.budget || {}; const e = (BUDGET.ein || []).reduce((a, [k]) => a + (zahl(B[k]) || 0), 0); if (e) return e; const A = ensureGeld().archiv.slice().sort((a, b) => a.m < b.m ? 1 : -1)[0]; return A ? zahl(A.aus) || 0 : 0; };
+  const sparRate = z => { if (!z.bis) return null; const rest = Math.max(0, (zahl(z.ziel) || 0) - (zahl(z.gespart) || 0)); const t = todayKey(); const mon = Math.max(1, (+z.bis.slice(0, 4) - +t.slice(0, 4)) * 12 + (+z.bis.slice(5, 7) - +t.slice(5, 7))); return rest / mon; };
+
+  let GELD_TAB = "ueberblick", AUSG_M = null;
+  try { GELD_TAB = sessionStorage.getItem("wk.geldtab") || "ueberblick"; } catch (e) {}
+  const GTABS = [["ueberblick", "📊", "Überblick"], ["lohn", "🧾", "Lohn"], ["budget", "📒", "Budget"], ["ausgaben", "🛒", "Ausgaben"], ["abos", "🔁", "Abos"], ["sparen", "🎯", "Sparen"], ["steuer", "🧮", "Steuer"], ["wissen", "📚", "Wissen"]];
+
+  /* ---------- Bestehende Geld-Karten aufteilen ---------- */
+  function karten() {
+    const d = document.createElement("div"); d.innerHTML = _altGeld();
+    const K = {verg:"", lohn:"", budget:"", steuer:"", zahlen:"", notizen:"", rest:""};
+    [...d.children].forEach(c => {
+      const h = ((c.querySelector("h3,h2") || {}).textContent || "").trim();
+      const k = c.id === "budgetCard" ? "budget" : c.id === "steuerCard" ? "steuer" : /Vergütung/.test(h) ? "verg" : /Lohnzettel/.test(h) ? "lohn" : /Wichtige Zahlen/.test(h) ? "zahlen" : /Notizen/.test(h) ? "notizen" : "rest";
+      K[k] += c.outerHTML;
+    });
+    return K;
+  }
+
+  /* ---------- 📊 Überblick ---------- */
+  function vUeberblick() {
+    const m = monatVon(todayKey()), ein = einnahmen(), abo = aboMonat(), aus = ausgMonat(m).reduce((a, x) => a + (zahl(x.betrag) || 0), 0);
+    const spar = ensureGeld().ziele.reduce((a, z) => a + (sparRate(z) || 0), 0), rest = ein - abo - aus - spar;
+    let h = '<div class="card ink"><p class="eyebrow">' + esc(monatName(m)) + '</p><p class="small">So viel bleibt dir diesen Monat noch</p><span class="gbig" style="color:' + (rest < 0 ? "var(--feiertag)" : "inherit") + '">' + euro(rest) + '</span>'
+      + '<p class="small">' + (ein ? 'Einnahmen ' + euro(ein) + ' − Abos ' + euro(abo) + ' − Ausgaben ' + euro(aus) + (spar ? ' − Sparen ' + euro(spar) : '') : 'Trag unter <b>📒 Budget</b> deine Einnahmen ein (z. B. die Auszahlung vom Lohnzettel).') + '</p></div>';
+    h += '<div class="gsum"><div><span>💶 Einnahmen</span><b>' + euro(ein) + '</b></div><div><span>🔁 Abos & Fixkosten</span><b>' + euro(abo) + '</b></div><div><span>🛒 Ausgaben ' + esc(monatKurz(m)) + '</span><b>' + euro(aus) + '</b></div><div><span>🎯 Sparraten</span><b>' + euro(spar) + '</b></div></div>';
+    // Ausgaben nach Kategorie
+    const proKat = {}; ausgMonat(m).forEach(x => proKat[x.kat] = (proKat[x.kat] || 0) + (zahl(x.betrag) || 0));
+    const L = Object.entries(proKat).sort((a, b) => b[1] - a[1]), mx = Math.max(1, ...L.map(x => x[1]));
+    h += '<div class="card"><h3>🧭 Wohin ging dein Geld?</h3>' + (L.length ? L.map(([k, v]) => { const b = zahl((S.geld.budget || {})[k]); return '<div><div class="grow"><span class="gl">' + (KAT_IC[k] || "📦") + ' ' + esc(katName(k)) + '</span><span class="gv">' + euro(v) + (b ? ' <small class="muted">/ ' + euro(b) + '</small>' : '') + '</span></div><div class="gbar' + (b && v > b ? " over" : "") + '"><i style="width:' + Math.min(100, (b ? v / b : v / mx) * 100).toFixed(1) + '%"></i></div></div>'; }).join("") : '<p class="empty">Diesen Monat noch keine Ausgaben. Unter <b>🛒 Ausgaben</b> eintragen.</p>') + '</div>';
+    // Nächste Kündigungsfristen
+    const t = todayKey(), bald = ensureGeld().abos.filter(x => x.kuend && x.kuend >= t && x.kuend <= addDays(t, 45)).sort((a, b) => a.kuend < b.kuend ? -1 : 1);
+    if (bald.length) h += '<div class="banner" style="--c:var(--warn)"><span class="ic">⏰</span><div><b>Kündigen nicht vergessen</b>' + bald.map(x => '<span class="small" style="display:block">' + esc(x.n) + ': bis ' + esc(fmt(x.kuend, {day:"2-digit", month:"2-digit", year:"numeric"})) + '</span>').join("") + '</div></div>';
+    h += '<div class="tip"><b>💡 Tipp:</b> Am Monatsanfang zuerst sparen, dann ausgeben. Ein Dauerauftrag auf ein Extra-Konto am Tag nach dem Gehalt macht das automatisch.</div>';
+    return h;
+  }
+
+  /* ---------- 🧾 Lohn (+ Archiv) ---------- */
+  function vLohn(K) {
+    const A = ensureGeld().archiv.slice().sort((a, b) => a.m < b.m ? -1 : 1), t = todayKey();
+    let h = K.verg + K.lohn;
+    h += '<div class="card"><h3>🗄️ Lohnzettel-Archiv</h3><p class="small muted">Jeden Monat kurz die drei Zahlen vom Lohnzettel eintragen. So siehst du, wie sich dein Geld entwickelt.</p>';
+    if (A.length) {
+      const last = A.slice(-12), mx = Math.max(1, ...last.map(x => zahl(x.aus) || zahl(x.netto) || 0));
+      h += '<div class="gchart" aria-label="Auszahlung pro Monat">' + last.map(x => { const v = zahl(x.aus) || zahl(x.netto) || 0; return '<div><em>' + Math.round(v) + '</em><i style="height:' + Math.max(4, v / mx * 80).toFixed(0) + 'px"></i><small>' + esc(monatKurz(x.m)) + '</small></div>'; }).join("") + '</div>';
+      h += '<ul class="list">' + A.slice().reverse().map(x => '<li><span class="li-main"><b>' + esc(monatName(x.m)) + '</b><small>Brutto ' + (x.brutto ? esc(x.brutto) + ' €' : '–') + ' · Netto ' + (x.netto ? esc(x.netto) + ' €' : '–') + ' · aufs Konto ' + (x.aus ? esc(x.aus) + ' €' : '–') + '</small></span><button class="mini" data-act="g-archdel" data-id="' + x.id + '" aria-label="Monat löschen">✕</button></li>').join("") + '</ul>';
+    } else h += '<p class="empty">Noch kein Monat eingetragen.</p>';
+    h += '<div class="gform"><label class="full">Monat<input id="gaM" type="month" value="' + esc(monatPlus(monatVon(t), -1)) + '"></label><label>Brutto (€)<input id="gaB" inputmode="decimal" placeholder="z. B. 1200,00"></label><label>Netto (€)<input id="gaN" inputmode="decimal" placeholder="vor Abzügen"></label><label class="full">Aufs Konto (€)<input id="gaA" inputmode="decimal" placeholder="Auszahlungsbetrag"></label></div><button class="btn primary block" data-act="g-archadd">➕ Monat speichern</button></div>';
+    return h;
+  }
+
+  /* ---------- 🛒 Ausgaben ---------- */
+  function vAusgaben() {
+    const t = todayKey(); if (!AUSG_M) AUSG_M = monatVon(t);
+    const L = ausgMonat(AUSG_M).sort((a, b) => a.d < b.d ? 1 : -1), sum = L.reduce((a, x) => a + (zahl(x.betrag) || 0), 0);
+    let h = '<div class="card"><div class="card-h"><h3>🛒 Ausgaben-Tagebuch</h3></div><div class="wk-nav"><button class="icon-btn" data-act="g-am" data-n="-1" aria-label="Monat zurück">‹</button><div class="mid"><b>' + esc(monatName(AUSG_M)) + '</b><p class="small muted">' + L.length + ' Einträge · ' + euro(sum) + '</p></div><button class="icon-btn" data-act="g-am" data-n="1" aria-label="Monat vor">›</button></div>'
+      + '<div class="gform"><label>Betrag (€)<input id="gxB" inputmode="decimal" placeholder="z. B. 4,50"></label><label>Datum<input id="gxD" type="date" value="' + esc(monatVon(t) === AUSG_M ? t : AUSG_M + "-01") + '"></label><label class="full">Wofür?<select id="gxK">' + KAT.map(([k, n]) => '<option value="' + k + '"' + (k === "essen" ? " selected" : "") + '>' + (KAT_IC[k] || "") + ' ' + esc(n) + '</option>').join("") + '</select></label><label class="full">Notiz (optional)<input id="gxT" maxlength="80" placeholder="z. B. Mittagessen Kantine"></label></div><button class="btn primary block" data-act="g-ausadd">➕ Ausgabe eintragen</button>';
+    h += L.length ? '<ul class="list">' + L.map(x => '<li><span class="li-main"><b>' + (KAT_IC[x.kat] || "📦") + ' ' + euro(zahl(x.betrag)) + '</b><small>' + esc(fmt(x.d, {weekday:"short", day:"2-digit", month:"2-digit"})) + ' · ' + esc(katName(x.kat)) + (x.t ? ' · ' + esc(x.t) : '') + '</small></span><button class="mini" data-act="g-ausdel" data-id="' + x.id + '" aria-label="Ausgabe löschen">✕</button></li>').join("") + '</ul>' : '<p class="empty">Noch nichts in diesem Monat.</p>';
+    h += '</div><div class="tip"><b>💡 Tipp:</b> Trag 2 Wochen lang wirklich alles ein, auch den Bäcker. Danach weißt du, wo dein Geld hinfließt.</div>';
+    return h;
+  }
+
+  /* ---------- 🔁 Abos & Fixkosten ---------- */
+  function vAbos() {
+    const L = ensureGeld().abos, mon = aboMonat(), t = todayKey();
+    let h = '<div class="card ink"><p class="eyebrow">Abos & Fixkosten</p><span class="gbig">' + euro(mon) + '</span><p class="small">pro Monat · ' + euro(mon * 12) + ' im Jahr</p></div>';
+    h += '<div class="card"><h3>📋 Deine Abos & Verträge</h3>' + (L.length ? '<ul class="list">' + L.slice().sort((a, b) => (zahl(b.betrag) || 0) * RHY[b.rhy || "monat"][1] - (zahl(a.betrag) || 0) * RHY[a.rhy || "monat"][1]).map(x => { const bald = x.kuend && x.kuend >= t && x.kuend <= addDays(t, 45); return '<li><span class="li-main"><b>' + (KAT_IC[x.kat] || "🔁") + ' ' + esc(x.n) + '</b><small>' + (x.betrag ? esc(x.betrag) + ' € ' + RHY[x.rhy || "monat"][0] : 'Betrag fehlt') + (x.kuend ? ' · kündbar bis ' + esc(fmt(x.kuend, {day:"2-digit", month:"2-digit", year:"numeric"})) + (bald ? ' ⏰' : '') : '') + '</small></span><button class="mini" data-act="g-abodel" data-id="' + x.id + '" aria-label="Abo löschen">✕</button></li>'; }).join("") + '</ul>' : '<p class="empty">Noch keine Abos eingetragen.</p>');
+    const vor = [["Handyvertrag", "handy"], ["Gym-Mitgliedschaft", "gym"], ["Streaming", "abos"], ["Musik-Abo", "abos"], ["Cloud-Speicher", "abos"], ["Haftpflicht", "vers"], ["Abo-Karte / Ticket", "fahrt"], ["Gaming-Abo", "abos"]].filter(([n]) => !L.some(x => x.n === n));
+    h += '<p class="lbl">Schnell hinzufügen</p><div class="chips">' + vor.map(([n, k]) => '<button class="chipbtn" data-act="g-abovor" data-n="' + esc(n) + '" data-k="' + k + '">' + (KAT_IC[k] || "") + ' ' + esc(n) + '</button>').join("") + '</div>'
+      + '<div class="gform"><label class="full">Name<input id="goN" maxlength="60" placeholder="z. B. Spotify"></label><label>Betrag (€)<input id="goB" inputmode="decimal" placeholder="z. B. 10,99"></label><label>Wie oft?<select id="goR">' + Object.entries(RHY).map(([k, [n]]) => '<option value="' + k + '">' + n + '</option>').join("") + '</select></label><label>Kategorie<select id="goK">' + KAT.map(([k, n]) => '<option value="' + k + '"' + (k === "abos" ? " selected" : "") + '>' + (KAT_IC[k] || "") + ' ' + esc(n) + '</option>').join("") + '</select></label><label>Kündigen bis (optional)<input id="goD" type="date"></label></div><button class="btn primary block" data-act="g-aboadd">➕ Abo speichern</button></div>';
+    h += '<div class="tip"><b>💡 Tipp:</b> Einmal im Jahr alle Abos durchgehen: Was nutzt du wirklich? Seit Juli 2022 kannst du Online-Verträge über den Kündigungsbutton auf der Webseite kündigen.</div>';
+    return h;
+  }
+
+  /* ---------- 🎯 Sparen ---------- */
+  function vSparen() {
+    const Z = ensureGeld().ziele;
+    let h = '<div class="card"><h3>🎯 Deine Sparziele</h3>' + (Z.length ? Z.map(z => { const ziel = zahl(z.ziel) || 0, g = zahl(z.gespart) || 0, p = ziel ? Math.min(1, g / ziel) : 0, r = sparRate(z); return '<div class="card" style="padding:12px;gap:6px"><div class="grow"><span class="gl"><b>' + esc(z.ic || "🎯") + ' ' + esc(z.n) + '</b></span><button class="mini" data-act="g-zieldel" data-id="' + z.id + '" aria-label="Ziel löschen">✕</button></div><div class="gbar" style="--c:var(--ok)"><i style="width:' + (p * 100).toFixed(1) + '%"></i></div><p class="small">' + euro(g) + ' von ' + euro(ziel) + ' · <b>' + Math.round(p * 100) + ' %</b>' + (r != null && p < 1 ? ' · nötig: ' + euro(r) + ' pro Monat bis ' + esc(fmt(z.bis, {month:"short", year:"numeric"})) : '') + (p >= 1 ? ' · geschafft 🎉' : '') + '</p><div class="add-row"><input class="inp" id="gz' + z.id + '" inputmode="decimal" placeholder="Betrag einzahlen (€)" aria-label="Betrag für ' + esc(z.n) + '"><button class="btn primary" data-act="g-zielplus" data-id="' + z.id + '">+</button></div></div>'; }).join("") : '<p class="empty">Noch kein Sparziel. Leg eins an, z. B. Notgroschen oder neue Grafikkarte.</p>');
+    h += '<div class="gform"><label class="full">Wofür sparst du?<input id="gzN" maxlength="50" placeholder="z. B. Notgroschen, Urlaub, Führerschein"></label><label>Ziel (€)<input id="gzZ" inputmode="decimal" placeholder="z. B. 1500"></label><label>Bis wann? (optional)<input id="gzD" type="month"></label><label class="full">Icon<select id="gzI">' + ["🛟", "🏖️", "🖥️", "🚗", "🎮", "🏠", "🎁", "📱", "🎯"].map(i => '<option>' + i + '</option>').join("") + '</select></label></div><button class="btn primary block" data-act="g-zieladd">➕ Sparziel anlegen</button></div>';
+    // Notgroschen-Rechner
+    const B = S.geld.budget || {}, ausB = (BUDGET.aus || []).filter(([k]) => k !== "spar").reduce((a, [k]) => a + (zahl(B[k]) || 0), 0);
+    const basis = ausB || aboMonat();
+    h += '<div class="card"><h3>🛟 Notgroschen-Rechner</h3><p class="small">Ein Notgroschen ist Geld für Überraschungen: Handy kaputt, Waschmaschine, Autoreparatur. <b>Faustregel: 3 Monate Ausgaben</b> auf einem Tagesgeldkonto, an das du schnell rankommst.</p>'
+      + (basis ? '<div class="gsum"><div><span>Deine Ausgaben pro Monat</span><b>' + euro(basis) + '</b></div><div><span>Notgroschen (× 3)</span><b>' + euro(basis * 3) + '</b></div></div>' + (Z.some(z => /not/i.test(z.n)) ? '' : '<button class="btn sm" data-act="g-notziel" data-v="' + Math.ceil(basis * 3) + '">🛟 Als Sparziel anlegen</button>') : '<p class="empty">Trag unter 📒 Budget deine Ausgaben ein, dann rechnet die App mit.</p>') + '<p class="small muted">' + (ausB ? 'Basis: deine Ausgaben aus dem Budget-Planer (ohne Sparen).' : basis ? 'Basis: deine Abos & Fixkosten (Budget noch leer).' : '') + '</p></div>';
+    h += '<div class="card"><h3>🐷 So geht Sparen leichter</h3>' + ul([
+      "<b>Erst sparen, dann ausgeben:</b> Dauerauftrag direkt nach dem Gehaltseingang.",
+      "<b>Zwei Konten:</b> Girokonto zum Ausgeben, Tagesgeld zum Sparen. Was du nicht siehst, gibst du nicht aus.",
+      "<b>Kleine Beträge zählen:</b> 50 € im Monat sind nach 3 Jahren Ausbildung 1.800&nbsp;€.",
+      "<b>Große Wünsche:</b> erst 30 Tage warten. Willst du es dann noch, plan es als Sparziel ein."]) + '</div>';
+    return h;
+  }
+
+  /* ---------- 📚 Wissen ---------- */
+  function vWissen(K) {
+    let h = '<div class="card"><h3>✅ Geld-Check für dich als Azubi</h3>' + acc("👪 Kindergeld: läuft es noch?", ul([
+      "Deine Eltern bekommen <b>259 € im Monat</b> Kindergeld für dich, solange du in deiner <b>ersten Ausbildung</b> bist, längstens bis zum Tag vor deinem <b>25. Geburtstag</b>.",
+      "Dein eigenes Gehalt ist in der ersten Ausbildung egal.",
+      "Frag deine Eltern, ob sie der Familienkasse die Ausbildung gemeldet haben (Ausbildungsvertrag bzw. Bescheinigung)."]) + quelle("Quelle: steuerschroeder.de, Rechtsstand 29.06.2026. Verbindlich ist die Familienkasse."))
+      + acc("💼 Vermögenswirksame Leistungen (VL)", ul([
+        "VL ist Geld vom Arbeitgeber, das in einen Sparvertrag fließt (z. B. Fondssparplan oder Bausparvertrag). Ob und wie viel du bekommst, steht im Tarif- oder Arbeitsvertrag.",
+        "<b>Frag in der Personalabteilung</b>, ob du VL bekommst. Wenn ja: Vertrag abschließen und die Bescheinigung abgeben, sonst verfällt das Geld.",
+        "Dazu gibt es vom Staat die <b>Arbeitnehmer-Sparzulage</b>: 20 % auf bis zu 400 € im Jahr bei Fonds (max. 80 €) und 9 % auf bis zu 470 € bei Bausparen (max. 43 €). Grenze: 40.000 € zu versteuerndes Einkommen (ledig).",
+        "Die Zulage beantragst du mit der Steuererklärung (Anlage VL)."]) + quelle("Quelle: sparkasse.de, Ratgeber Arbeitnehmersparzulage, abgerufen 08.11.2026."))
+      + acc("🧾 Steuererklärung: lohnt sich das?", ul([
+        "Als Azubi musst du meist keine abgeben, darfst aber freiwillig, und zwar bis zu 4 Jahre rückwirkend.",
+        "Steht auf deinen Lohnzetteln Lohnsteuer, bekommst du oft etwas zurück, vor allem mit Fahrtkosten zur Berufsschule und Arbeitsmitteln.",
+        "Kostenlos über <b>ELSTER</b>. Sammle die Belege übers Jahr im Tab <b>🧮 Steuer</b>."]))
+      + acc("🏦 Konto, Dispo & Schufa", ul([
+        "<b>Dispo</b> (Überziehen des Kontos) ist sehr teuer. Lieber nicht nutzen und den Rahmen niedrig halten.",
+        "<b>Ratenkauf</b> und „Jetzt kaufen, später zahlen“ sind auch Kredite. Sie landen oft bei der Schufa.",
+        "Einmal im Jahr bekommst du deine <b>Schufa-Auskunft kostenlos</b> (Datenkopie nach Art. 15 DSGVO)."]))
+      + '</div>';
+    return h + K.zahlen + K.notizen + K.rest;
+  }
+
+  /* ---------- Geld zusammenbauen ---------- */
+  const _altGeld = arbGeld;
+  arbGeld = function () {
+    ensureGeld();
+    const K = karten(), T = GELD_TAB;
+    let h = '<div class="gtabs" role="group" aria-label="Geld-Bereiche">' + GTABS.map(([v, ic, n]) => '<button type="button" data-act="g-tab" data-v="' + v + '" aria-pressed="' + (v === T) + '"><span aria-hidden="true">' + ic + '</span>' + n + '</button>').join("") + '</div>';
+    h += T === "lohn" ? vLohn(K) : T === "budget" ? K.budget : T === "ausgaben" ? vAusgaben() : T === "abos" ? vAbos() : T === "sparen" ? vSparen() : T === "steuer" ? K.steuer : T === "wissen" ? vWissen(K) : vUeberblick();
+    return h;
+  };
+
+  /* ---------- Klicks ---------- */
+  const val = id => { const e = document.getElementById(id); return e ? e.value.trim() : ""; };
+  document.addEventListener("click", e => {
+    const b = e.target.closest && e.target.closest('[data-act^="g-"]'); if (!b) return;
+    const G = ensureGeld(), a = b.dataset.act, id = b.dataset.id;
+    switch (a) {
+      case "g-tab": GELD_TAB = b.dataset.v; try { sessionStorage.setItem("wk.geldtab", GELD_TAB); } catch (x) {} rerender(); break;
+      case "g-am": AUSG_M = monatPlus(AUSG_M || monatVon(todayKey()), +b.dataset.n); rerender(); break;
+      case "g-ausadd": {
+        const n = zahl(val("gxB")); if (!(n > 0)) { toast("Gib einen Betrag ein"); break; }
+        const t = val("gxT"); if (t && typeof sensitive === "function") { const m = sensitive(t); if (m) { toast(m, 3500); break; } }
+        const d = val("gxD") || todayKey(); G.ausgaben.push({id:uid(), d, betrag:String(n).replace(".", ","), kat:val("gxK") || "rest", t}); AUSG_M = monatVon(d); save(); toast("Eingetragen ✓"); rerender(); break;
+      }
+      case "g-ausdel": G.ausgaben = G.ausgaben.filter(x => x.id !== id); save(); rerender(); break;
+      case "g-abovor": { const f = document.getElementById("goN"), k = document.getElementById("goK"); if (f) { f.value = b.dataset.n; if (k) k.value = b.dataset.k; const bb = document.getElementById("goB"); if (bb) bb.focus(); } break; }
+      case "g-aboadd": {
+        const n = val("goN"); if (!n) { toast("Wie heißt das Abo?"); break; }
+        G.abos.push({id:uid(), n, betrag:val("goB"), rhy:val("goR") || "monat", kat:val("goK") || "abos", kuend:val("goD")}); save(); toast("Abo gespeichert ✓"); rerender(); break;
+      }
+      case "g-abodel": G.abos = G.abos.filter(x => x.id !== id); save(); rerender(); break;
+      case "g-zieladd": {
+        const n = val("gzN"), z = zahl(val("gzZ")); if (!n || !(z > 0)) { toast("Name und Zielbetrag eintragen"); break; }
+        G.ziele.push({id:uid(), n, ziel:String(z).replace(".", ","), gespart:"0", bis:val("gzD") ? val("gzD") + "-01" : "", ic:val("gzI") || "🎯"}); save(); toast("Sparziel angelegt ✓"); rerender(); break;
+      }
+      case "g-notziel": G.ziele.push({id:uid(), n:"Notgroschen", ziel:b.dataset.v, gespart:"0", bis:"", ic:"🛟"}); save(); toast("Notgroschen als Ziel angelegt ✓"); rerender(); break;
+      case "g-zielplus": {
+        const z = G.ziele.find(x => x.id === id), n = zahl(val("gz" + id)); if (!z || !n) { toast("Betrag eingeben"); break; }
+        const neu = Math.max(0, (zahl(z.gespart) || 0) + n); z.gespart = String(Math.round(neu * 100) / 100).replace(".", ","); save();
+        toast(zahl(z.ziel) && neu >= zahl(z.ziel) ? "Ziel erreicht 🎉" : "Gespart ✓"); rerender(); break;
+      }
+      case "g-zieldel": G.ziele = G.ziele.filter(x => x.id !== id); save(); rerender(); break;
+      case "g-archadd": {
+        const m = val("gaM"); if (!/^\d{4}-\d{2}$/.test(m)) { toast("Monat wählen"); break; }
+        if (!val("gaB") && !val("gaN") && !val("gaA")) { toast("Mindestens eine Zahl eintragen"); break; }
+        G.archiv = G.archiv.filter(x => x.m !== m); G.archiv.push({id:uid(), m, brutto:val("gaB"), netto:val("gaN"), aus:val("gaA")}); save(); toast("Monat gespeichert ✓"); rerender(); break;
+      }
+      case "g-archdel": G.archiv = G.archiv.filter(x => x.id !== id); save(); rerender(); break;
+    }
+  });
+
+  // Suche: Abos und Sparziele finden
+  if (typeof searchAll === "function") {
+    const _s = searchAll;
+    searchAll = function (q) {
+      const r = _s.apply(this, arguments) || [], s = String(q || "").toLowerCase().trim(); if (!s || !Array.isArray(r)) return r;
+      const hin = () => { if (typeof closeSheet === "function") closeSheet(); ARB_TAB = "geld"; go("arbeit"); };
+      ensureGeld().abos.filter(x => x.n.toLowerCase().includes(s)).forEach(x => r.push({cat:"Abo", title:x.n, text:(x.betrag ? x.betrag + " € " + RHY[x.rhy || "monat"][0] : ""), go:() => { GELD_TAB = "abos"; hin(); }}));
+      ensureGeld().ziele.filter(x => x.n.toLowerCase().includes(s)).forEach(x => r.push({cat:"Sparziel", title:x.n, text:(x.gespart || 0) + " von " + x.ziel + " €", go:() => { GELD_TAB = "sparen"; hin(); }}));
+      return r;
+    };
+  }
+
+  /* =====================================================================
+     ICONS überall
+     ===================================================================== */
+  // Tabs: Icon vor jeden Tab-Namen
+  const TAB_IC = {
+    schtab:{uebersicht:"📋", noten:"🏆", lernen:"🧠", ueben:"✍️", wissen:"📚", infos:"ℹ️"},
+    arbtab:{heute:"☀️", bh:"📒", faelle:"🗂️", wissen:"💡", zeit:"⏱️", geld:"💶", rechte:"⚖️", alltag:"🏠", zukunft:"🚀"}
+  };
+  if (typeof tabsHtml === "function") {
+    const _t = tabsHtml;
+    tabsHtml = function (list, cur, act) {
+      const M = TAB_IC[act]; if (!M) return _t(list, cur, act);
+      return _t(list.map(([v, n]) => [v, M[v] && n.indexOf(M[v]) !== 0 ? '<span class="tic" aria-hidden="true">' + M[v] + '</span>' + n : n]), cur, act);
+    };
+  }
+  // Überschriften: [Anfang des Textes (oder RegExp), Icon, genau?]
+  const REGELN = [
+    // Start & Woche
+    ["Heute", "☀️", 1], ["Offene To-dos", "✅"], ["Wochen-Fortschritt", "📊"], ["Ohne Datum", "📌"],
+    // Schule
+    ["Stundenplan", "🗓️"], ["Mittwoch · ", "🏫"], ["Freitag · ", "🏫"], ["Hausaufgaben", "📝"], ["Klassenarbeiten & Tests", "🧪"], ["Notizen pro Fach", "🗒️"],
+    ["Note eintragen", "✏️"], ["Pro Fach", "📚"], ["Alle Noten", "📋"], ["Was bedeuten die Noten?", "❓"], ["IHK-Notenschlüssel", "🔑"],
+    ["Letzte 8 Wochen", "📈"], ["Ohne Timer gelernt?", "⏱️"], ["So zählt die Abschlussprüfung", "🎓"], ["Monat für Monat", "🗓️"], ["Checkliste vor der Prüfung", "✅"],
+    ["LF 4 ·", "🛡️"], ["LF 1 ·", "🏢"], ["SDM ·", "💻"], ["Alle Lernfelder", "📚"], [/^EVP \(\d+\)$/, "🛡️"], [/^ITD \(\d+\)$/, "🏢"], [/^SDM \(\d+\)$/, "💻"], [/^Deutsch \(\d+\)$/, "📖"], [/^Politik \/ WiSo/, "⚖️"],
+    ["Lösung zeigen", "👀"], ["LF04 – Recht", "⚖️"], ["LF04 – Bedrohungen", "🦠"], ["LF04 – Schutzmaßnahmen", "🔐"], ["ITD (LF 1)", "🏢"], ["GE, SDM und Deutsch", "📖"],
+    ["EVP · ", "🛡️"], ["ITD · ", "🏢"], ["SDM · ", "💻"], ["Deutsch · ", "📖"], ["Politik · ", "🏛️"], ["Religion · ", "🕊️"], ["Sport · ", "⚽"],
+    // Arbeit
+    ["Aufgaben & Notizen", "📝"], ["Alle Fälle als Tabelle", "📋"], ["Alle Fälle", "🗂️"], ["So gehst du bei jedem Fehler vor", "🧭"], ["Werkzeuge und Befehle", "🧰"], ["Startfehler", "🚫"], ["Tastenkürzel", "⌨️"], ["Fachabteilungen und Zentren", "🏥"],
+    ["Einnahmen im Monat", "📥"], ["Ausgaben im Monat", "📤"], ["Deine Ideen (mit Check)", "💡"], ["Geld für Weiterbildung", "💰"], ["Für alle IT-Berufe gleich", "🧩"], ["Läuft die ganze Ausbildung mit", "🔁"], ["Speziell für deinen Beruf", "🎯"],
+    // Ich & Gesundheit
+    ["Stimmung", "😊"], ["Energie", "⚡"], ["Stress", "😮‍💨"],
+    // Einstellungen & Mappe
+    ["Darstellung", "🎨"], ["Feste Zeiten", "⏰"], ["Prüfung & Urlaub", "🎓"], ["Fach-Farben", "🖍️"], ["Backup", "💾"], ["Quellen", "📚", 1],
+    ["EVP · LF 4", "🛡️"], ["ITD · LF 1", "🏢"], ["Deutsch", "📖", 1], ["Lernen & Üben", "🧠"], ["Ausbildung & Betrieb", "💼"], ["Schule & Betrieb online", "🌐"], ["Projekte & Apps", "🚀"],
+    // Gym (Hantelbuch)
+    ["Als Nächstes", "⏭️"], ["Arme & Schultern", "💪"], ["Brust & Rücken", "🏋️"], ["Beine & Bauch", "🦵"], ["So oft warst du schon im Gym", "🔥"], ["Diese Woche", "📅"], ["Eiweiß heute", "🥚"],
+    ["Dein Plan", "🗓️"], ["Mittwoch", "📆", 1], ["Freitag", "📆", 1], ["Samstag", "📆", 1], ["So läuft jede Einheit", "🔄"], ["Übungen", "🎬", 1],
+    ["Schultern", "🔺", 1], ["Bizeps", "💪", 1], ["Trizeps", "🦾", 1], ["Brust", "🛡️", 1], ["Rücken", "🧱", 1], ["Beine vorne", "🦵", 1], ["Po & Beine hinten", "🦿", 1], ["Bauch", "🎯", 1],
+    ["Kilos", "⚖️", 1], ["Dehnen", "🧘", 1], ["Jeden Tag: Fuß & Wade", "🦶"], ["Dazu am Sonntag", "☀️"], ["Check-Liste", "✅"], ["Wann war ich da?", "📅"], ["Gym-Besuche insgesamt", "🔥"],
+    [/^(Januar|Februar|März|April|Mai|Juni|Juli|August|September|Oktober|November|Dezember) \d{4}$/, "🗓️"], ["Abzeichen", "🏅"], ["Mehr", "⚙️", 1], ["Als App aufs Handy", "📲"], ["Einstellungen", "⚙️", 1], ["Als Text (zum Kopieren)", "📋"],
+    ["Körper & Ausdauer", "🏃"], ["Letzte 7 Tage", "📈"]
+  ];
+  const EMO = /^\s*(\p{Extended_Pictographic}|\p{Regional_Indicator})/u;
+  function iconFuer(txt) {
+    if (/^\+\s/.test(txt)) return "➕";
+    for (const [m, ic, genau] of REGELN) {
+      if (m instanceof RegExp ? m.test(txt) : genau ? txt === m : txt.indexOf(m) === 0) return ic;
+    }
+    return null;
+  }
+  function iconisieren(root) {
+    if (!root) return;
+    root.querySelectorAll("h1, h2, h3, summary, .lbl").forEach(el => {
+      if (el.dataset.ic || el.closest(".tile, .eyebrow, .gtabs")) return;
+      el.dataset.ic = "1";
+      const txt = el.textContent.trim().replace(/\s+/g, " ");
+      if (!txt || EMO.test(txt)) return;
+      // Große Gym-Karte „Als Nächstes“ ohne Icon (dort steht schon der Buchstabe A/B/C)
+      if (el.closest(".day-head")) return;
+      const ic = iconFuer(txt); if (!ic) return;
+      // „+ Stunde eintragen“ → „➕ Stunde eintragen“
+      if (ic === "➕") { const w = document.createTreeWalker(el, NodeFilter.SHOW_TEXT); let n; while ((n = w.nextNode())) { if (n.nodeValue.trim()) { n.nodeValue = n.nodeValue.replace(/^\s*\+\s*/, ""); break; } } }
+      const s = el.ownerDocument.createElement("span"); s.className = "hic"; s.setAttribute("aria-hidden", "true"); s.textContent = ic;
+      el.insertBefore(s, el.firstChild);
+    });
+  }
+  function beobachten(doc, root) {
+    if (!root || root.__ic) return; root.__ic = true;
+    if (doc !== document && !doc.getElementById("hicStyle")) { const st = doc.createElement("style"); st.id = "hicStyle"; st.textContent = ".hic{display:inline-block;margin-right:.35em;font-style:normal;text-transform:none;letter-spacing:0}"; doc.head.appendChild(st); }
+    let f = 0; const lauf = () => { f = 0; iconisieren(root); };
+    new MutationObserver(() => { if (!f) f = requestAnimationFrame(lauf); }).observe(root, {childList:true, subtree:true});
+    lauf();
+  }
+  beobachten(document, document.getElementById("main"));
+  // Gym läuft in einem eigenen Rahmen: dort auch beobachten
+  function gymPruefen() {
+    try { if (gymFrame && gymFrame.contentDocument && gymFrame.contentDocument.body) beobachten(gymFrame.contentDocument, gymFrame.contentDocument.body); } catch (e) {}
+  }
+  if (typeof ensureGym === "function") {
+    const _eg = ensureGym;
+    ensureGym = function () { const r = _eg.apply(this, arguments); try { if (gymFrame && !gymFrame.__icL) { gymFrame.__icL = true; gymFrame.addEventListener("load", gymPruefen); } } catch (e) {} gymPruefen(); return r; };
+  }
+  setInterval(gymPruefen, 1500);   // falls der Rahmen neu gebaut wurde (z. B. nach Zurücksetzen)
+
+  try { rerender(); } catch (e) {}
+})();
+</script>
+<script>
+/* Service Worker: App startet auch mit schlechtem Netz */
+if ("serviceWorker" in navigator) addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));
 </script>
 </body>
 </html>
