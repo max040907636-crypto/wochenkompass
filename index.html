@@ -4902,6 +4902,14 @@ gymNachtrag(); load(); applyTheme(); render();
     // Andere Bereiche anpassen (nur leere Felder)
     const A = o.app_daten || {};
     if (A.verg && S.verg) Object.keys(A.verg).forEach(k => { if (!S.verg[k]) { S.verg[k] = A.verg[k]; n++; } });
+    // (v28) Lohnzettel-Rechner: nur leere Felder füllen (brutto, zb, lst, kl)
+    if (A.lohn) {
+      if (!S.geld) S.geld = {};
+      if (!S.geld.lohn) S.geld.lohn = {};
+      const L = S.geld.lohn;
+      ["brutto", "zb", "lst"].forEach(k => { if (A.lohn[k] != null && A.lohn[k] !== "" && !L[k]) { L[k] = String(A.lohn[k]); n++; } });
+      if (typeof A.lohn.kl === "boolean" && L.kl == null) { L.kl = A.lohn.kl; n++; }
+    }
     if (A.erledigt) S.items.forEach(x => { if (A.erledigt.some(r => x.text && x.text.includes(r)) && !x.done) { x.done = true; n++; } });
     if (A.fragenErledigt && S.ausb && Array.isArray(S.ausb.fragen)) S.ausb.fragen.forEach(x => { if (A.fragenErledigt.some(r => x.t.includes(r)) && !x.done) { x.done = true; n++; } });
     if (A.gewicht || A.groesse) { if (hbAnwenden(A)) n++; else I.hbPending = {gewicht:A.gewicht || null, groesse:A.groesse || null}; }
