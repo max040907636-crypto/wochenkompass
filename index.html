@@ -5478,7 +5478,7 @@ h1,h2,h3{padding-top:.06em;padding-bottom:.04em}
 </script>
 <!-- ERWEITERUNG v32 (08.11.2026): Finanz-App „Bilanz“ eingebaut (Arbeit → Geld → 📰 Bilanz)
      + Zusammenfassung oben im Überblick, live aus den Bilanz-Daten (localStorage „bilanz-v1“).
-     Öffentliche Version: ohne Startdaten. Eigene Daten kommen per Backup-Import (Einstellungen → Backup). -->
+     Öffentliche Version: ohne Startdaten. Eigene Daten kommen über 📰 Bilanz → 📥 Einfügen. -->
 <style>
 /* (v31) Bilanz im Geld-Bereich */
 .gtabs{grid-template-columns:repeat(3,minmax(0,1fr))}
@@ -5517,6 +5517,7 @@ html.bz-lock,html.bz-lock body{overflow:hidden}
 
 
 
+
 .bz-tw{overflow-x:auto;-webkit-overflow-scrolling:touch;margin:0 -4px}
 .bz-tab{width:100%;border-collapse:collapse;font-size:13px;font-variant-numeric:tabular-nums}
 .bz-tab th,.bz-tab td{padding:7px 6px;text-align:right;white-space:nowrap;border-bottom:1px solid var(--line)}
@@ -5528,6 +5529,9 @@ html.bz-lock,html.bz-lock body{overflow:hidden}
 .bz-wt>div{display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:4px;height:100%}
 .bz-wt i{display:block;width:70%;max-width:30px;border-radius:5px 5px 0 0;min-height:2px}
 .bz-wt small{font-size:12px;color:var(--muted);font-weight:700}
+.bz-btns{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+.bz-ta{width:100%;min-height:90px;border-radius:12px;border:1px solid var(--line);background:var(--bg);color:var(--fg);padding:10px;font:13px/1.4 ui-monospace,monospace;margin:6px 0}
+.bz-bar{flex-wrap:wrap}
 @media (max-width:440px){.bz-tab.k6 th:nth-child(6),.bz-tab.k6 td:nth-child(6){display:none}.bz-tab th:first-child,.bz-tab td:first-child{min-width:96px}.bz-tab th,.bz-tab td{padding:7px 4px}}
 </style>
 <template id="bilanzTpl">
@@ -7254,7 +7258,8 @@ $('#stage').addEventListener('click',e=>{if(Edition.waiting&&(e.target.id==='sta
   }
   function bilanzBereich() {
     return '<div class="bz-wrap' + (BZ_FULL ? " full" : "") + '"><div class="bz-bar"><span class="small muted">📰 Deine Finanz-App</span>'
-      + '<button type="button" class="btn sm" data-act="bz-full">' + (BZ_FULL ? "✕ Verkleinern" : "⛶ Groß") + '</button></div><div id="bzHost" class="bz-host"></div></div>';
+      + '<span class="bz-btns"><button type="button" class="btn sm" data-act="bz-exp">📤 Kopieren</button><button type="button" class="btn sm" data-act="bz-imp">📥 Einfügen</button>'
+      + '<button type="button" class="btn sm" data-act="bz-full">' + (BZ_FULL ? "✕ Verkleinern" : "⛶ Groß") + '</button></span></div><div id="bzBox"></div><div id="bzHost" class="bz-host"></div></div>';
   }
 
   const _ag = arbGeld;
@@ -7276,12 +7281,40 @@ $('#stage').addEventListener('click',e=>{if(Edition.waiting&&(e.target.id==='sta
 
   // Klicks (Erfassungsphase: vor dem Geld-Tab-Code)
   document.addEventListener("click", ev => {
-    const b = ev.target.closest && ev.target.closest('[data-act="g-tab"],[data-act="g-bilanz"],[data-act="bz-open"],[data-act="bz-full"]');
+    const b = ev.target.closest && ev.target.closest('[data-act="g-tab"],[data-act="g-bilanz"],[data-act="bz-open"],[data-act="bz-full"],[data-act^="bz-exp"],[data-act^="bz-imp"]');
     if (!b) return;
     const a = b.dataset.act;
     if (a === "g-tab") { if (BZ_ON) { setOn(false); BZ_FULL = false; } return; }   // normaler Geld-Tab: weiter im alten Code
     ev.preventDefault(); ev.stopPropagation();
     if (a === "g-bilanz" || a === "bz-open") { setOn(true); try { rerender(); } catch (x) {} setTimeout(() => { const w = document.querySelector(".bz-wrap"); if (w) w.scrollIntoView({block:"start"}); }, 60); return; }
+    // Nur die Bilanz-Daten zwischen Claude-Version und Handy-App umziehen (Gym, Schule usw. bleiben unberührt)
+    const box = document.getElementById("bzBox"), meld = t => { try { toast(t, 3500); } catch (x) {} };
+    if (a === "bz-exp") {
+      const B = bzLesen(); if (!B || !Array.isArray(B.E) || !B.E.length) { meld("Noch keine Bilanz-Daten zum Kopieren"); return; }
+      const txt = JSON.stringify({app:"bilanz", version:1, exported:new Date().toISOString(), S:B.S || {}, X:B.X || {}, E:B.E});
+      const zeigen = () => { if (!box) return; box.innerHTML = '<div class="card"><p class="small"><b>📤 Bilanz-Daten (' + B.E.length + ' Buchungen)</b> – alles markieren, kopieren und in der Handy-App unter Geld → 📰 Bilanz → 📥 Einfügen einsetzen.</p><textarea class="bz-ta" id="bzExpTa" rows="4" readonly></textarea></div>'; const t = document.getElementById("bzExpTa"); t.value = txt; t.focus(); t.select(); };
+      try { navigator.clipboard.writeText(txt).then(() => { meld("Bilanz-Daten kopiert ✓ (" + B.E.length + " Buchungen)"); zeigen(); }, zeigen); } catch (x) { zeigen(); }
+      return;
+    }
+    if (a === "bz-imp") {
+      if (!box) return;
+      box.innerHTML = '<div class="card"><p class="small"><b>📥 Bilanz-Daten einfügen</b><br>Füg hier den Text ein, den du in der anderen Version mit „📤 Kopieren“ kopiert hast. Ein komplettes Wochenkompass-Backup geht auch.</p>'
+        + '<p class="small" style="color:var(--feiertag)"><b>⚠️ Achtung:</b> Das ersetzt nur die Bilanz-Daten in dieser App. Gym, Schule, Arbeit und Ich bleiben, wie sie sind.</p>'
+        + '<textarea class="bz-ta" id="bzImpTa" rows="4" placeholder="Hier einfügen …"></textarea><div class="bz-btns"><button type="button" class="btn primary" data-act="bz-imp2">Bilanz-Daten ersetzen</button><button type="button" class="btn" data-act="bz-impx">Abbrechen</button></div></div>';
+      return;
+    }
+    if (a === "bz-impx") { if (box) box.innerHTML = ""; return; }
+    if (a === "bz-imp2") {
+      const ta = document.getElementById("bzImpTa"); let o = null;
+      try { o = JSON.parse((ta && ta.value || "").trim()); } catch (x) {}
+      if (o && o.bilanz) o = o.bilanz;   // komplettes Wochenkompass-Backup
+      if (!o || !Array.isArray(o.E) || !o.E.every(x => x && x.id && x.ts && x.type && Number.isFinite(x.amount))) { meld("Das sind keine gültigen Bilanz-Daten"); return; }
+      try { localStorage.setItem(BZ_KEY, JSON.stringify({S:o.S || {}, X:o.X || {}, E:o.E})); } catch (x) { meld("Speichern hat nicht geklappt"); return; }
+      S.bzSeedV = S.bzSeedV || "import"; try { save(); } catch (x) {}
+      bzFrame = null; if (box) box.innerHTML = ""; try { rerender(); } catch (x) {}
+      meld("Bilanz-Daten übernommen ✓ (" + o.E.length + " Buchungen)");
+      return;
+    }
     if (a === "bz-full") {
       BZ_FULL = !BZ_FULL;
       const w = document.querySelector(".bz-wrap"); if (w) w.classList.toggle("full", BZ_FULL);
