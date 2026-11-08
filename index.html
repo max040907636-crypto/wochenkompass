@@ -5901,7 +5901,9 @@ h1,h2,h3{padding-top:.06em;padding-bottom:.04em}
     const end = bis || (offen ? todayKey() : ""); if (!end || end < d) return "";
     const seit = !bis;
     let n, u;
-    if (d.length === 10 && end.length === 10 && diffDays(d, end) < 45) { n = diffDays(d, end) + (seit ? 0 : 1); u = "t"; }
+    if (d.length === 4 || end.length === 4) {   // nur Jahr bekannt → nur in ganzen Jahren rechnen
+      n = +end.slice(0, 4) - +d.slice(0, 4); if (n < 1) return ""; u = "j";
+    } else if (d.length === 10 && end.length === 10 && diffDays(d, end) < 45) { n = diffDays(d, end) + (seit ? 0 : 1); u = "t"; }
     else { const mo = monate(d, end); if (mo < 1) return ""; if (mo < 24) { n = mo; u = "m"; } else { n = Math.floor(mo / 12); u = "j"; } }
     if (n <= 0) return "";
     const W = {t:[["Tag", "Tage"], ["Tag", "Tagen"]], m:[["Monat", "Monate"], ["Monat", "Monaten"]], j:[["Jahr", "Jahre"], ["Jahr", "Jahren"]]}[u][seit ? 1 : 0];
@@ -5929,16 +5931,17 @@ h1,h2,h3{padding-top:.06em;padding-bottom:.04em}
      ===================================================================== */
   function punkte() {
     const o = L(), P = [];
+    const vorbei = k => !!k && k <= todayKey().slice(0, k.length);   // Ende schon erreicht? (Zukunft nicht als „Ende“ zeigen)
     const sub = (e, extra) => [extra, e.wo, e.land && e.kat !== "reise" ? e.land : "", e.mit ? "mit " + e.mit : ""].filter(Boolean).join(" · ");
     o.e.forEach(e => {
       const K = KAT[e.kat]; if (!K) return;
-      const lauf = dauer(e.d, e.bis, OFFEN[e.kat]);
+      const lauf = e.bis && e.bis > todayKey().slice(0, e.bis.length) ? "bis " + fmtL(e.bis) : dauer(e.d, e.bis, OFFEN[e.kat]);   // läuft noch → „bis …“
       const pt = (d, t, s, ic) => P.push({d, t, s, ic:ic || K.ic, c:K.c, kat:e.kat, id:e.id, n:e.notiz || "", e});
       switch (e.kat) {
         case "reise":   pt(e.d, (e.art ? e.art.split(" ")[0] + " " : "") + "Reise: " + e.t + (e.land ? " (" + e.land + ")" : ""), sub(e, lauf)); break;
         case "person":  if (e.d) pt(e.d, "Kennengelernt: " + e.t, sub(e, [e.art, lauf].filter(Boolean).join(", "))); break;
-        case "hobby":   pt(e.d, "Angefangen: " + e.t, sub(e, lauf)); if (e.bis && e.d) pt(e.bis, "Aufgehört: " + e.t, ""); break;
-        case "schule":  pt(e.d, "Start: " + e.t + (e.art ? " (" + e.art + ")" : ""), sub(e, lauf)); if (e.bis) pt(e.bis, (e.abschluss ? "Abschluss: " + e.abschluss : "Ende: " + e.t), e.abschluss ? e.t : "", "📜"); break;
+        case "hobby":   pt(e.d, "Angefangen: " + e.t, sub(e, lauf)); if (vorbei(e.bis) && e.d && e.bis !== e.d) pt(e.bis, "Aufgehört: " + e.t, ""); break;
+        case "schule":  pt(e.d, "Start: " + e.t + (e.art ? " (" + e.art + ")" : ""), sub(e, lauf)); if (vorbei(e.bis)) pt(e.bis, (e.abschluss ? "Abschluss: " + e.abschluss : "Ende: " + e.t), e.abschluss ? e.t : "", "📜"); break;
         case "wohnen":  pt(e.d, "Umzug nach " + e.t, sub(e, lauf)); break;
         case "job":     pt(e.d, "Start: " + e.t + (e.art ? " (" + e.art + ")" : ""), sub(e, lauf)); break;
         case "tier":    pt(e.d, e.t + " kam dazu" + (e.art ? " (" + e.art + ")" : ""), sub(e, lauf)); break;
@@ -6063,7 +6066,7 @@ h1,h2,h3{padding-top:.06em;padding-bottom:.04em}
     if (!E.length) h += '<p class="small muted">Noch nichts eingetragen.</p>';
     h += E.map(e => {
       const zeit = e.d || e.bis ? [e.d ? fmtL(e.d) : "?", e.bis ? fmtL(e.bis) : (OFFEN[k] && e.d ? "heute" : "")].filter(Boolean).join(" – ") : "";
-      const zus = [zeit, dauer(e.d, e.bis, OFFEN[k]), e.art && k !== "reise" ? e.art : "", e.land, e.wo, e.abschluss, e.mit ? "mit " + e.mit : "", e.geb ? "🎂 " + fmtG(e.geb) : ""].filter(Boolean);
+      const zus = [zeit, e.bis && e.bis > todayKey().slice(0, e.bis.length) ? "" : dauer(e.d, e.bis, OFFEN[k]), e.art && k !== "reise" ? e.art : "", e.land, e.wo, e.abschluss, e.mit ? "mit " + e.mit : "", e.geb ? "🎂 " + fmtG(e.geb) : ""].filter(Boolean);
       const mitE = (k === "person" || k === "familie") ? o.e.filter(x => x !== e && mitDabei(x, e.t)).length : 0;
       return '<div class="lent">' + (k === "wunsch" ? chk("l-done", e.id, e.done, "Geschafft") : '<span class="em" aria-hidden="true">' + (k === "reise" && e.art ? e.art.split(" ")[0] : K.ic) + '</span>')
         + '<span class="li-main' + (k === "wunsch" && e.done ? " done" : "") + '"><b>' + esc(e.t) + '</b>' + (zus.length ? '<small>' + esc(zus.join(" · ")) + '</small>' : '') + (mitE ? '<small>🤝 ' + mitE + ' gemeinsame Momente</small>' : '') + (e.notiz ? '<small style="white-space:pre-line">' + esc(e.notiz) + '</small>' : '') + '</span>'
