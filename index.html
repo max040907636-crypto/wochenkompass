@@ -2228,6 +2228,8 @@ function isWorkDayPlain(k) {
 }
 function vacDays(v, year) { let n = 0; for (let k = v.von; k <= v.bis; k = addDays(k, 1)) if ((!year || +k.slice(0, 4) === year) && isWorkDayPlain(k) && !(sickOn(k) || {}).au) n++; return n; }
 function vacUsed(year) { return S.vacation.reduce((a, v) => a + vacDays(v, year), 0); }
+// Urlaubsanspruch für ein Jahr: eigener Wert (z. B. anteilig im ersten Jahr), sonst der Standard aus den Einstellungen
+function vacTotalOf(y) { const a = (S.settings.vacByYear || {})[y]; return a != null ? a : S.settings.vacTotal; }
 
 /* =====================================================================
    BERICHTSHEFT-HELFER
@@ -2310,7 +2312,7 @@ function viewStart() {
   const t = todayKey(), H = readHB(), act = activeArea(t), d = wdOf(t);
   const hwOpen = S.homework.filter(h => !h.done).length;
   const nt = S.tests.filter(x => !x.done).sort((a, b) => (a.date || "9999") < (b.date || "9999") ? -1 : 1)[0];
-  const mon = mondayOf(t), notes = bhCount(mon), year = +t.slice(0, 4), left = S.settings.vacTotal - vacUsed(year);
+  const mon = mondayOf(t), notes = bhCount(mon), year = +t.slice(0, 4), left = vacTotalOf(year) - vacUsed(year);
   const streak = gymStreak(H), g = GYM_PLAN[d], gymToday = g && t >= ((H.settings && H.settings.startDate) || HB_START), ng = nextGym(H);
   const gymTxt = gymToday ? (gymStatus(t, H) === "done" ? "Heute erledigt ✓" : "Heute: " + g.n) : ng ? "Nächstes: " + WD_S[wdOf(ng)] + " · " + GYM_PLAN[wdOf(ng)].n : "Kein Training geplant";
   const tile = (a, em, title, pv) => '<a class="tile' + (act === a ? " now" : "") + '" href="#' + a + '" style="--c:' + AREA_C[a] + '">' + (act === a ? '<span class="now-tag">Heute</span>' : '') + '<span class="em" aria-hidden="true">' + em + '</span><h2>' + title + '</h2><span class="pv">' + pv + '</span></a>';
@@ -2323,7 +2325,7 @@ function viewStart() {
     + bannerHtml(t)
     + '<div class="tiles">'
     + tile("schule", "📚", "Schule", '<b>' + (hwOpen ? hwOpen + (hwOpen === 1 ? " Hausaufgabe" : " Hausaufgaben") + ' offen' : "Keine Hausaufgaben offen ✓") + '</b><br>' + (nt ? "Nächster Test: " + esc(subj(nt.fach).kurz) + (nt.date ? " · " + esc(fmt(nt.date)) : " · Datum offen") : "Keine Tests eingetragen"))
-    + tile("arbeit", "💼", "Arbeit", '<b>Berichtsheft: ' + notes + (notes === 1 ? " Notiz" : " Notizen") + '</b><br>Urlaub ' + year + ': ' + left + ' von ' + S.settings.vacTotal + ' übrig')
+    + tile("arbeit", "💼", "Arbeit", '<b>Berichtsheft: ' + notes + (notes === 1 ? " Notiz" : " Notizen") + '</b><br>Urlaub ' + year + ': ' + left + ' von ' + vacTotalOf(year) + ' übrig')
     + tile("gym", "🏋️", "Gym", '<b>Serie: ' + streak + ' 🔥</b><br>' + esc(gymTxt))
     + '</div>'
     + '<div class="counters"><div class="counter"><b class="tnum">' + (wkEnd === null ? "🎉" : wkEnd) + '</b><span>' + (wkEnd === null ? "Wochenende!" : "Wochenende in " + wkEnd + (wkEnd === 1 ? " Tag" : " Tagen")) + '</span></div>'
@@ -2743,8 +2745,7 @@ function arbHeute() {
   const loose = S.items.filter(x => x.area === "arbeit" && !x.date);
   if (loose.length) h += '<p class="lbl">Ohne Datum (z. B. Schnell-Notizen)</p><ul class="list">' + loose.map(x => '<li>' + chk("itemdone", x.id, x.done, "Erledigt") + '<span class="li-main' + (x.done ? " done" : "") + '">' + esc(x.text) + '</span>' + delBtn("itemdel", x.id) + '</li>').join("") + '</ul>';
   h += '</div>';
-  // Arbeitszeit an Betriebstagen und Fall festhalten
-  if (dayBlocks(k).some(b => b.area === "arbeit")) h += '<div class="card"><div class="card-h"><h3>⏱️ Arbeitszeit</h3><button class="link small" data-act="arbtab" data-v="zeit">Woche ansehen →</button></div>' + zRow(k) + '</div>';
+  // Fall festhalten (Arbeitszeit-Karte seit v39 entfernt)
   h += '<button class="btn block" data-act="a-fallneu">📝 Gelösten Fall festhalten</button>';
   // Tipp des Tages (wechselt täglich)
   const tip = TAGES_TIPPS[diffDays("2026-01-01", t) % TAGES_TIPPS.length];
@@ -2878,12 +2879,14 @@ function bhHtml() {
   return h + bhVorschlagHtml();
 }
 function vacHtml() {
-  const y = VAC_YEAR, used = vacUsed(y), total = S.settings.vacTotal, left = total - used, p = Math.min(1, used / total);
+  const y = VAC_YEAR, used = vacUsed(y), total = vacTotalOf(y), left = total - used, p = total > 0 ? Math.min(1, used / total) : (used ? 1 : 0);
   const rows = S.vacation.filter(v => vacDays(v, y) > 0 || +v.von.slice(0, 4) === y || +v.bis.slice(0, 4) === y).sort((a, b) => a.von < b.von ? -1 : 1);
   let h = '<div class="card"><div class="card-h"><h3>🌴 Urlaubstage</h3><div class="seg" style="min-width:150px">' + [...new Set([2026, 2027, +todayKey().slice(0, 4)])].sort().map(x => '<button type="button" data-act="vacyear" data-v="' + x + '" aria-pressed="' + (x === y) + '">' + x + '</button>').join("") + '</div></div>'
     + '<div class="counters"><div class="counter"><b>' + used + '</b><span>genommen</span></div><div class="counter"><b style="color:' + (left < 0 ? "var(--feiertag)" : "inherit") + '">' + left + '</b><span>übrig von ' + total + '</span></div></div>'
     + '<div class="bar" style="--c:var(--urlaub)"><i style="width:' + (p * 100).toFixed(1) + '%"></i></div>'
-    + (rows.length ? '<ul class="list">' + rows.map(v => '<li><span class="li-main">' + esc(fmt(v.von, {day:"numeric", month:"numeric", year:"numeric"})) + '–' + esc(fmt(v.bis, {day:"numeric", month:"numeric", year:"numeric"})) + '<small>' + esc(v.note || "Urlaub") + ' · ' + vacDays(v, y) + ' Tage in ' + y + '</small></span>' + (UI.confirm === "vac-" + v.id ? '<button class="btn sm danger primary" data-act="vacdel2" data-id="' + v.id + '">Löschen?</button>' : delBtn("vacdel", v.id, "Urlaub löschen")) + '</li>').join("") + '</ul>' : '<p class="empty">Kein Urlaub in ' + y + ' eingetragen.</p>')
+    + (left < 0 ? '<p class="small" style="color:var(--feiertag)">⚠️ ' + (-left) + (left === -1 ? ' Tag' : ' Tage') + ' mehr eingetragen, als du ' + y + ' hast. Bitte einen Urlaub kürzen.</p>' : '')
+    + '<div class="field"><label for="vAnspruch">Urlaubsanspruch ' + y + ' (Tage)' + ((S.settings.vacByYear || {})[y] != null ? ' · nur für ' + y : ' · Standard') + '</label><input id="vAnspruch" type="number" min="0" max="60" inputmode="numeric" data-y="' + y + '" value="' + total + '"></div>'
+    + (rows.length ? '<ul class="list">' + rows.map(v => '<li><span class="li-main">' + esc(fmt(v.von, {day:"numeric", month:"numeric", year:"numeric"})) + '–' + esc(fmt(v.bis, {day:"numeric", month:"numeric", year:"numeric"})) + '<small>' + esc(v.note || "Urlaub") + ' · ' + vacDays(v, y) + (vacDays(v, y) === 1 ? ' Tag in ' : ' Tage in ') + y + '</small></span>' + (UI.confirm === "vac-" + v.id ? '<button class="btn sm danger primary" data-act="vacdel2" data-id="' + v.id + '">Löschen?</button>' : delBtn("vacdel", v.id, "Urlaub löschen")) + '</li>').join("") + '</ul>' : '<p class="empty">Kein Urlaub in ' + y + ' eingetragen.</p>')
     + '<div class="grid2"><div class="field"><label for="vVon">Von</label><input id="vVon" type="date"></div><div class="field"><label for="vBis">Bis</label><input id="vBis" type="date"></div><div class="field"><label for="vNote">Notiz</label><input id="vNote" maxlength="60" placeholder="z. B. Osterferien"></div></div><p class="small muted" id="vPrev">Zählt nur Betriebstage: Mo, Di, Do – in den Schulferien auch Mi und Fr. Feiertage und Wochenenden zählen nicht.</p><button class="btn primary" data-act="vacadd">Urlaub eintragen</button></div>';
   return h;
 }
@@ -3349,7 +3352,7 @@ function arbWissen() {
 }
 
 /* ---------------------------------------------------------------------
-   ⏱️ ZEIT: Arbeitszeit & Überstunden, Urlaub, Krankheit
+   ⏱️ ZEIT: Urlaub, Krankheit, Dienste (Arbeitszeit-Anzeige seit v39 entfernt, Hilfsfunktionen bleiben)
    --------------------------------------------------------------------- */
 let ZEIT_WEEK = null, SICK_YEAR = null;
 const zDay = k => S.zeit.tage[k] || {};
@@ -3395,26 +3398,9 @@ function zRow(k) {
     + (w ? '<p class="small" style="color:var(--feiertag)">⚠️ ' + w + '</p>' : '') + '</div>';
 }
 function arbZeit() {
-  const t = todayKey(); if (!ZEIT_WEEK) ZEIT_WEEK = mondayOf(t); if (!SICK_YEAR) SICK_YEAR = +t.slice(0, 4);
-  const mon = ZEIT_WEEK, s = zSoll(), konto = zKonto(), W = zWoche(mon), sch = zSchule(mon), wIst = W.ist, wSoll = W.soll;
-  let rows = "";
-  for (let i = 0; i < 5; i++) {
-    const k = addDays(mon, i), main = dayBlocks(k).find(b => ["arbeit", "schule", "feiertag", "urlaub", "krank"].includes(b.area)), tag = '<b>' + WD_S[wdOf(k)] + ' ' + esc(fmt(k, {day:"numeric", month:"numeric"})) + '</b>';
-    if (main && main.area === "arbeit") { rows += zRow(k); continue; }
-    let txt = "frei";
-    if (main && main.area === "schule") { const c = sch[k]; txt = "🏫 Schule " + fmtT(main.von) + "–" + fmtT(main.bis) + (c ? ' · zählt <b>' + std(c.min) + '</b>' + (c.lang ? " (langer Schultag)" : " (Unterricht inkl. Pausen)") : ""); }
-    else if (main && main.area === "krank") txt = "🤒 krank · zählt wie Soll";
-    else if (main && main.area === "feiertag") txt = "🎉 " + esc(main.label) + " · zählt wie Soll";
-    else if (main && main.area === "urlaub") txt = "🌴 Urlaub · zählt wie Soll";
-    rows += '<div class="zrow muted"><div class="zh">' + tag + '<span>' + txt + '</span></div></div>';
-  }
-  let h = '<div class="card"><div class="card-h"><h3>⏱️ Arbeitszeit</h3><span class="small muted">KW ' + isoWeek(mon) + '</span></div>'
-    + '<div class="grid2"><div class="field"><label for="zSoll">Soll pro Betriebstag (Std., aus dem Vertrag)</label><input id="zSoll" class="inp" inputmode="decimal" placeholder="z. B. 7,8" value="' + esc(S.zeit.soll || "") + '"></div><div class="field"><label for="zPause">Übliche Pause (Min.)</label><input id="zPause" class="inp" inputmode="numeric" placeholder="z. B. 30" value="' + esc(S.zeit.pause || "") + '"></div></div>'
-    + (s == null ? '<p class="tip"><b>Tipp:</b> Trag oben deine Soll-Stunden pro Tag ein (stehen im Ausbildungsvertrag, sonst den Ausbilder fragen). Dann rechnet die App Plus- und Minusstunden.</p>' : '')
-    + '<div class="wk-nav"><button class="icon-btn" data-act="a-zwk" data-n="-7" aria-label="Woche zurück">' + ICON.left + '</button><div class="mid"><b>' + esc(fmt(mon, {day:"numeric", month:"numeric"})) + '–' + esc(fmt(addDays(mon, 4), {day:"numeric", month:"numeric", year:"numeric"})) + '</b></div><button class="icon-btn" data-act="a-zwk" data-n="7" aria-label="Woche vor">' + ICON.right + '</button></div>'
-    + '<div class="stack" style="gap:8px">' + rows + '</div>'
-    + '<div class="counters"><div class="counter"><b class="tnum">' + (W.eintrag ? std(wIst).replace(" Std.", "") : "–") + '</b><span>Std. diese Woche' + (s != null && W.eintrag ? ' von ' + std(wSoll).replace(" Std.", "") + ' (' + (W.diff >= 0 ? "+" : "") + std(W.diff).replace(" Std.", "") + ')' : '') + '</span></div><div class="counter"><b class="tnum" style="color:' + (konto == null ? "inherit" : konto >= 0 ? "var(--ok)" : "var(--feiertag)") + '">' + (konto == null ? "–" : (konto >= 0 ? "+" : "") + std(konto).replace(" Std.", "")) + '</b><span>Überstunden-Konto</span></div></div>'
-    + '<p class="small muted">So rechnet die App (§ 15 Abs. 2 BBiG): Ein langer Schultag pro Woche (mehr als 5 Stunden à 45 Min.) zählt wie ein ganzer Arbeitstag, der zweite mit der Unterrichtszeit inklusive Pausen. Feiertage, Urlaub und Krankheit zählen wie ein normaler Tag. Ob du nach einem kurzen Schultag noch in den Betrieb musst, regelt dein Betrieb – frag im Zweifel nach. Überstunden in der Ausbildung müssen extra bezahlt oder mit Freizeit ausgeglichen werden (§ 17 Abs. 7 BBiG).</p></div>';
+  // v39: Arbeitszeiten erfasst Max woanders – hier nur noch Urlaub, Krankheit und Dienste
+  const t = todayKey(); if (!SICK_YEAR) SICK_YEAR = +t.slice(0, 4);
+  let h = '';
   h += vacHtml();
   // Krankheit
   const sk = (S.sick || []).filter(x => x.von.slice(0, 4) == SICK_YEAR || x.bis.slice(0, 4) == SICK_YEAR).sort((a, b) => a.von < b.von ? 1 : -1);
@@ -3514,7 +3500,7 @@ function arbRechte() {
     + acc("🧑‍🎓 In der Ausbildung (BBiG)", ul([
       "<b>Ausbildungsmittel</b> wie Werkzeug und Material stellt der Betrieb kostenlos (§ 14 BBiG).",
       "<b>Nur ausbildungsnahe Aufgaben:</b> Du bist zum Lernen da, nicht als billige Aushilfe (§ 14 BBiG).",
-      "<b>Überstunden</b> müssen extra bezahlt oder mit Freizeit ausgeglichen werden (§ 17 Abs. 7 BBiG). Trag sie unter „Zeit“ ein.",
+      "<b>Überstunden</b> müssen extra bezahlt oder mit Freizeit ausgeglichen werden (§ 17 Abs. 7 BBiG). Schreib sie dir in deiner Zeiterfassung auf.",
       "<b>Zeugnis:</b> Am Ende hast du Anspruch auf ein schriftliches Ausbildungszeugnis (§ 16 BBiG).",
       "<b>Kündigung:</b> In der Probezeit jederzeit ohne Grund. Danach kann der Betrieb nur aus wichtigem Grund kündigen. Du selbst mit 4 Wochen Frist, wenn du die Ausbildung aufgibst oder einen anderen Beruf lernen willst (§ 22 BBiG).",
       "<b>Prüfung nicht bestanden?</b> Auf deinen Wunsch verlängert sich die Ausbildung bis zur nächsten Wiederholungsprüfung, höchstens um ein Jahr (§ 21 BBiG)."]), true)
@@ -4052,7 +4038,7 @@ function viewEinstellungen() {
     + '<p class="lbl">🏋️ Gym (Mo–Fr)</p>' + days("gym", r.gym.days) + times("gym", r.gym.von, r.gym.bis, "")
     + '<p class="lbl">🏋️ Gym am Samstag (leer = Zeit offen)</p>' + times("gym", r.gym.saVon, r.gym.saBis, "sa")
     + '<p class="small muted">In den Schulferien und an schulfreien Tagen wird aus einem Schultag automatisch ein Betriebstag. Der Trainingsplan im Hantelbuch bleibt Mi = A, Fr = B, Sa = C.</p></div>'
-    + '<div class="card"><h3>Prüfung & Urlaub</h3><div class="grid2"><div class="field"><label for="setExam">Prüfungstermin</label><input id="setExam" type="date" value="' + esc(s.exam) + '"></div><div class="field"><label for="setExamL">Bezeichnung</label><input id="setExamL" maxlength="40" value="' + esc(s.examLabel) + '"></div><div class="field"><label for="setVac">Urlaubstage pro Jahr</label><input id="setVac" type="number" min="0" max="60" inputmode="numeric" value="' + s.vacTotal + '"></div></div></div>'
+    + '<div class="card"><h3>Prüfung & Urlaub</h3><div class="grid2"><div class="field"><label for="setExam">Prüfungstermin</label><input id="setExam" type="date" value="' + esc(s.exam) + '"></div><div class="field"><label for="setExamL">Bezeichnung</label><input id="setExamL" maxlength="40" value="' + esc(s.examLabel) + '"></div><div class="field"><label for="setVac">Urlaubstage pro Jahr (Standard)</label><input id="setVac" type="number" min="0" max="60" inputmode="numeric" value="' + s.vacTotal + '"></div></div></div>'
     + '<div class="card"><h3>Fach-Farben</h3><ul class="list">' + S.subjects.map(x => '<li><span class="dot" style="--c:' + FCOL[x.col % 8] + '"></span><span class="li-main">' + esc(x.kurz) + '</span><div class="chips">' + FCOL.map((c, i) => '<button type="button" class="chk" data-act="fcol" data-id="' + x.id + '" data-v="' + i + '" style="background:' + c + ';border-color:' + (x.col === i ? "var(--fg)" : "transparent") + ';width:28px;height:28px" aria-label="Farbe ' + (i + 1) + ' für ' + esc(x.kurz) + '" aria-pressed="' + (x.col === i) + '"></button>').join("") + '</div></li>').join("") + '</ul></div>'
     + eveningSettingsHtml() + '<div class="card"><h3>Backup</h3><p class="small muted">Sichert alles: Wochenkompass und Hantelbuch. Leg die Datei z. B. in deinen Obsidian-Vault.</p><div class="btn-row"><button class="btn primary" data-act="export">Als JSON exportieren</button><button class="btn" data-act="import">JSON importieren</button></div><div id="dataBox"></div></div>'
     + '<div class="card note" style="border-color:var(--feiertag)"><h3 style="color:var(--feiertag)">⚠️ Alles zurücksetzen</h3>'
@@ -7305,6 +7291,96 @@ h1,h2,h3{padding-top:.06em;padding-bottom:.04em}
   window.__v38 = {laden: bhPaketLaden};
 })();
 </script>
+<!-- ERWEITERUNG v39 (09.11.2026): Arbeit → Zeit ohne Arbeitszeit-Erfassung · Urlaubsanspruch pro Jahr · Urlaubs-Paket laden.
+     Keine persönlichen Werte hier drin (darf auf GitHub Pages). -->
+<script>
+(function () {
+  "use strict";
+  if (!S.settings.vacByYear || typeof S.settings.vacByYear !== "object") S.settings.vacByYear = {};
+
+  /* ---------- Urlaubs-Paket ----------
+     Format: {app:"Wochenkompass-Urlaub-Paket", erstellt, anspruch:{"2026":13}, urlaub:[{key, von, bis, note}]}
+     - anspruch setzt den Urlaubsanspruch für einzelne Jahre
+     - urlaub fügt Zeiträume hinzu; über key nie doppelt, gleiche Von/Bis-Daten auch nicht
+     - aendern: [{key, match:{von,bis}, von, bis, note}] stellt einen vorhandenen Urlaub um */
+  function urlaubPaketLaden(p) {
+    if (!p || p.app !== "Wochenkompass-Urlaub-Paket") throw new Error("Das ist kein Urlaubs-Paket.");
+    const iso = /^\d{4}-\d{2}-\d{2}$/;
+    let neu = 0, jahre = 0;
+    Object.entries(p.anspruch || {}).forEach(([y, n]) => {
+      n = parseInt(n, 10);
+      if (/^\d{4}$/.test(y) && n >= 0 && n <= 60 && S.settings.vacByYear[y] !== n) { S.settings.vacByYear[y] = n; jahre++; }
+    });
+    if (!Array.isArray(S.vacation)) S.vacation = [];
+    (p.urlaub || []).forEach(u => {
+      if (!u || !iso.test(u.von) || !iso.test(u.bis || u.von)) return;
+      const bis = u.bis || u.von;
+      if (bis < u.von) return;
+      if (u.key && S.vacation.some(v => v.key === u.key)) return;
+      if (S.vacation.some(v => v.von === u.von && v.bis === bis)) return;
+      S.vacation.push({id: uid(), key: u.key || "", von: u.von, bis, note: String(u.note || "Urlaub").slice(0, 60)});
+      neu++;
+    });
+    // aendern: vorhandenen Urlaub (gleiche Von/Bis-Daten) umstellen, sonst neu eintragen, wenn der Zeitraum noch frei ist
+    (p.aendern || []).forEach(a => {
+      if (!a || !iso.test(a.von) || !iso.test(a.bis) || a.bis < a.von) return;
+      if (a.key && S.vacation.some(v => v.key === a.key)) return;
+      const m = a.match || {}, v = S.vacation.find(x => x.von === m.von && x.bis === m.bis);
+      if (v) { v.von = a.von; v.bis = a.bis; v.note = String(a.note || v.note || "Urlaub").slice(0, 60); v.key = a.key || ""; neu++; }
+      else {
+        let frei = true; for (let k = a.von; k <= a.bis; k = addDays(k, 1)) if (vacationOn(k)) frei = false;
+        if (frei) { S.vacation.push({id: uid(), key: a.key || "", von: a.von, bis: a.bis, note: String(a.note || "Urlaub").slice(0, 60)}); neu++; }
+      }
+    });
+    save();
+    return {neu, jahre};
+  }
+
+  // Karte „Urlaubstage“ um den Paket-Lader ergänzen
+  const _vacHtml = vacHtml;
+  vacHtml = function () {
+    const h = _vacHtml();
+    const box = '<details class="callout" style="margin-top:4px"><summary>📥 Urlaubs-Paket laden</summary>'
+      + '<p class="small muted">Füge hier den Text aus der Datei <b>urlaub-paket.json</b> ein. Schon vorhandener Urlaub wird nicht doppelt eingetragen.</p>'
+      + '<div class="field"><label for="vPaket">Paket-Text</label><textarea id="vPaket" rows="4" placeholder="{&quot;app&quot;:&quot;Wochenkompass-Urlaub-Paket&quot;, …}"></textarea></div>'
+      + '<button class="btn" data-act="v39paket">Paket übernehmen</button></details>';
+    const k = h.lastIndexOf("</div>");
+    return k > 0 ? h.slice(0, k) + box + h.slice(k) : h + box;
+  };
+
+  // Urlaubsanspruch fürs gewählte Jahr ändern
+  document.addEventListener("change", e => {
+    const el = e.target;
+    if (!el || el.id !== "vAnspruch") return;
+    const y = el.dataset.y, n = parseInt(el.value, 10);
+    if (!(n >= 0 && n <= 60)) { toast("Bitte 0 bis 60 Tage eingeben"); return; }
+    if (n === S.settings.vacTotal) delete S.settings.vacByYear[y]; else S.settings.vacByYear[y] = n;
+    save(); toast("Urlaubsanspruch " + y + ": " + n + " Tage"); setTimeout(rerender, 0);
+  });
+
+  // Knopf „Paket übernehmen“
+  document.addEventListener("click", e => {
+    const b = e.target.closest && e.target.closest('[data-act="v39paket"]');
+    if (!b) return;
+    e.preventDefault(); e.stopPropagation();
+    try {
+      const r = urlaubPaketLaden(JSON.parse(($("#vPaket") || {}).value || ""));
+      toast("Urlaub übernommen: " + r.neu + (r.neu === 1 ? " Änderung" : " Änderungen") + (r.jahre ? ", Anspruch für " + r.jahre + (r.jahre === 1 ? " Jahr" : " Jahre") + " gesetzt" : ""), 3500);
+      rerender();
+    } catch (err) { toast(err.message && err.message.indexOf("Urlaubs-Paket") >= 0 ? err.message : "Der Text ist kein gültiges Paket.", 3500); }
+  }, true);
+
+  // Claude-Version: privates Paket einmal pro Version automatisch übernehmen
+  try {
+    const AP = window.URLAUB_PAKET_AUTO;
+    if (AP && AP.erstellt && S.settings.urlaubPaketV !== AP.erstellt) { urlaubPaketLaden(AP); S.settings.urlaubPaketV = AP.erstellt; save(); }
+  } catch (e) {}
+
+  window.__v39 = {laden: urlaubPaketLaden};
+  try { rerender(); } catch (e) {}
+})();
+</script>
+
 
 <script>
 /* Service Worker: App startet auch mit schlechtem Netz */
