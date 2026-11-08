@@ -5895,7 +5895,11 @@ h1,h2,h3{padding-top:.06em;padding-bottom:.04em}
     return a >= 0 ? a : null;
   }
   // Dauer zwischen zwei (ungenauen) Daten
-  function monate(a, b) { return (+b.slice(0, 4) - +a.slice(0, 4)) * 12 + ((b.length >= 7 ? +b.slice(5, 7) : 1) - (a.length >= 7 ? +a.slice(5, 7) : 1)); }
+  function monate(a, b) {
+    let m = (+b.slice(0, 4) - +a.slice(0, 4)) * 12 + ((b.length >= 7 ? +b.slice(5, 7) : 1) - (a.length >= 7 ? +a.slice(5, 7) : 1));
+    if (a.length === 10 && b.length === 10 && +b.slice(8) < +a.slice(8)) m--;   // angefangener Monat zählt noch nicht
+    return m;
+  }
   function dauer(d, bis, offen) {
     if (!d) return "";
     const end = bis || (offen ? todayKey() : ""); if (!end || end < d) return "";
@@ -6196,9 +6200,19 @@ h1,h2,h3{padding-top:.06em;padding-bottom:.04em}
   function paketLaden(p) {
     if (!p || p.app !== "Wochenkompass-Leben-Paket" || !p.leben) { toast("Das ist kein Leben-Paket.", 3500); return false; }
     const o = L(), Q = p.leben; let n = 0;
-    (Q.e || []).forEach(x => { if (!x || !x.key || !KAT[x.kat] || !x.t || o.e.some(y => y.key === x.key)) return; const c = {id:id6()}; Object.keys(x).forEach(k => { if (k !== "id") c[k] = x[k]; }); o.e.push(c); n++; });
+    // Neue Einträge anhängen; vorhandene (gleicher key) nur ändern, wenn das Paket sie mit upd:true markiert
+    (Q.e || []).forEach(x => {
+      if (!x || !x.key || !KAT[x.kat] || !x.t) return;
+      const alt = o.e.find(y => y.key === x.key);
+      if (alt) { if (x.upd) { Object.keys(x).forEach(k => { if (k !== "id" && k !== "upd" && alt[k] !== x[k]) { alt[k] = x[k]; } }); n++; } return; }
+      const c = {id:id6()}; Object.keys(x).forEach(k => { if (k !== "id" && k !== "upd") c[k] = x[k]; }); o.e.push(c); n++;
+    });
+    // Veraltete Einträge entfernen (nur über key, also nur Einträge, die aus einem Paket kamen)
+    (Q.del || []).forEach(k => { const i = o.e.findIndex(y => y.key === k); if (i >= 0) { o.e.splice(i, 1); n++; } });
+    // Freundin / Lieblingsdinge: leere Felder füllen; „set“ überschreibt gezielt
     ["paar", "fav"].forEach(z => Object.keys(Q[z] || {}).forEach(k => { const v = Q[z][k]; if (v && !o[z][k]) { o[z][k] = String(v); n++; } }));
-    o.paket = todayKey(); save(); rerender(); toast("Leben-Paket geladen ✓ (" + n + " neue Einträge)", 3500); return true;
+    ["paar", "fav"].forEach(z => Object.keys((Q.set && Q.set[z]) || {}).forEach(k => { const v = String(Q.set[z][k] || ""); if (v && o[z][k] !== v) { o[z][k] = v; n++; } }));
+    o.paket = todayKey(); save(); rerender(); toast(n ? "Leben-Paket geladen ✓ (" + n + " Änderungen)" : "Leben-Paket: schon alles drin ✓", 3500); return true;
   }
   $("#lebenFile").addEventListener("change", e => {
     const f = e.target.files && e.target.files[0]; if (!f) return;
