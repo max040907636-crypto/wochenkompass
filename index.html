@@ -7624,10 +7624,11 @@ h1,h2,h3{padding-top:.06em;padding-bottom:.04em}
 (function () {
   /* ---------- Hilfe: Funktion ausführen, als gäbe es keine Hausaufgaben ---------- */
   // Die Liste wird nur für die Dauer des Zeichnens leer gemacht und danach sofort zurückgelegt.
+  // Fix v43b: Speichern während des Zeichnens erst danach (sonst würden Hausaufgaben-Daten leer gespeichert)
   const ohneHA = fn => function () {
-    const alt = S.homework;
-    S.homework = [];
-    try { return fn.apply(this, arguments); } finally { S.homework = alt; }
+    const alt = S.homework, s0 = save; let nachholen = false;
+    S.homework = []; save = function () { nachholen = true; };
+    try { return fn.apply(this, arguments); } finally { S.homework = alt; save = s0; if (nachholen) save(); }
   };
 
   /* ---------- 1. Schule → Übersicht: Karte „Hausaufgaben“ entfernen ---------- */
@@ -7643,14 +7644,23 @@ h1,h2,h3{padding-top:.06em;padding-bottom:.04em}
     return _vs.apply(this, arguments)
       .replace(/<b>Keine Hausaufgaben offen ✓<\/b><br>(Nächster Test:[^<]*|Keine Tests eingetragen)/, "<b>$1</b>");
   });
-  VIEWS.start = viewStart;
+  // Fix v43b: frühere Hüllen (Ich-Kachel, Sperr-Hinweis …) behalten statt überschreiben
+  const _VS = VIEWS.start;
+  VIEWS.start = ohneHA(function () {
+    return _VS.apply(this, arguments)
+      .replace(/<b>Keine Hausaufgaben offen ✓<\/b><br>(Nächster Test:[^<]*|Keine Tests eingetragen)/, "<b>$1</b>");
+  });
 
   /* ---------- 3. Woche: keine Hausaufgaben in Tagen und Fortschritt ---------- */
   const _vw = viewWoche;
   viewWoche = ohneHA(function () {
     return _vw.apply(this, arguments).replace("(Termine, To-dos, Hausaufgaben, Gym)", "(Termine, To-dos, Gym)");
   });
-  VIEWS.woche = viewWoche;
+  // Fix v43b: Hülle aus v36 (Knopf Rückblick/Ziele) behalten
+  const _VW = VIEWS.woche;
+  VIEWS.woche = ohneHA(function () {
+    return _VW.apply(this, arguments).replace("(Termine, To-dos, Hausaufgaben, Gym)", "(Termine, To-dos, Gym)");
+  });
 
   /* ---------- 4. Abend-Check und Suche ohne Hausaufgaben ---------- */
   abendSheet = ohneHA(abendSheet);
