@@ -7650,6 +7650,26 @@ h1,h2,h3{padding-top:.06em;padding-bottom:.04em}
 })();
 </script>
 
+<!-- ERWEITERUNG v42b (09.11.2026): Klassenarbeit aus Schulmanager eintragen.
+     Termin laut Schulmanager Online (Startseite → Klassenarbeiten): IT-Dienstleistungen, Mi 25.11.2026, 5.–6. Stunde.
+     - Wird einmal in „Klassenarbeiten & Tests“ eingetragen (feste ID), danach nie doppelt. Löschen/Abhaken bleibt möglich.
+     - Thema stand in Schulmanager nicht dabei. -->
+<script>
+(function () {
+  try {
+    const ID = "sm-itd-2026-11-25";
+    // Schon da (gleiche ID oder gleiches Fach am gleichen Tag)? Oder schon einmal eingetragen und von Max gelöscht? → nichts tun
+    S.smImport = S.smImport || {};
+    if (!S.smImport[ID] && !S.tests.some(x => x.id === ID || (x.fach === "itd" && x.date === "2026-11-25"))) {
+      S.tests.push({id:ID, fach:"itd", text:"Klassenarbeit ITD (5.–6. Stunde, 11:40–13:10)", date:"2026-11-25", remind:7, done:false});
+    }
+    S.smImport[ID] = true;
+    save();
+    try { rerender(); } catch (e) {}
+  } catch (e) {}
+})();
+</script>
+
 <script>
 /* Service Worker: App startet auch mit schlechtem Netz */
 if ("serviceWorker" in navigator) addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));
