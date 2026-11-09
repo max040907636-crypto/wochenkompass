@@ -7583,6 +7583,73 @@ h1,h2,h3{padding-top:.06em;padding-bottom:.04em}
 </script>
 
 
+<!-- ERWEITERUNG v42 (09.11.2026): Schule ohne „Hausaufgaben“.
+     Wunsch von Max. Ohne persönliche Werte, darf auf GitHub Pages.
+     - Karte „Hausaufgaben“ in Schule → Übersicht ist weg, ebenso Hausaufgaben auf Start, in der Woche, im Abend-Check und in der Suche.
+     - Gespeicherte Daten (S.homework) bleiben im Speicher und im Backup, nur die Anzeige fällt weg.
+     - Zurückholen: diesen Block löschen. -->
+<script>
+(function () {
+  /* ---------- Hilfe: Funktion ausführen, als gäbe es keine Hausaufgaben ---------- */
+  // Die Liste wird nur für die Dauer des Zeichnens leer gemacht und danach sofort zurückgelegt.
+  const ohneHA = fn => function () {
+    const alt = S.homework;
+    S.homework = [];
+    try { return fn.apply(this, arguments); } finally { S.homework = alt; }
+  };
+
+  /* ---------- 1. Schule → Übersicht: Karte „Hausaufgaben“ entfernen ---------- */
+  const _su = schUebersicht;
+  schUebersicht = ohneHA(function () {
+    return _su.apply(this, arguments)
+      .replace(/<div class="card"><div class="card-h"><h3>Hausaufgaben<\/h3>[\s\S]*?(?=<div class="card"><div class="card-h"><h3>Klassenarbeiten)/, "");
+  });
+
+  /* ---------- 2. Start: Kachel Schule zeigt nur noch den nächsten Test ---------- */
+  const _vs = viewStart;
+  viewStart = ohneHA(function () {
+    return _vs.apply(this, arguments)
+      .replace(/<b>Keine Hausaufgaben offen ✓<\/b><br>(Nächster Test:[^<]*|Keine Tests eingetragen)/, "<b>$1</b>");
+  });
+  VIEWS.start = viewStart;
+
+  /* ---------- 3. Woche: keine Hausaufgaben in Tagen und Fortschritt ---------- */
+  const _vw = viewWoche;
+  viewWoche = ohneHA(function () {
+    return _vw.apply(this, arguments).replace("(Termine, To-dos, Hausaufgaben, Gym)", "(Termine, To-dos, Gym)");
+  });
+  VIEWS.woche = viewWoche;
+
+  /* ---------- 4. Abend-Check und Suche ohne Hausaufgaben ---------- */
+  abendSheet = ohneHA(abendSheet);
+  if (typeof openTodos === "function") openTodos = ohneHA(openTodos);
+  if (typeof searchAll === "function") {
+    const _sa = searchAll;
+    searchAll = function () { return (_sa.apply(this, arguments) || []).filter(r => r && r.cat !== "Hausaufgabe"); };
+  }
+
+  /* ---------- 5. Abend-Check-Liste: Standardpunkt „Hausaufgaben für morgen fertig“ einmalig raus ---------- */
+  // Nur genau dieser Standardtext, eigene Punkte bleiben unberührt.
+  try {
+    if (S.evening && Array.isArray(S.evening.schule) && S.evening.schule.includes("Hausaufgaben für morgen fertig")) {
+      S.evening.schule = S.evening.schule.filter(x => x !== "Hausaufgaben für morgen fertig");
+      save();
+    }
+  } catch (e) {}
+
+  /* ---------- 6. Zwei Resttexte anpassen (Abend-Check-Karte auf Start, Kalender-Export) ---------- */
+  const TEXTE = [["Tasche packen, Hausaufgaben checken", "Tasche packen, Termine checken"], ["Tests und Hausaufgaben mit Datum", "Tests mit Datum"]];
+  const fix = root => {
+    const w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+    for (let n = w.nextNode(); n; n = w.nextNode()) TEXTE.forEach(([a, b]) => { if (n.nodeValue.includes(a)) n.nodeValue = n.nodeValue.replace(a, b); });
+  };
+  try { new MutationObserver(() => fix(document.body)).observe(document.body, {childList:true, subtree:true}); fix(document.body); } catch (e) {}
+
+  window.__v42 = true;
+  try { rerender(); } catch (e) {}
+})();
+</script>
+
 <script>
 /* Service Worker: App startet auch mit schlechtem Netz */
 if ("serviceWorker" in navigator) addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));
