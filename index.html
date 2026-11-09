@@ -7515,6 +7515,74 @@ h1,h2,h3{padding-top:.06em;padding-bottom:.04em}
 
 
 
+<!-- ERWEITERUNG v41 (09.11.2026): Tabs entfernt – Arbeit ohne „Bericht“ und „Fälle“, Schule ohne „Noten“.
+     Wunsch von Max. Ohne persönliche Werte, darf auf GitHub Pages.
+     - Nur die Anzeige fällt weg. Gespeicherte Daten (S.work.bh, S.cases, S.grades, S.gradeGoal, S.ihkCalc) bleiben im Speicher und im Backup.
+     - Knöpfe/Links, die zu den Tabs geführt haben, sind ebenfalls weg (sonst würden sie ins Leere zeigen).
+     - Zurückholen: diesen Block löschen. -->
+<script>
+(function () {
+  /* ---------- 1. Tabs aus den Listen nehmen ---------- */
+  // ARB_TABS / SCH_TABS sind const-Arrays → direkt verkleinern
+  const weg = (liste, keys) => { for (let i = liste.length - 1; i >= 0; i--) if (keys.includes(liste[i][0])) liste.splice(i, 1); };
+  weg(ARB_TABS, ["bh", "faelle"]);
+  weg(SCH_TABS, ["noten"]);
+  // Alte Links / gemerkte Tabs landen auf „Heute“ bzw. „Übersicht“
+  ARB_ALIAS.bh = "heute"; ARB_ALIAS.faelle = "heute";
+  if (ARB_TAB === "bh" || ARB_TAB === "faelle") ARB_TAB = "heute";
+  if (SCH_TAB === "noten") SCH_TAB = "uebersicht";
+
+  /* ---------- 1b. Schule hat jetzt nur 5 Tabs → trotzdem im 3er-Raster wie vorher (sonst am Handy abgeschnitten) ---------- */
+  const _th = tabsHtml;
+  tabsHtml = function (list) {
+    const h = _th.apply(this, arguments);
+    return list === SCH_TABS ? h.replace('class="tabs-seg"', 'class="tabs-seg many"') : h;
+  };
+
+  /* ---------- 2. Schule: „noten“ nie mehr anzeigen ---------- */
+  const _vs = VIEWS.schule;
+  VIEWS.schule = function () { if (SCH_TAB === "noten") SCH_TAB = "uebersicht"; return _vs.apply(this, arguments); };
+
+  /* ---------- 3. Arbeit → Heute: Berichtsheft-Banner und „Fall festhalten“ weg ---------- */
+  const _ah = arbHeute;
+  arbHeute = function () {
+    let h = _ah.apply(this, arguments);
+    h = h.replace(/<div class="banner" style="--c:var\(--arbeit\)"><span class="ic">✍️<\/span><div><b>Wochenende: Zeit fürs Berichtsheft<\/b><button[^>]*>[^<]*<\/button><\/div><\/div>/, "");
+    h = h.replace(/<button class="btn block" data-act="a-fallneu">[^<]*<\/button>/g, "");
+    h = h.replace(" (fließt ins Berichtsheft ein)", "");
+    return h;
+  };
+
+  /* ---------- 4. Arbeit → Wissen: „Gelöst → als Fall festhalten“ weg ---------- */
+  const _aw = arbWissen;
+  arbWissen = function () { return _aw.apply(this, arguments).replace(/<button class="btn sm" data-act="a-prob2fall"[^>]*>[^<]*<\/button>/g, ""); };
+
+  /* ---------- 5. Woche (Sonntags-Rückblick): Berichtsheft-Zeile + Knopf weg ---------- */
+  const _rv = reviewHtml;
+  reviewHtml = function () {
+    return _rv.apply(this, arguments)
+      .replace(/<p><b>Berichtsheft:<\/b>[^<]*<\/p>/, "")
+      .replace(/<button class="btn primary" data-act="arbtab" data-v="bh"[^>]*>[^<]*<\/button>/, "");
+  };
+
+  /* ---------- 6. Ziele: Karte „Wunsch-Note“ (Link zu Noten) weg ---------- */
+  if (VIEWS.ziele) {
+    const _vz = VIEWS.ziele;
+    VIEWS.ziele = function () { return _vz.apply(this, arguments).replace(/<div class="card"><div class="card-h"><h3>📚 Wunsch-Note<\/h3>.*?<\/p><\/div>/, ""); };
+  }
+
+  /* ---------- 7. Suche: keine Fälle und keinen Notenrechner mehr anzeigen ---------- */
+  if (typeof searchAll === "function") {
+    const _sa = searchAll;
+    searchAll = function () { return (_sa.apply(this, arguments) || []).filter(r => r && r.cat !== "Fall" && r.title !== "Notenrechner"); };
+  }
+
+  window.__v41 = {ARB_TABS, SCH_TABS};
+  try { rerender(); } catch (e) {}
+})();
+</script>
+
+
 <script>
 /* Service Worker: App startet auch mit schlechtem Netz */
 if ("serviceWorker" in navigator) addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));
