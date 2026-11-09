@@ -15,6 +15,38 @@
 <link rel="icon" type="image/png" href="icons/icon-192.png">
 </head>
 <body>
+<!-- ERWEITERUNG v43 (früh, 09.11.2026): gespeichertes Design sofort beim Start setzen, damit nichts kurz im alten Look aufblitzt.
+     Liest nur die kleine Kopie „wochenkompass.design“ (die richtige Einstellung steht in S.settings.design und im Backup).
+     Ohne persönliche Werte, darf auf GitHub Pages. -->
+<script>
+(function () {
+  try {
+    var r = document.documentElement;
+    window.__d43host = r.getAttribute("data-theme");          // Hell/Dunkel der Claude-Ansicht merken (vor unserer Änderung)
+    var o = JSON.parse(localStorage.getItem("wochenkompass.design") || "null");
+    if (!o || o.v !== 1) return;
+    // Welcher Modus gilt? Erzwungen vom Theme, sonst Einstellung, sonst Handy-Einstellung
+    var m = o.force || (o.theme === "light" || o.theme === "dark" ? o.theme : (window.__d43host || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light")));
+    var V = o[m];
+    if (!V) return;
+    // Nur CSS-Variablen (--name) und nur Farbwerte/Schriftlisten übernehmen
+    for (var k in V) if (/^--[a-z0-9-]+$/.test(k) && /^[#a-zA-Z0-9 ,.\-"()%]+$/.test(String(V[k]))) r.style.setProperty(k, V[k]);
+    r.style.colorScheme = m;
+    for (var a in o.attrs) if (/^data-d43/.test(a)) r.setAttribute(a, String(o.attrs[a]));
+    // Theme gibt es nur hell oder nur dunkel: Modus festhalten, bis der Design-Block übernimmt
+    if (o.force) {
+      r.setAttribute("data-theme", o.force);
+      window.__d43early = new MutationObserver(function () { if (r.getAttribute("data-theme") !== o.force) r.setAttribute("data-theme", o.force); });
+      window.__d43early.observe(r, {attributes:true, attributeFilter:["data-theme"]});
+    }
+    // Schrift von Google Fonts laden (nur feste Adresse)
+    if (typeof o.font === "string" && o.font.indexOf("https://fonts.googleapis.com/css2?") === 0) {
+      var l = document.createElement("link"); l.rel = "stylesheet"; l.href = o.font; l.setAttribute("data-d43font", "1");
+      (document.head || r).appendChild(l);
+    }
+  } catch (e) {}
+})();
+</script>
 <title>Wochenkompass</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -7667,6 +7699,791 @@ h1,h2,h3{padding-top:.06em;padding-bottom:.04em}
     save();
     try { rerender(); } catch (e) {}
   } catch (e) {}
+})();
+</script>
+
+<!-- ERWEITERUNG v43 (09.11.2026): 🎨 Design – Themes, Farben, Stil und Schrift selbst einstellen.
+     Wunsch von Max: Look der App ändern können (Farben, Stil, Art), mit Designs bekannter Apps als Vorlage.
+     - Neue Seite #design (Einstellungen → „🎨 Design & Farben“, auch über die Suche).
+     - 32 Themes aus 10 Stil-Familien (eigene Namen, nur Farben/Formen als Idee übernommen, keine Logos).
+     - Frei kombinierbar: Akzentfarbe, Bereichsfarben, Hintergrund, Ecken, Karten-Stil, Navigation, Schrift, GROSS/normal, Textgröße, Animationen.
+     - Lesbarkeit: Farben werden automatisch nachgedunkelt/aufgehellt, bis der Kontrast reicht (Text 4,5 : 1, Farben 3 : 1).
+     - Gilt auch im Gym (Hantelbuch-Rahmen).
+     - Speicher: S.settings.design (kommt mit ins Backup) + kleine Kopie „wochenkompass.design“ für den schnellen Start.
+     - Standard (Kompass ohne Änderungen) = gar nichts wird verändert, App sieht aus wie vorher.
+     - Ohne persönliche Werte, darf auf GitHub Pages. Zurück: diesen Block und „v43 (früh)“ löschen. Test-Hilfe: window.__v43 -->
+<style>
+/* ---------- Akzentfarbe: aktive Knöpfe, Häkchen, Ringe (nur wenn ein Design aktiv ist) ---------- */
+html[data-d43]{accent-color:var(--acc)}
+html[data-d43] :focus-visible{outline-color:var(--acc-t)}
+html[data-d43] .btn.primary{background:var(--acc);border-color:var(--acc);color:var(--on-acc)}
+html[data-d43] .btn.danger.primary{background:var(--feiertag);border-color:var(--feiertag);color:#fff}
+html[data-d43] .chk[aria-pressed="true"]{background:var(--acc);border-color:var(--acc);color:var(--on-acc)}
+html[data-d43] .daypick button[aria-pressed="true"]{background:var(--acc);border-color:var(--acc);color:var(--on-acc)}
+html[data-d43] .daypick button[aria-pressed="true"] small{color:var(--on-acc)}
+html[data-d43] .daypick button.w[aria-pressed="true"]::after{background:var(--on-acc)}
+html[data-d43] .daypick button.is-today{box-shadow:0 0 0 2px var(--acc-t) inset}
+html[data-d43] .ring .fg{stroke:var(--acc)}
+html[data-d43] .nav a[aria-current="page"]{color:var(--acc-t)}
+html[data-d43] .nav .plus span.p{background:var(--acc);color:var(--on-acc)}
+html[data-d43] .pill,html[data-d43] .qbtn .z6n{background:var(--acc);color:var(--on-acc)}
+html[data-d43] .seg button[aria-pressed="true"],html[data-d43] .tabs-seg button[aria-selected="true"],html[data-d43] .ichtabs a[aria-current="page"]{color:var(--acc-t)}
+html[data-d43] .ltabs button[aria-pressed="true"]{background:var(--acc);border-color:var(--acc);color:var(--on-acc)}
+html[data-d43] .moods button[aria-pressed="true"]{border-color:var(--acc-t)}
+html[data-d43] .chipbtn[aria-pressed="true"]{border-color:var(--c,var(--acc-t));background:color-mix(in srgb,var(--c,var(--acc)) 16%,var(--surface))}
+html[data-d43] .bar i,html[data-d43] .hrow .tr i{background:var(--c,var(--acc))}
+html[data-d43] .mco input{accent-color:var(--acc)}
+
+/* ---------- Ecken (eckig … sehr rund) ---------- */
+html[data-d43-r]{--r:var(--d43-rc)}
+html[data-d43-r] :is(.card,.tile,.counter,.qbtn,.banner,.flashcard,.mcq,.qitem,.zrow,.callout,details.qa,.privacy,.tree details,.zs-card,.gsum div,.lgrid button,.gtabs button,.v40-item){border-radius:var(--d43-rc)}
+html[data-d43-r] :is(.btn,.icon-btn,.back,.mini,.inp,.field input,.field select,.daypick button,.blk,.slot,.tr-row,.moods button,.ichtabs a,.seg button,.tabs-seg button,.nav .plus span.p,.zin input,.vrow input,.gform input,.gform select,.lrow input,.kgrid input,.unlock input,.tr-row .v input,.tr-row .v select,.wnum){border-radius:var(--d43-rb)}
+html[data-d43-r] :is(.seg,.tabs-seg,.ichtabs,textarea,.tip,.toast,.clockbar){border-radius:min(var(--d43-rb),20px)}
+html[data-d43-r] :is(.tag,.chipbtn,.pill,.ltabs button,.lnamen button,.chk){border-radius:var(--d43-rk)}
+html[data-d43-r] .sheet{border-radius:var(--d43-rc) var(--d43-rc) 0 0}
+html[data-d43-r] .tile::after{border-radius:0 0 var(--d43-rk) var(--d43-rk)}
+
+/* ---------- Karten-Stil ---------- */
+/* Schatten: keine Linie, weicher Schatten (wie iPhone/Things) */
+html[data-d43-card="schatten"] :is(.card:not(.ink):not(.note),.tile:not(.now),.counter,.qbtn,.zs-card,.tree details){border-color:transparent;box-shadow:var(--d43-sh)}
+/* Flach: leicht getönte Flächen ohne Linie (wie Material/Nord) */
+html[data-d43-card="flach"] :is(.card:not(.ink):not(.note),.tile:not(.now),.counter,.qbtn,.zs-card,.tree details){border-color:transparent;background:var(--d43-flat)}
+/* Glas: halb durchsichtig mit Unschärfe (wie iOS 26 „Liquid Glass“) */
+html[data-d43-card="glas"] :is(.card:not(.ink):not(.note),.tile:not(.now),.counter,.qbtn,.zs-card,.tree details){background:color-mix(in srgb,var(--surface) 66%,transparent);border-color:color-mix(in srgb,var(--fg) 13%,transparent);-webkit-backdrop-filter:blur(18px) saturate(1.5);backdrop-filter:blur(18px) saturate(1.5);box-shadow:inset 0 1px 0 color-mix(in srgb,#fff 28%,transparent),var(--d43-sh)}
+html[data-d43-card="glas"] .top{background:color-mix(in srgb,var(--bg) 62%,transparent);-webkit-backdrop-filter:blur(20px) saturate(1.6);backdrop-filter:blur(20px) saturate(1.6)}
+html[data-d43-card="glas"] .nav{background:color-mix(in srgb,var(--surface) 70%,transparent);-webkit-backdrop-filter:blur(20px) saturate(1.6);backdrop-filter:blur(20px) saturate(1.6)}
+/* 3D-Kante: dicker unterer Rand, Knöpfe „drückbar“ (wie Lern-Apps) */
+html[data-d43-card="kante"] :is(.card:not(.ink):not(.note),.tile:not(.now),.counter,.qbtn,.zs-card){border-width:2px;border-bottom-width:5px}
+html[data-d43-card="kante"] :is(.btn,.chipbtn,.daypick button){border-bottom-width:5px}
+html[data-d43-card="kante"] :is(.btn,.chipbtn):active{transform:translateY(2px);border-bottom-width:3px}
+/* Kräftig: schwarze Linien und harter Schatten (Neo-Brutalismus) */
+html[data-d43-card="kraeftig"] :is(.card:not(.ink),.tile:not(.now),.counter,.qbtn,.zs-card,.tree details){border:2px solid var(--fg);box-shadow:4px 4px 0 var(--fg)}
+html[data-d43-card="kraeftig"] .tile.now{box-shadow:0 0 0 2px var(--c) inset,4px 4px 0 var(--fg)}
+html[data-d43-card="kraeftig"] :is(.btn,.chipbtn,.icon-btn,.back,.mini){border:2px solid var(--fg);box-shadow:3px 3px 0 var(--fg)}
+html[data-d43-card="kraeftig"] :is(.btn,.chipbtn,.icon-btn,.back,.mini):active{transform:translate(3px,3px);box-shadow:none}
+html[data-d43-card="kraeftig"] :is(.inp,.field input,.field select,textarea){border:2px solid var(--fg)}
+
+/* ---------- Hintergrund-Muster (liegt hinter allem, scrollt nicht mit) ---------- */
+html[data-d43-bg]::before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none}
+html[data-d43-bg="verlauf"]::before{background:linear-gradient(180deg,color-mix(in srgb,var(--acc) 16%,var(--bg)) 0%,var(--bg) 65%)}
+html[data-d43-bg="punkte"]::before{background:radial-gradient(color-mix(in srgb,var(--fg) 16%,transparent) 1.1px,transparent 1.6px) 0 0/18px 18px}
+html[data-d43-bg="linien"]::before{background:repeating-linear-gradient(180deg,transparent 0 27px,color-mix(in srgb,var(--acc) 16%,transparent) 27px 28px)}
+html[data-d43-bg="karo"]::before{background:linear-gradient(color-mix(in srgb,var(--fg) 7%,transparent) 1px,transparent 1px) 0 0/22px 22px,linear-gradient(90deg,color-mix(in srgb,var(--fg) 7%,transparent) 1px,transparent 1px) 0 0/22px 22px}
+html[data-d43-bg="aurora"]::before{background:radial-gradient(60% 45% at 12% 8%,color-mix(in srgb,var(--acc) 34%,transparent),transparent 70%),radial-gradient(55% 40% at 92% 30%,color-mix(in srgb,var(--privat) 28%,transparent),transparent 70%),radial-gradient(60% 45% at 30% 95%,color-mix(in srgb,var(--urlaub) 26%,transparent),transparent 70%)}
+html[data-d43-bg]:not([data-d43-card="glas"]) .top{background:color-mix(in srgb,var(--bg) 84%,transparent);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px)}
+
+/* ---------- Navigation schwebend (wie iOS 26 / Arc) ---------- */
+html[data-d43-nav="schwebend"] .nav .plus span.p{height:36px}
+html[data-d43-nav="schwebend"] .nav{left:max(10px,env(safe-area-inset-left,0px));right:max(10px,env(safe-area-inset-right,0px));bottom:calc(8px + env(safe-area-inset-bottom,0px));max-width:560px;margin-inline:auto;padding:0 6px;border:1px solid var(--line);border-radius:min(26px,calc(var(--d43-rc,20px) + 6px));box-shadow:0 10px 30px rgba(0,0,0,.18)}
+
+/* ---------- Schrift ---------- */
+html[data-d43-caps="0"] :is(h1,h2,h3,.brand,.day-h .wd){text-transform:none}
+/* Breite Schriften brauchen etwas kleinere Überschriften (sonst passt „Einstellungen“ nicht aufs Handy) */
+html[data-d43-wide] h1{font-size:clamp(26px,7.4vw,38px);letter-spacing:0}
+html[data-d43-wide] .hello h1{font-size:clamp(28px,8vw,42px)}
+html[data-d43-wide] h2{font-size:22px;letter-spacing:0}
+html[data-d43-wide] h3{font-size:18px;letter-spacing:0}
+html[data-d43-wide] .tile h2{font-size:22px}
+html[data-d43-wide] .brand{font-size:20px;letter-spacing:.02em}
+html[data-d43-wide] .counter b{font-size:36px}
+html[data-d43-wide] .bignum{font-size:52px}
+html[data-d43-wide] .day-h .num{font-size:26px}
+html[data-d43-wide] .day-h .wd{font-size:16px}
+html[data-d43-font="hand"] h1{font-size:clamp(34px,10vw,50px)}
+html[data-d43-font="hand"] h2{font-size:30px}
+html[data-d43-font="hand"] h3{font-size:24px}
+html[data-d43] :is(h1,h2,h3){overflow-wrap:break-word}
+
+/* ---------- Textgröße (nur Inhalt + Fenster, Leisten bleiben gleich) ---------- */
+html[data-d43-size] #main > *,html[data-d43-size] #sheet > *{zoom:var(--d43-zoom)}
+html[data-d43-size="115"] .qbtn,html[data-d43-size="110"] .qbtn,html[data-d43-font="mono"] .qbtn{font-size:12px;letter-spacing:-.02em}
+
+/* ---------- Animationen aus ---------- */
+html[data-d43-motion="0"] *,html[data-d43-motion="0"] *::before,html[data-d43-motion="0"] *::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}
+
+/* ---------- Seite „Design“ ---------- */
+.d43-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(146px,1fr));gap:10px}
+.d43-th{display:flex;flex-direction:column;gap:5px;text-align:left;padding:8px 8px 10px;border-radius:16px;border:2px solid var(--line);background:var(--surface);color:var(--fg);min-width:0;font:inherit;cursor:pointer}
+.d43-th[aria-pressed="true"]{border-color:var(--acc-t,var(--fg));box-shadow:0 0 0 2px var(--acc-t,var(--fg)) inset}
+.d43-mini{display:block;position:relative;height:72px;border-radius:10px;background:var(--tb);border:1px solid var(--tl);overflow:hidden}
+.d43-mc{position:absolute;left:8px;right:8px;top:8px;height:38px;border-radius:var(--tr);background:var(--ts);border:1px solid var(--tl)}
+.d43-mc i{position:absolute;left:8px;top:9px;width:52%;height:5px;border-radius:3px;background:var(--tf)}
+.d43-mc i + i{top:20px;width:32%;background:var(--tm)}
+.d43-mc u{position:absolute;right:7px;top:10px;width:24px;height:16px;border-radius:min(var(--tr),8px);background:var(--ta)}
+.d43-md{position:absolute;left:8px;bottom:6px;display:flex;gap:4px}
+.d43-md i{width:10px;height:10px;border-radius:50%;display:block}
+.d43-th .n{font-weight:700;font-size:15px;line-height:1.2;overflow-wrap:anywhere}
+.d43-th small{font-size:12px;color:var(--muted);line-height:1.3;overflow-wrap:anywhere}
+.d43-sws{display:flex;flex-wrap:wrap;gap:8px}
+.d43-sw{width:42px;height:42px;border-radius:50%;border:2px solid var(--line);background:var(--sw);padding:0;flex:none;display:grid;place-items:center;font-size:11px;font-weight:700;color:var(--fg)}
+.d43-sw[aria-pressed="true"]{box-shadow:0 0 0 3px var(--surface),0 0 0 5px var(--fg)}
+.d43-pick{display:inline-flex;align-items:center;gap:8px;min-height:44px;font-weight:700;font-size:15px;cursor:pointer}
+.d43 input[type="color"]{width:52px;height:40px;border:1px solid var(--line);border-radius:10px;background:var(--surface);padding:3px;flex:none;cursor:pointer}
+.d43-row{display:flex;align-items:center;gap:10px;padding:6px 0;border-top:1px solid var(--line);min-width:0}
+.d43-row:first-child{border-top:0}
+.d43-row .li-main{font-weight:700}
+.d43-font{display:flex;justify-content:space-between;align-items:center;gap:10px;width:100%;min-height:58px;padding:8px 14px;border-radius:14px;border:2px solid var(--line);background:var(--surface);color:var(--fg);text-align:left;font:inherit}
+.d43-font[aria-pressed="true"]{border-color:var(--acc-t,var(--fg));box-shadow:0 0 0 1px var(--acc-t,var(--fg)) inset}
+.d43-font .fp{flex:1 1 auto;font-size:21px;font-weight:700;line-height:1.1;min-width:0}
+.d43-font small{color:var(--muted);font-size:12px;flex:0 1 auto;max-width:46%;text-align:right}
+.d43-fonts{display:flex;flex-direction:column;gap:8px}
+.d43-ok{color:var(--ok);font-weight:700;white-space:nowrap}
+.d43-bad{color:var(--feiertag);font-weight:700;white-space:nowrap}
+.d43 textarea{min-height:90px;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:13px}
+.d43-demo{display:flex;flex-direction:column;gap:10px}
+.d43-demo .chips{pointer-events:none}
+</style>
+<script>
+(function () {
+  "use strict";
+  const DKEY = "wochenkompass.design";                 // kleine Kopie für den schnellen Start (v43 früh)
+  const HEX = /^#[0-9a-fA-F]{6}$/;
+  const R = document.documentElement;
+
+  /* =====================================================================
+     1. SCHRIFTEN – nur von Google Fonts (wie die Grundschrift der App)
+     ===================================================================== */
+  const GF = "https://fonts.googleapis.com/css2?family=";
+  const SYS = '-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif';
+  const FONTS = {
+    kompass:{n:"Kompass", i:"Barlow + Atkinson (Standard)", d:'"Barlow Condensed","Arial Narrow","Roboto Condensed",sans-serif', b:'"Atkinson Hyperlegible",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif', caps:true, url:""},
+    system:{n:"System", i:"wie iPhone / Windows", d:SYS, b:SYS, wide:true, url:""},
+    inter:{n:"Modern", i:"Inter", d:'"Inter",' + SYS, b:'"Inter",' + SYS, wide:true, url:GF + "Inter:wght@400;600;700;800&display=swap"},
+    rund:{n:"Rund", i:"Fredoka + Nunito", d:'"Fredoka","Nunito",' + SYS, b:'"Nunito",' + SYS, wide:true, url:GF + "Fredoka:wght@500;600;700&family=Nunito:wght@400;700;800&display=swap"},
+    poppins:{n:"Geometrisch", i:"Poppins", d:'"Poppins",' + SYS, b:'"Poppins",' + SYS, wide:true, url:GF + "Poppins:wght@400;600;700&display=swap"},
+    grotesk:{n:"Tech", i:"Space Grotesk", d:'"Space Grotesk",' + SYS, b:'"Space Grotesk",' + SYS, wide:true, url:GF + "Space+Grotesk:wght@400;500;700&display=swap"},
+    serif:{n:"Buch", i:"Lora (Serifen)", d:'"Lora",Georgia,"Times New Roman",serif', b:'"Lora",Georgia,"Times New Roman",serif', wide:true, url:GF + "Lora:wght@400;600;700&display=swap"},
+    mono:{n:"Code", i:"JetBrains Mono", d:'"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace', b:'"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace', wide:true, url:GF + "JetBrains+Mono:wght@400;700&display=swap"},
+    hand:{n:"Handschrift", i:"Caveat + Nunito", d:'"Caveat","Segoe Print","Bradley Hand",cursive', b:'"Nunito",' + SYS, url:GF + "Caveat:wght@600;700&family=Nunito:wght@400;700;800&display=swap"},
+    lesbar:{n:"Gut lesbar", i:"Atkinson Hyperlegible", d:'"Atkinson Hyperlegible",' + SYS, b:'"Atkinson Hyperlegible",' + SYS, wide:true, url:""}
+  };
+
+  /* =====================================================================
+     2. THEMES – 32 Looks aus 10 Stil-Familien.
+     Eigene Namen; übernommen sind nur Farben, Formen und Schrift-Art als Idee.
+     L = hell, D = dunkel (fehlt eins, gibt es das Theme nur hell bzw. nur dunkel).
+     a = eigene Bereichsfarben (sonst die normalen der App). Alles wird automatisch auf Lesbarkeit geprüft.
+     ===================================================================== */
+  const T = (id, n, em, fam, idee, L, D, o) => Object.assign({id, n, em, fam, idee, L, D}, o || {});
+  const PRESETS = [
+    T("kompass", "Kompass", "🧭", ["minimal"], "Dein bisheriges Design",
+      {bg:"#f6f6f4", surface:"#ffffff", soft:"#eeeeea", line:"#e0e0da", fg:"#111111", muted:"#5f6062", acc:"#111111"},
+      {bg:"#000000", surface:"#0f0f10", soft:"#1b1b1d", line:"#2c2c2f", fg:"#f5f5f3", muted:"#a6a7aa", acc:"#f5f5f3"},
+      {font:"kompass", r:"normal", card:"rahmen", bg:"none", nav:"leiste"}),
+    T("klar", "Klar", "🍏", ["minimal"], "Apple-Apps (Erinnerungen, Kalender)",
+      {bg:"#f2f2f7", surface:"#ffffff", soft:"#e9e9ee", line:"#d8d8dd", fg:"#000000", muted:"#6c6c70", acc:"#007aff"},
+      {bg:"#000000", surface:"#1c1c1e", soft:"#2c2c2e", line:"#38383a", fg:"#ffffff", muted:"#98989f", acc:"#0a84ff"},
+      {font:"system", r:"rund", card:"schatten", nav:"schwebend",
+       a:{L:{schule:"#ff9500", arbeit:"#007aff", frei:"#34c759", privat:"#af52de", feiertag:"#ff3b30", urlaub:"#30b0c7", ferien:"#30b0c7"},
+          D:{schule:"#ff9f0a", arbeit:"#0a84ff", frei:"#30d158", privat:"#bf5af2", feiertag:"#ff453a", urlaub:"#40c8e0", ferien:"#40c8e0"}}}),
+    T("glas", "Glas", "💎", ["bunt"], "iPhone mit iOS 26 („Liquid Glass“)",
+      {bg:"#e8edf5", surface:"#ffffff", soft:"#e2e8f1", line:"#cdd6e3", fg:"#0b1220", muted:"#4f5b6b", acc:"#2f6bff"},
+      {bg:"#05080f", surface:"#141a26", soft:"#1d2533", line:"#2b3547", fg:"#f2f5fa", muted:"#9ba7b9", acc:"#6f9dff"},
+      {font:"system", r:"extra", card:"glas", bg:"aurora", nav:"schwebend"}),
+    T("material", "Material", "🟣", ["bunt"], "Android & Google Kalender (Material You)",
+      {bg:"#fef7ff", surface:"#f7f2fa", soft:"#ece6f0", line:"#cac4d0", fg:"#1d1b20", muted:"#49454f", acc:"#6750a4"},
+      {bg:"#141218", surface:"#211f26", soft:"#2b2930", line:"#49454f", fg:"#e6e0e9", muted:"#cac4d0", acc:"#d0bcff"},
+      {font:"system", r:"extra", card:"flach"}),
+    T("fenster", "Fenster", "🪟", ["minimal"], "Windows 11",
+      {bg:"#f3f3f3", surface:"#fbfbfb", soft:"#ebebeb", line:"#dedede", fg:"#1b1b1b", muted:"#5d5d5d", acc:"#005fb8"},
+      {bg:"#202020", surface:"#2b2b2b", soft:"#333333", line:"#3d3d3d", fg:"#ffffff", muted:"#c5c5c5", acc:"#60cdff"},
+      {font:"system", r:"leicht", card:"schatten"}),
+    T("notiz", "Notizblock", "📝", ["minimal"], "Notion & Notiz-Apps",
+      {bg:"#ffffff", surface:"#ffffff", soft:"#f7f6f3", line:"#e9e9e7", fg:"#37352f", muted:"#73726e", acc:"#2383e2"},
+      {bg:"#191919", surface:"#202020", soft:"#2c2c2c", line:"#373737", fg:"#e6e6e5", muted:"#9b9b9b", acc:"#529cca"},
+      {font:"inter", r:"leicht", card:"rahmen"}),
+    T("fokus", "Fokus-Rot", "🍅", ["minimal"], "Todoist & Aufgaben-Apps",
+      {bg:"#fcfaf8", surface:"#ffffff", soft:"#f5f2ef", line:"#ebe6e1", fg:"#202020", muted:"#666666", acc:"#dc4c3e"},
+      {bg:"#1e1e1e", surface:"#282828", soft:"#333333", line:"#3d3d3d", fg:"#f2f2f2", muted:"#a8a8a8", acc:"#ff7066"},
+      {font:"inter", r:"leicht", card:"rahmen"}),
+    T("ruhig", "Ruhig-Blau", "🔵", ["minimal"], "Things 3 (Aufgaben-App)",
+      {bg:"#ffffff", surface:"#f6f7f9", soft:"#eef0f3", line:"#e3e6ea", fg:"#1c1d1f", muted:"#6b7077", acc:"#1b6ef3"},
+      {bg:"#1c1e22", surface:"#25282d", soft:"#2d3137", line:"#383c43", fg:"#f1f2f4", muted:"#9aa1aa", acc:"#4c8dff"},
+      {font:"system", r:"rund", card:"flach"}),
+    T("pastell", "Pastell-Tag", "🌷", ["verspielt", "bunt"], "Tagesplaner wie Structured & Tiimo",
+      {bg:"#fbf7ff", surface:"#ffffff", soft:"#f3ecfb", line:"#e8def5", fg:"#2a2140", muted:"#6b6080", acc:"#8b5cf6"},
+      {bg:"#1a1625", surface:"#241e33", soft:"#2e2740", line:"#3a3150", fg:"#f4efff", muted:"#b6aacb", acc:"#b79cff"},
+      {font:"rund", r:"extra", card:"schatten", bg:"verlauf", nav:"schwebend",
+       a:{L:{schule:"#f08c4a", arbeit:"#5b8def", frei:"#3fb27f", privat:"#b26ae8", urlaub:"#2eb3c9", ferien:"#2eb3c9"}}}),
+    T("spielerisch", "Spielerisch", "🦉", ["verspielt", "bunt"], "Lern-Apps wie Duolingo",
+      {bg:"#ffffff", surface:"#ffffff", soft:"#f7f7f7", line:"#e5e5e5", fg:"#3c3c3c", muted:"#6f6f6f", acc:"#58cc02"},
+      {bg:"#131f24", surface:"#1b2a31", soft:"#22343c", line:"#37464f", fg:"#f1f7fb", muted:"#a5b6bf", acc:"#58cc02"},
+      {font:"rund", r:"rund", card:"kante",
+       a:{L:{schule:"#ff9600", arbeit:"#1cb0f6", frei:"#58cc02", privat:"#ce82ff", feiertag:"#ff4b4b", urlaub:"#00cd9c", ferien:"#00cd9c"},
+          D:{schule:"#ff9600", arbeit:"#1cb0f6", frei:"#58cc02", privat:"#ce82ff", feiertag:"#ff4b4b", urlaub:"#00cd9c", ferien:"#00cd9c"}}}),
+    T("brutal", "Neo-Brutal", "🟨", ["verspielt", "bunt"], "Neo-Brutalismus (z. B. Gumroad)",
+      {bg:"#fff4e0", surface:"#ffffff", soft:"#ffe9bf", line:"#000000", fg:"#000000", muted:"#3d3d3d", acc:"#ff90e8"}, null,
+      {font:"grotesk", caps:true, r:"eckig", card:"kraeftig",
+       a:{L:{schule:"#ff6b00", arbeit:"#2f5bff", frei:"#00a85a", privat:"#8f3cff", feiertag:"#e5202e", urlaub:"#0096c7", ferien:"#0096c7"}}}),
+    T("mitternacht", "Mitternacht", "🌌", ["minimal", "coder"], "GitHub & Linear (dunkel)", null,
+      {bg:"#0d1117", surface:"#161b22", soft:"#1f2630", line:"#30363d", fg:"#e6edf3", muted:"#8d96a0", acc:"#7b88ff"},
+      {font:"inter", r:"leicht", card:"rahmen",
+       a:{D:{arbeit:"#58a6ff", schule:"#f0883e", frei:"#3fb950", privat:"#bc8cff", feiertag:"#ff7b72", urlaub:"#39c5cf", ferien:"#39c5cf"}}}),
+    T("oled", "OLED-Schwarz", "⚫", ["minimal"], "Akku sparen: pures Schwarz", null,
+      {bg:"#000000", surface:"#000000", soft:"#121212", line:"#2a2a2a", fg:"#ffffff", muted:"#a3a3a3", acc:"#ffffff"},
+      {font:"kompass", r:"normal", card:"rahmen"}),
+    T("vampir", "Vampir", "🧛", ["coder", "bunt"], "Dracula (Code-Editor-Theme)", null,
+      {bg:"#282a36", surface:"#30333f", soft:"#3a3d4c", line:"#44475a", fg:"#f8f8f2", muted:"#b0b8d8", acc:"#bd93f9"},
+      {font:"mono", r:"leicht", card:"rahmen",
+       a:{D:{schule:"#ffb86c", arbeit:"#8be9fd", frei:"#50fa7b", privat:"#ff79c6", feiertag:"#ff5555", urlaub:"#8be9fd", ferien:"#8be9fd", ok:"#50fa7b", warn:"#ffb86c",
+             f0:"#8be9fd", f1:"#ffb86c", f2:"#50fa7b", f3:"#bd93f9", f4:"#7ee8d5", f5:"#ff79c6", f6:"#f1fa8c", f7:"#a3a8c3"}}}),
+    T("fjord", "Fjord", "🏔️", ["minimal", "coder"], "Nord (kühle Editor-Farben)",
+      {bg:"#eceff4", surface:"#f8f9fb", soft:"#e5e9f0", line:"#d8dee9", fg:"#2e3440", muted:"#4c566a", acc:"#5e81ac"},
+      {bg:"#2e3440", surface:"#3b4252", soft:"#434c5e", line:"#4c566a", fg:"#eceff4", muted:"#d8dee9", acc:"#88c0d0"},
+      {font:"inter", r:"normal", card:"flach",
+       a:{L:{schule:"#d08770", arbeit:"#5e81ac", frei:"#a3be8c", privat:"#b48ead", feiertag:"#bf616a", urlaub:"#88c0d0", ferien:"#88c0d0", ok:"#a3be8c", warn:"#d08770"},
+          D:{schule:"#d08770", arbeit:"#81a1c1", frei:"#a3be8c", privat:"#b48ead", feiertag:"#bf616a", urlaub:"#8fbcbb", ferien:"#8fbcbb", ok:"#a3be8c", warn:"#ebcb8b"}}}),
+    T("sonne", "Sonnenpapier", "☀️", ["coder"], "Solarized (Editor-Klassiker)",
+      {bg:"#fdf6e3", surface:"#fffbef", soft:"#eee8d5", line:"#e2dbc4", fg:"#073642", muted:"#586e75", acc:"#268bd2"},
+      {bg:"#002b36", surface:"#073642", soft:"#0c4150", line:"#1a5361", fg:"#eee8d5", muted:"#93a1a1", acc:"#268bd2"},
+      {font:"inter", r:"leicht", card:"rahmen",
+       a:{L:{schule:"#cb4b16", arbeit:"#268bd2", frei:"#859900", privat:"#6c71c4", feiertag:"#dc322f", urlaub:"#2aa198", ferien:"#2aa198", ok:"#859900", warn:"#b58900"},
+          D:{schule:"#cb4b16", arbeit:"#268bd2", frei:"#859900", privat:"#6c71c4", feiertag:"#dc322f", urlaub:"#2aa198", ferien:"#2aa198", ok:"#859900", warn:"#b58900"}}}),
+    T("mokka", "Mokka", "🐱", ["verspielt", "coder"], "Catppuccin (Pastell-Editor-Theme)",
+      {bg:"#eff1f5", surface:"#f8f9fc", soft:"#e6e9ef", line:"#ccd0da", fg:"#4c4f69", muted:"#5c5f77", acc:"#8839ef"},
+      {bg:"#1e1e2e", surface:"#262637", soft:"#313244", line:"#45475a", fg:"#cdd6f4", muted:"#a6adc8", acc:"#cba6f7"},
+      {font:"rund", r:"rund", card:"flach",
+       a:{L:{schule:"#fe640b", arbeit:"#1e66f5", frei:"#40a02b", privat:"#ea76cb", feiertag:"#d20f39", urlaub:"#179299", ferien:"#179299", ok:"#40a02b", warn:"#df8e1d"},
+          D:{schule:"#fab387", arbeit:"#89b4fa", frei:"#a6e3a1", privat:"#f5c2e7", feiertag:"#f38ba8", urlaub:"#94e2d5", ferien:"#94e2d5", ok:"#a6e3a1", warn:"#f9e2af"}}}),
+    T("lagerfeuer", "Lagerfeuer", "🔥", ["coder"], "Gruvbox (Retro-Editor-Theme)",
+      {bg:"#fbf1c7", surface:"#fdf7dc", soft:"#ebdbb2", line:"#d5c4a1", fg:"#3c3836", muted:"#665c54", acc:"#af3a03"},
+      {bg:"#282828", surface:"#32302f", soft:"#3c3836", line:"#504945", fg:"#ebdbb2", muted:"#bdae93", acc:"#fabd2f"},
+      {font:"grotesk", r:"leicht", card:"rahmen",
+       a:{L:{schule:"#af3a03", arbeit:"#076678", frei:"#79740e", privat:"#8f3f71", feiertag:"#9d0006", urlaub:"#427b58", ferien:"#427b58", ok:"#79740e", warn:"#b57614"},
+          D:{schule:"#fe8019", arbeit:"#83a598", frei:"#b8bb26", privat:"#d3869b", feiertag:"#fb4934", urlaub:"#8ec07c", ferien:"#8ec07c", ok:"#b8bb26", warn:"#fabd2f"}}}),
+    T("neonstadt", "Neonstadt", "🌃", ["coder", "bunt"], "Tokyo Night (Editor-Theme)", null,
+      {bg:"#1a1b26", surface:"#1f2335", soft:"#292e42", line:"#3b4261", fg:"#c0caf5", muted:"#9aa5ce", acc:"#7aa2f7"},
+      {font:"grotesk", r:"normal", card:"rahmen", bg:"verlauf",
+       a:{D:{schule:"#ff9e64", arbeit:"#7aa2f7", frei:"#9ece6a", privat:"#bb9af7", feiertag:"#f7768e", urlaub:"#7dcfff", ferien:"#7dcfff", ok:"#9ece6a", warn:"#e0af68"}}}),
+    T("terminal", "Terminal", "💻", ["coder"], "Hacker-Konsole (grün auf schwarz)", null,
+      {bg:"#030703", surface:"#071007", soft:"#0d1c0d", line:"#1d3a1d", fg:"#39ff6a", muted:"#27c24f", acc:"#39ff6a"},
+      {font:"mono", caps:true, r:"eckig", card:"rahmen", bg:"linien",
+       a:{D:{schule:"#ffb000", arbeit:"#00e5ff", frei:"#39ff6a", privat:"#d17bff", feiertag:"#ff5252", urlaub:"#00e5ff", ferien:"#00e5ff", ok:"#39ff6a", warn:"#ffb000",
+             f0:"#00e5ff", f1:"#ffb000", f2:"#39ff6a", f3:"#d17bff", f4:"#5ef2ff", f5:"#ff6eb4", f6:"#fff35c", f7:"#9bb59b"}}}),
+    T("lesemodus", "Lesemodus", "📖", ["lesbar"], "E-Reader wie Kindle (Sepia)",
+      {bg:"#f4ecd8", surface:"#faf4e6", soft:"#ece2c9", line:"#dccfb0", fg:"#3b2f1e", muted:"#6b5a40", acc:"#8b5a2b"}, null,
+      {font:"serif", r:"leicht", card:"flach"}),
+    T("kontrast", "Hoher Kontrast", "♿", ["lesbar"], "Barrierefreiheit (sehr klare Farben)",
+      {bg:"#ffffff", surface:"#ffffff", soft:"#eeeeee", line:"#000000", fg:"#000000", muted:"#2b2b2b", acc:"#0000cc"},
+      {bg:"#000000", surface:"#000000", soft:"#1c1c1c", line:"#ffffff", fg:"#ffffff", muted:"#e6e6e6", acc:"#ffd600"},
+      {font:"lesbar", r:"normal", card:"rahmen",
+       a:{L:{schule:"#a63c00", arbeit:"#0040b0", frei:"#006b1f", privat:"#5a1fc0", feiertag:"#b00000", urlaub:"#005f6b", ferien:"#005f6b", ok:"#006b1f", warn:"#8a4300"},
+          D:{schule:"#ffb066", arbeit:"#8fbaff", frei:"#7dff9a", privat:"#d1b3ff", feiertag:"#ff8f8f", urlaub:"#66e3f0", ferien:"#66e3f0", ok:"#7dff9a", warn:"#ffd066"}}}),
+    T("gaming", "Gaming RGB", "🎮", ["bunt"], "Gaming-Launcher & RGB-PCs", null,
+      {bg:"#07070d", surface:"#11111c", soft:"#1a1a2b", line:"#2a2a44", fg:"#f3f3ff", muted:"#a8a8cc", acc:"#a855f7"},
+      {font:"grotesk", caps:true, r:"leicht", card:"glas", bg:"aurora", nav:"schwebend",
+       a:{D:{schule:"#ff9f43", arbeit:"#00d2ff", frei:"#2bff88", privat:"#ff4fd8", feiertag:"#ff4d6d", urlaub:"#00f0d0", ferien:"#00f0d0", ok:"#2bff88", warn:"#ffc145"}}}),
+    T("nachtmusik", "Nachtmusik", "🎧", ["minimal"], "Musik-Apps wie Spotify", null,
+      {bg:"#121212", surface:"#181818", soft:"#242424", line:"#2e2e2e", fg:"#ffffff", muted:"#b3b3b3", acc:"#1ed760"},
+      {font:"inter", r:"rund", card:"flach"}),
+    T("ozean", "Ozean", "🌊", ["bunt"], "Wetter- & Reise-Apps",
+      {bg:"#edf6fa", surface:"#ffffff", soft:"#e0eef5", line:"#cde2ec", fg:"#0b2733", muted:"#4a6572", acc:"#0077b6"},
+      {bg:"#06141b", surface:"#0d212b", soft:"#142d39", line:"#1f3e4d", fg:"#e6f4fa", muted:"#9cb9c6", acc:"#48cae4"},
+      {font:"inter", r:"rund", card:"schatten", bg:"verlauf"}),
+    T("wald", "Wald", "🌲", ["bunt"], "Natur- & Achtsamkeits-Apps",
+      {bg:"#f2f6f0", surface:"#ffffff", soft:"#e6eee2", line:"#d4dfcd", fg:"#17251a", muted:"#4f604e", acc:"#2d6a4f"},
+      {bg:"#0d150f", surface:"#152017", soft:"#1c2a1f", line:"#293f2d", fg:"#e7f0e5", muted:"#a1b6a0", acc:"#74c69d"},
+      {font:"rund", r:"rund", card:"flach"}),
+    T("kirschbluete", "Kirschblüte", "🌸", ["verspielt", "bunt"], "Journal-Apps im Pastell-Look",
+      {bg:"#fff5f7", surface:"#ffffff", soft:"#ffe8ee", line:"#f7d3dd", fg:"#3a1d26", muted:"#7a5562", acc:"#d6336c"},
+      {bg:"#1c1216", surface:"#26181e", soft:"#311f27", line:"#47303a", fg:"#fbe9ef", muted:"#c9a5b2", acc:"#ff7aa8"},
+      {font:"rund", r:"extra", card:"schatten", bg:"punkte", nav:"schwebend"}),
+    T("sunset", "Sonnenuntergang", "🌅", ["bunt"], "Fitness- & Lifestyle-Apps",
+      {bg:"#fff6ee", surface:"#ffffff", soft:"#ffe9d9", line:"#f5d3bd", fg:"#2d1a12", muted:"#7a5546", acc:"#e8590c"},
+      {bg:"#170c11", surface:"#22121a", soft:"#2e1a23", line:"#452736", fg:"#ffeee4", muted:"#d1aa9c", acc:"#ff8a5b"},
+      {font:"poppins", r:"rund", card:"glas", bg:"aurora", nav:"schwebend"}),
+    T("kaffee", "Kaffeehaus", "☕", ["lesbar"], "Lese- & Tagebuch-Apps",
+      {bg:"#f6f1eb", surface:"#fffaf5", soft:"#ede3d8", line:"#dfd0c0", fg:"#2b1d14", muted:"#6b5545", acc:"#8a5a3b"},
+      {bg:"#16100c", surface:"#201812", soft:"#2b2019", line:"#3d2e24", fg:"#f3e9df", muted:"#bba593", acc:"#d4a373"},
+      {font:"serif", r:"normal", card:"rahmen"}),
+    T("schiefer", "Schiefer", "🪨", ["minimal"], "Business-Apps (ruhiges Grau)",
+      {bg:"#f4f5f7", surface:"#ffffff", soft:"#eceef1", line:"#dde1e6", fg:"#1f2933", muted:"#5f6b7a", acc:"#3e4c59"},
+      {bg:"#121417", surface:"#1a1d21", soft:"#22262b", line:"#2e3338", fg:"#e4e7eb", muted:"#9aa5b1", acc:"#9fb3c8"},
+      {font:"inter", r:"leicht", card:"rahmen"}),
+    T("notizbuch", "Notizbuch", "✏️", ["verspielt"], "Papier-Planer (Bullet Journal)",
+      {bg:"#fffdf4", surface:"#fffef9", soft:"#f4f0df", line:"#e5ddc2", fg:"#1f2a44", muted:"#56607a", acc:"#2b59c3"}, null,
+      {font:"hand", r:"leicht", card:"rahmen", bg:"linien"}),
+    T("retro", "Retro 95", "🕹️", ["verspielt"], "Windows 95 (Kult-Look)",
+      {bg:"#5fa8a8", surface:"#c3c3c3", soft:"#d4d4d4", line:"#808080", fg:"#000000", muted:"#262626", acc:"#000080"}, null,
+      {font:"system", r:"eckig", card:"kante"})
+  ];
+  const PRE = {}; PRESETS.forEach(p => PRE[p.id] = p);
+
+  // Normale Bereichs- und Fachfarben der App (aus dem Haupt-CSS), hell und dunkel
+  const AREA_L = {arbeit:"#2b6cd4", schule:"#e0620d", frei:"#2f9e44", privat:"#7048e8", feiertag:"#d92d2d", urlaub:"#0c8599", ferien:"#0c8599",
+    f0:"#2b6cd4", f1:"#e0620d", f2:"#2b8a3e", f3:"#7048e8", f4:"#0c8599", f5:"#c2255c", f6:"#9a7400", f7:"#5c6370", ok:"#2f9e44", warn:"#b35c00"};
+  const AREA_D = {arbeit:"#79a8ff", schule:"#ff9a52", frei:"#69db7c", privat:"#b197fc", feiertag:"#ff7676", urlaub:"#3bc9db", ferien:"#3bc9db",
+    f0:"#79a8ff", f1:"#ff9a52", f2:"#69db7c", f3:"#b197fc", f4:"#3bc9db", f5:"#f783ac", f6:"#ffd43b", f7:"#adb5bd", ok:"#69db7c", warn:"#ffb347"};
+  // Bereiche, die Max selbst umfärben kann
+  const AREAS_EDIT = [["schule", "📚 Schule"], ["arbeit", "💼 Arbeit"], ["gym", "🏋️ Gym"], ["privat", "🪪 Ich & Privat"], ["frei", "🌿 Frei"], ["urlaub", "🏖️ Urlaub & Ferien"], ["feiertag", "🎉 Feiertage"]];
+
+  // Auswahl-Listen (Wert, Beschriftung)
+  const OPT = {
+    r:[["eckig", "◻️ Eckig"], ["leicht", "▢ Leicht"], ["normal", "🔲 Normal"], ["rund", "⬭ Rund"], ["extra", "💊 Sehr rund"]],
+    card:[["rahmen", "🔲 Rahmen"], ["schatten", "🌫️ Schatten"], ["flach", "⬜ Flach"], ["glas", "💎 Glas"], ["kante", "🧱 3D-Kante"], ["kraeftig", "⬛ Kräftig"]],
+    bg:[["none", "Einfarbig"], ["verlauf", "🌅 Verlauf"], ["punkte", "⚬ Punkte"], ["linien", "📓 Linien"], ["karo", "▦ Karo"], ["aurora", "🌌 Aurora"]],
+    nav:[["leiste", "▬ Leiste unten"], ["schwebend", "💊 Schwebend"]]
+  };
+  const RAD = {eckig:["3px", "3px", "3px"], leicht:["10px", "8px", "6px"], rund:["24px", "18px", "999px"], extra:["30px", "999px", "999px"]};
+  const SIZES = [[90, "Klein"], [100, "Normal"], [110, "Groß"], [115, "Sehr groß"]];
+  const ACC_SW = [["#e03131", "Rot"], ["#e8590c", "Orange"], ["#f59f00", "Gold"], ["#2f9e44", "Grün"], ["#0ca678", "Mint"], ["#0c8599", "Petrol"], ["#1c7ed6", "Blau"],
+    ["#4263eb", "Indigo"], ["#7048e8", "Lila"], ["#ae3ec9", "Violett"], ["#d6336c", "Pink"], ["#8a5a3b", "Braun"], ["#495057", "Grau"], ["#111111", "Schwarz"]];
+  const FAMS = [["alle", "Alle"], ["hell", "☀️ Hell"], ["dunkel", "🌙 Dunkel"], ["bunt", "🌈 Bunt"], ["minimal", "⚪ Minimal"], ["verspielt", "🎈 Verspielt"], ["coder", "💻 Coder"], ["lesbar", "👓 Gut lesbar"]];
+
+  /* =====================================================================
+     3. FARB-HELFER (Kontrast nach WCAG, Mischen)
+     ===================================================================== */
+  const rgb = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
+  const hex = a => "#" + a.map(v => Math.round(Math.min(255, Math.max(0, v))).toString(16).padStart(2, "0")).join("");
+  const lum = h => { const c = rgb(h).map(v => { v /= 255; return v <= .03928 ? v / 12.92 : Math.pow((v + .055) / 1.055, 2.4); }); return .2126 * c[0] + .7152 * c[1] + .0722 * c[2]; };
+  const kon = (a, b) => { const x = lum(a), y = lum(b); return (Math.max(x, y) + .05) / (Math.min(x, y) + .05); };
+  const mix = (a, b, t) => { const A = rgb(a), B = rgb(b); return hex(A.map((v, i) => v + (B[i] - v) * t)); };
+  // Farbe so lange Richtung „zu“ mischen, bis sie gegen alle Hintergründe den Mindest-Kontrast hat
+  function lesbar(c, gegen, ziel, zu) {
+    const ok = x => gegen.every(g => kon(x, g) >= ziel);
+    if (ok(c)) return c;
+    for (let t = .04; t <= 1.0001; t += .04) { const x = mix(c, zu, t); if (ok(x)) return x; }
+    return zu;
+  }
+
+  /* =====================================================================
+     4. EINSTELLUNG LESEN (immer geprüft, damit nichts Kaputtes ins CSS kommt)
+     ===================================================================== */
+  const STD = () => ({v:1, p:"kompass", acc:"", area:{}, bg:"", r:"", card:"", nav:"", font:"", caps:null, size:100, motion:true});
+  function sauber(o) {
+    const d = STD();
+    if (!o || typeof o !== "object") return d;
+    if (PRE[o.p]) d.p = o.p;
+    if (HEX.test(o.acc || "")) d.acc = o.acc.toLowerCase();
+    if (o.area && typeof o.area === "object") AREAS_EDIT.forEach(([k]) => { if (HEX.test(o.area[k] || "")) d.area[k] = o.area[k].toLowerCase(); });
+    ["r", "card", "bg", "nav"].forEach(k => { if (OPT[k].some(x => x[0] === o[k])) d[k] = o[k]; });
+    if (FONTS[o.font]) d.font = o.font;
+    if (o.caps === true || o.caps === false) d.caps = o.caps;
+    if (SIZES.some(x => x[0] === o.size)) d.size = o.size;
+    if (o.motion === false) d.motion = false;
+    return d;
+  }
+  const cur = () => sauber(S.settings && S.settings.design);
+  const istStandard = d => d.p === "kompass" && !d.acc && !Object.keys(d.area).length && !d.bg && !d.r && !d.card && !d.nav && !d.font && d.caps === null && d.size === 100 && d.motion;
+  // Was gilt wirklich? (eigene Wahl, sonst das Theme)
+  function eff(d) {
+    const P = PRE[d.p];
+    const font = d.font || P.font || "kompass";
+    const caps = d.caps !== null ? d.caps : (d.font ? !!FONTS[font].caps : (P.caps !== undefined ? P.caps : !!FONTS[font].caps));
+    return {P, font, caps, r:d.r || P.r || "normal", card:d.card || P.card || "rahmen", bg:d.bg || P.bg || "none", nav:d.nav || P.nav || "leiste", size:d.size, motion:d.motion};
+  }
+  // Theme gibt es nur hell oder nur dunkel?
+  const zwang = d => { const P = PRE[d.p]; return P.L && !P.D ? "light" : (!P.L && P.D ? "dark" : ""); };
+  const HOST0 = ("__d43host" in window) ? window.__d43host : (typeof HOST_THEME !== "undefined" ? HOST_THEME : null);
+  // Aktueller Modus der Seite (so wie das CSS ihn sieht)
+  const modus = () => R.getAttribute("data-theme") || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+
+  /* =====================================================================
+     5. BERECHNEN: aus Theme + eigener Wahl die CSS-Variablen für einen Modus
+     ===================================================================== */
+  function rechne(d, m) {
+    const e = eff(d), P = e.P, dunkel = m === "dark";
+    const pal = Object.assign({}, dunkel ? (P.D || P.L) : (P.L || P.D));
+    const hart = dunkel ? "#ffffff" : "#000000", geaendert = [];
+    const fl = [pal.bg, pal.surface];
+    pal.fg = lesbar(pal.fg, fl, 7, hart);
+    pal.muted = lesbar(pal.muted, fl, 4.5, pal.fg);
+    const inv = kon(pal.fg, pal.surface) >= kon(pal.fg, pal.bg) ? pal.surface : pal.bg;
+    // Akzent: Fläche mind. 2 : 1 zum Hintergrund, Schrift darauf mind. 4,5 : 1, als Text mind. 4,5 : 1
+    let acc = d.acc || pal.acc || pal.fg;
+    acc = lesbar(acc, fl, 2, hart);
+    if (!dunkel && kon(acc, "#ffffff") < 4.5 && kon(acc, "#000000") < 8) acc = lesbar(acc, ["#ffffff"], 4.5, "#000000");   // weiße Schrift bleibt möglich
+    const onAcc = kon(acc, "#ffffff") >= 4.5 ? "#ffffff" : (kon(acc, "#000000") >= kon(acc, "#ffffff") ? "#000000" : "#ffffff");
+    const accT = lesbar(acc, fl, 4.5, hart);
+    // Bereichs- und Fachfarben: Theme-Farben, eigene Wahl, dann Lesbarkeit (3 : 1)
+    const A = Object.assign({}, dunkel ? AREA_D : AREA_L, (P.a && P.a[dunkel ? "D" : "L"]) || {});
+    A.gym = pal.fg;
+    Object.keys(d.area).forEach(k => { A[k] = d.area[k]; if (k === "urlaub") A.ferien = d.area[k]; });
+    Object.keys(A).forEach(k => { const n = lesbar(A[k], fl, 3, hart); if (n !== A[k] && d.area[k]) geaendert.push(k); A[k] = n; });
+    const F = FONTS[e.font], rad = RAD[e.r];
+    const v = {"--bg":pal.bg, "--surface":pal.surface, "--soft":pal.soft, "--line":pal.line, "--fg":pal.fg, "--muted":pal.muted, "--inv":inv,
+      "--acc":acc, "--on-acc":onAcc, "--acc-t":accT, "--f-display":F.d, "--f-body":F.b,
+      "--d43-flat":kon(pal.surface, pal.bg) >= 1.06 ? pal.surface : mix(pal.bg, pal.fg, .06),
+      "--d43-sh":dunkel ? "0 0 0 1px rgba(255,255,255,.06),0 8px 24px rgba(0,0,0,.45)" : "0 1px 2px rgba(15,23,42,.06),0 6px 18px rgba(15,23,42,.08)"};
+    Object.keys(A).forEach(k => v["--" + k] = A[k]);
+    if (rad) { v["--d43-rc"] = rad[0]; v["--d43-rb"] = rad[1]; v["--d43-rk"] = rad[2]; }
+    if (e.size !== 100) v["--d43-zoom"] = String(e.size / 100);
+    const at = {"data-d43":"1", "data-d43-card":e.card, "data-d43-font":e.font};
+    if (rad) at["data-d43-r"] = e.r;
+    if (e.bg !== "none") at["data-d43-bg"] = e.bg;
+    if (e.nav === "schwebend") at["data-d43-nav"] = "schwebend";
+    if (F.wide) at["data-d43-wide"] = "1";
+    if (!e.caps) at["data-d43-caps"] = "0";
+    if (!e.motion) at["data-d43-motion"] = "0";
+    if (e.size !== 100) at["data-d43-size"] = String(e.size);
+    return {v, at, pal, acc, onAcc, accT, A, F, e, geaendert};
+  }
+
+  /* =====================================================================
+     6. ANWENDEN auf die Seite, das Gym-Fenster und die Schnellstart-Kopie
+     ===================================================================== */
+  let letzte = "";
+  // Alle Variablen, die dieser Block setzen kann (zum sauberen Entfernen, auch die vom frühen Start)
+  const ALLE_VARS = ["--bg", "--surface", "--soft", "--line", "--fg", "--muted", "--inv", "--acc", "--on-acc", "--acc-t", "--f-display", "--f-body",
+    "--d43-flat", "--d43-sh", "--d43-rc", "--d43-rb", "--d43-rk", "--d43-zoom", "--gym"].concat(Object.keys(AREA_L).map(k => "--" + k));
+  function aufraeumen(r) {
+    ALLE_VARS.forEach(k => r.style.removeProperty(k));
+    [...r.attributes].filter(a => a.name.indexOf("data-d43") === 0).forEach(a => r.removeAttribute(a.name));
+    r.style.removeProperty("color-scheme");
+  }
+  const META = document.querySelector('meta[name="theme-color"]'), META0 = META ? META.getAttribute("content") : null;
+  const fontUrls = new Set();
+  function schriftLaden(url, doc) {
+    if (!url) return;
+    doc = doc || document;
+    try {
+      if ([...doc.querySelectorAll("link[data-d43font]")].some(l => l.getAttribute("href") === url)) return;
+      const l = doc.createElement("link"); l.rel = "stylesheet"; l.href = url; l.setAttribute("data-d43font", "1");
+      (doc.head || doc.documentElement).appendChild(l);
+    } catch (e) {}
+  }
+  // Hell/Dunkel setzen (ersetzt applyTheme: Themes, die es nur hell/dunkel gibt, halten ihren Modus)
+  function themeSetzen() {
+    const z = zwang(cur()), th = S.settings.theme;
+    const soll = z || (th === "light" || th === "dark" ? th : HOST0);
+    if (soll) { if (R.getAttribute("data-theme") !== soll) R.setAttribute("data-theme", soll); }
+    else if (R.hasAttribute("data-theme")) R.removeAttribute("data-theme");
+  }
+  // vorschau = Design nur anzeigen (Farbwähler), ohneModus = Hell/Dunkel nicht anfassen
+  function anwenden(vorschau, ohneModus) {
+    const d = vorschau || cur(), aktiv = !istStandard(d);
+    if (!ohneModus) themeSetzen();
+    const m = modus(), sig = JSON.stringify([d, m, aktiv, S.settings.theme]);
+    if (sig === letzte) return;
+    letzte = sig;
+    // Alte Werte weg (nur unsere eigenen, --gym-top usw. bleiben)
+    aufraeumen(R);
+    if (aktiv) {
+      const c = rechne(d, m);
+      Object.keys(c.v).forEach(k => R.style.setProperty(k, c.v[k]));
+      Object.keys(c.at).forEach(a => R.setAttribute(a, c.at[a]));
+      R.style.colorScheme = m;
+      schriftLaden(c.F.url);
+      if (META) META.setAttribute("content", c.pal.bg);
+    } else if (META && META0 !== null) META.setAttribute("content", META0);
+    rahmen();
+    if (!vorschau) kopieSchreiben(d, aktiv);
+  }
+  // Kleine Kopie für den Start (beide Modi vorberechnet)
+  function kopieSchreiben(d, aktiv) {
+    try {
+      if (!aktiv) { localStorage.removeItem(DKEY); return; }
+      const L = rechne(d, "light"), D = rechne(d, "dark");
+      localStorage.setItem(DKEY, JSON.stringify({v:1, theme:S.settings.theme, force:zwang(d), light:L.v, dark:D.v, attrs:rechne(d, modus()).at, font:L.F.url}));
+    } catch (e) {}
+  }
+
+  /* ---------- Gym (Hantelbuch im Rahmen) mitfärben ---------- */
+  const RAHMEN_CSS = 'html[data-d43]{accent-color:var(--acc)}'
+    + 'html[data-d43] :is(.btn.primary,.chip.solid,.feel button.on,.daychips button.on,.pick[aria-pressed="true"],.gchips button.on,.icon-btn[aria-current="page"]){background:var(--acc);color:var(--on-acc);border-color:var(--acc)}'
+    + 'html[data-d43] .card.ink .btn.primary{background:var(--inv);color:var(--fg);border-color:var(--inv)}'
+    + 'html[data-d43] .st-done{background:var(--acc)!important;color:var(--on-acc)}'
+    + 'html[data-d43] :is(.set.ok .chk,.play,.lv){background:var(--acc);color:var(--on-acc)}'
+    + 'html[data-d43] :is(.prog i.done,.meter .on i,.lvbar i,.mbar .fill){background:var(--acc)}'
+    + 'html[data-d43] .tabs a[aria-current="page"]{color:var(--acc-t)}'
+    + 'html[data-d43-caps="0"] :is(h1,h2,h3,.brand){text-transform:none}'
+    + 'html[data-d43-wide] h1{font-size:clamp(26px,7.4vw,36px);letter-spacing:0}html[data-d43-wide] h2{font-size:21px;letter-spacing:0}html[data-d43-wide] h3{font-size:18px;letter-spacing:0}html[data-d43-wide] .brand{font-size:19px}'
+    + 'html[data-d43] :is(h1,h2,h3){overflow-wrap:break-word}'
+    + 'html[data-d43-card="schatten"] .card:not(.ink){border-color:transparent;box-shadow:var(--d43-sh)}'
+    + 'html[data-d43-card="flach"] .card:not(.ink){border-color:transparent;background:var(--d43-flat)}'
+    + 'html[data-d43-card="glas"] .card:not(.ink){background:color-mix(in srgb,var(--surface) 80%,transparent);border-color:color-mix(in srgb,var(--fg) 13%,transparent);box-shadow:var(--d43-sh)}'
+    + 'html[data-d43-card="kante"] .card:not(.ink){border-width:2px;border-bottom-width:5px}'
+    + 'html[data-d43-card="kraeftig"] .card:not(.ink){border:2px solid var(--fg);box-shadow:4px 4px 0 var(--fg)}'
+    + 'html[data-d43-r] .card{border-radius:var(--d43-rc)}html[data-d43-r] .btn{border-radius:var(--d43-rb)}'
+    + 'html[data-d43-motion="0"] *{animation:none!important;transition:none!important}';
+  const RAHMEN_VARS = ["--muscle", "--heat1", "--heat2", "--heat3"];
+  function rahmen() {
+    try {
+      const doc = typeof gymFrame !== "undefined" && gymFrame && gymFrame.contentDocument;
+      if (!doc || !doc.documentElement) return;
+      const r = doc.documentElement, d = cur(), aktiv = !istStandard(d);
+      aufraeumen(r); RAHMEN_VARS.forEach(k => r.style.removeProperty(k));
+      let st = doc.getElementById("d43css");
+      if (!aktiv) { if (st) st.remove(); return; }
+      if (!st) { st = doc.createElement("style"); st.id = "d43css"; (doc.head || r).appendChild(st); }
+      if (st.textContent !== RAHMEN_CSS) st.textContent = RAHMEN_CSS;
+      const c = rechne(d, modus()), p = c.pal;
+      const v = Object.assign({}, c.v, {"--muscle":p.soft, "--heat1":mix(p.soft, c.acc, .3), "--heat2":mix(p.soft, c.acc, .62), "--heat3":c.acc});
+      delete v["--d43-zoom"];
+      Object.keys(v).forEach(k => r.style.setProperty(k, v[k]));
+      Object.keys(c.at).forEach(a => { if (a !== "data-d43-size" && a !== "data-d43-bg" && a !== "data-d43-nav") r.setAttribute(a, c.at[a]); });
+      r.style.colorScheme = modus();
+      schriftLaden(c.F.url, doc);
+    } catch (e) {}
+  }
+
+  /* =====================================================================
+     7. IN DIE APP EINHÄNGEN
+     ===================================================================== */
+  // Frühe Halte-Funktion (v43 früh) wird nicht mehr gebraucht
+  try { if (window.__d43early) window.__d43early.disconnect(); } catch (e) {}
+  // applyTheme ersetzen (gleiche Aufgabe + Themes mit festem Modus)
+  applyTheme = function () { themeSetzen(); syncFrameTheme(); anwenden(); };
+  // Gym-Fenster: Modus übernehmen und mitfärben
+  const _sft = syncFrameTheme;
+  syncFrameTheme = function () { const r = _sft.apply(this, arguments); rahmen(); return r; };
+  const _eg = ensureGym;
+  ensureGym = function () {
+    const r = _eg.apply(this, arguments);
+    try { if (gymFrame && !gymFrame.__d43L) { gymFrame.__d43L = true; gymFrame.addEventListener("load", () => { letzte = ""; anwenden(); }); } } catch (e) {}
+    return r;
+  };
+  // Nach jedem Speichern prüfen, ob sich das Design geändert hat (z. B. Import, Alles zurücksetzen)
+  const _save = save;
+  save = function () { const r = _save.apply(this, arguments); try { anwenden(); } catch (e) {} return r; };
+  // Backup ohne Design: das aktuelle Design behalten
+  const _ai = applyImport;
+  applyImport = function (o) {
+    const alt = S.settings && S.settings.design ? JSON.parse(JSON.stringify(S.settings.design)) : null;
+    const r = _ai.apply(this, arguments);
+    try { if (r && alt && o && o.wochenkompass && !(S.settings && S.settings.design)) { S.settings.design = alt; save(); rerender(); } } catch (e) {}
+    return r;
+  };
+  // Modus-Wechsel (Knopf, Handy auf dunkel) → Farben neu berechnen
+  // Hält Themes mit festem Modus fest, sonst nur Farben neu (fremde Änderungen am Modus bleiben erlaubt)
+  const aufModus = () => {
+    const z = zwang(cur());
+    if (z && R.getAttribute("data-theme") !== z) R.setAttribute("data-theme", z);
+    else anwenden(null, true);
+  };
+  try { new MutationObserver(aufModus).observe(R, {attributes:true, attributeFilter:["data-theme"]}); } catch (e) {}
+  try { matchMedia("(prefers-color-scheme: dark)").addEventListener("change", aufModus); } catch (e) {}
+
+  /* =====================================================================
+     8. SEITE „🎨 DESIGN“
+     ===================================================================== */
+  let TAB = "themes", FAM = "alle", UNDO = null, IMPORT_TXT = "";
+  try { TAB = sessionStorage.getItem("wk.d43.tab") || "themes"; } catch (e) {}
+  const TABS = [["themes", "🎨 Themes"], ["farben", "🖌️ Farben"], ["stil", "🔷 Stil"], ["mehr", "💾 Mehr"]];
+
+  // Design ändern: Rückgängig merken (bei großen Änderungen), speichern, neu zeichnen
+  function setze(fn, grossName) {
+    const vorher = cur();
+    if (grossName) UNDO = {d:vorher, name:grossName};
+    const d = cur(); fn(d);
+    S.settings.design = istStandard(d) ? undefined : d;
+    if (!S.settings.design) delete S.settings.design;
+    save(); anwenden(); rerender();
+  }
+  const name = d => { const P = PRE[d.p]; return P.em + " " + P.n + (istStandard(d) || !hatEigenes(d) ? "" : " (angepasst)"); };
+  const hatEigenes = d => !!(d.acc || Object.keys(d.area).length || d.bg || d.r || d.card || d.nav || d.font || d.caps !== null || d.size !== 100 || !d.motion);
+
+  const chips = (key, list, val, act) => '<div class="chips" role="group">' + list.map(([v, n]) => '<button type="button" class="chipbtn" data-act="' + act + '" data-k="' + key + '" data-v="' + v + '" aria-pressed="' + (String(v) === String(val)) + '">' + n + '</button>').join("") + '</div>';
+  const zurueck = (key, d) => (d[key] !== "" && d[key] !== null && d[key] !== undefined && !(key === "size" && d[key] === 100) && !(key === "motion" && d[key] === true)) ? '<button type="button" class="link small" data-act="d43wie" data-k="' + key + '">↺ Wie im Theme</button>' : "";
+
+  // Mini-Vorschau eines Themes (eigene Farben, unabhängig vom aktuellen Look)
+  function karte(P, aktiv) {
+    const m = P.L && P.D ? modus() : (P.L ? "light" : "dark");
+    const c = rechne(sauber({p:P.id}), m), p = c.pal, rad = RAD[c.e.r] ? RAD[c.e.r][0] : "16px";
+    const modi = P.L && P.D ? "☀️ + 🌙" : (P.L ? "nur ☀️ hell" : "nur 🌙 dunkel");
+    return '<button type="button" class="d43-th" data-act="d43p" data-v="' + P.id + '" aria-pressed="' + aktiv + '" style="--tb:' + p.bg + ';--ts:' + p.surface + ';--tl:' + p.line + ';--tf:' + p.fg + ';--tm:' + p.muted + ';--ta:' + c.acc + ';--tr:' + (rad === "999px" ? "14px" : rad) + '">'
+      + '<span class="d43-mini" aria-hidden="true"><span class="d43-mc"><i></i><i></i><u></u></span><span class="d43-md">' + ["schule", "arbeit", "frei", "privat"].map(k => '<i style="background:' + c.A[k] + '"></i>').join("") + '</span></span>'
+      + '<span class="n">' + P.em + " " + esc(P.n) + '</span><small>Idee: ' + esc(P.idee) + '</small><small>' + modi + '</small></button>';
+  }
+
+  function tabThemes(d) {
+    const liste = PRESETS.filter(P => FAM === "alle" || (FAM === "hell" ? !!P.L : FAM === "dunkel" ? !!P.D : P.fam.includes(FAM)));
+    return '<div class="card"><div class="card-h"><h3>🎨 Themes</h3><span class="small muted">' + liste.length + ' von ' + PRESETS.length + '</span></div>'
+      + '<p class="small muted">Antippen = sofort an. Danach kannst du unter Farben und Stil alles weiter anpassen.</p>'
+      + '<div class="chips" role="group" aria-label="Stil-Familie">' + FAMS.map(([v, n]) => '<button type="button" class="chipbtn" data-act="d43fam" data-v="' + v + '" aria-pressed="' + (FAM === v) + '">' + n + '</button>').join("") + '</div>'
+      + '<div class="d43-grid">' + liste.map(P => karte(P, P.id === d.p)).join("") + '</div>'
+      + '<button type="button" class="btn block" data-act="d43zufall">🎲 Überrasch mich</button></div>';
+  }
+
+  function tabFarben(d, c) {
+    const z = zwang(d), th = S.settings.theme;
+    let h = '<div class="card"><h3>🌓 Hell oder dunkel</h3>';
+    if (z) h += '<p class="small muted">' + PRE[d.p].em + ' „' + esc(PRE[d.p].n) + '“ gibt es nur ' + (z === "dark" ? "🌙 dunkel" : "☀️ hell") + '. Deine Wahl gilt wieder, sobald du ein anderes Theme nimmst.</p>';
+    h += '<div class="seg" role="group" aria-label="Farbschema">' + [["auto", "Automatisch"], ["light", "Hell"], ["dark", "Dunkel"]].map(([v, n]) => '<button type="button" data-act="theme" data-v="' + v + '" aria-pressed="' + (th === v) + '"' + (z ? " disabled" : "") + '>' + n + '</button>').join("") + '</div></div>';
+    // Akzentfarbe
+    const th0 = rechne(Object.assign(sauber(d), {acc:""}), modus());
+    h += '<div class="card"><div class="card-h"><h3>✨ Akzentfarbe</h3>' + zurueck("acc", d) + '</div><p class="small muted">Für Haupt-Knöpfe, Häkchen, aktive Tabs und Fortschritts-Ringe. Der erste Kreis ist die Farbe vom Theme.</p><div class="d43-sws" role="group" aria-label="Akzentfarbe">'
+      + '<button type="button" class="d43-sw" data-act="d43acc" data-v="" style="--sw:' + th0.acc + ';color:' + th0.onAcc + '" aria-pressed="' + !d.acc + '" aria-label="Farbe vom Theme" title="Farbe vom Theme">↺</button>'
+      + ACC_SW.map(([v, n]) => '<button type="button" class="d43-sw" data-act="d43acc" data-v="' + v + '" style="--sw:' + v + '" aria-pressed="' + (d.acc === v) + '" aria-label="' + n + '" title="' + n + '"></button>').join("")
+      + '</div><label class="d43-pick"><input type="color" id="d43Acc" value="' + (d.acc || c.acc) + '"> 🎨 Eigene Farbe wählen</label>'
+      + (d.acc && c.acc !== d.acc ? '<p class="small muted">ℹ️ Für gute Lesbarkeit leicht angepasst (' + c.acc + ').</p>' : "") + '</div>';
+    // Bereichsfarben
+    h += '<div class="card"><div class="card-h"><h3>🖍️ Bereichsfarben</h3>' + (Object.keys(d.area).length ? '<button type="button" class="link small" data-act="d43wie" data-k="area">↺ Alle wie im Theme</button>' : "") + '</div>'
+      + '<p class="small muted">Farbe von Schule, Arbeit, Gym usw. in Woche, Kacheln und Kalender. Fach-Farben stellst du in den Einstellungen ein.</p><div>'
+      + AREAS_EDIT.map(([k, n]) => '<div class="d43-row"><span class="dot" style="--c:var(--' + k + ')"></span><span class="li-main">' + n + (c.geaendert.includes(k) ? ' <small>für Lesbarkeit angepasst</small>' : "") + '</span>'
+        + '<input type="color" data-d43area="' + k + '" value="' + (d.area[k] || c.A[k]) + '" aria-label="Farbe für ' + n.replace(/^\S+\s/, "") + '">'
+        + (d.area[k] ? '<button type="button" class="mini" data-act="d43areaR" data-v="' + k + '" aria-label="' + n.replace(/^\S+\s/, "") + ' zurücksetzen" title="Zurücksetzen">↺</button>' : '<span style="width:36px;flex:none"></span>') + '</div>').join("")
+      + '</div></div>';
+    // Hintergrund
+    h += '<div class="card"><div class="card-h"><h3>🖼️ Hintergrund</h3>' + zurueck("bg", d) + '</div>' + chips("bg", OPT.bg, c.e.bg, "d43opt") + '</div>';
+    return h;
+  }
+
+  function tabStil(d, c) {
+    Object.keys(FONTS).forEach(k => schriftLaden(FONTS[k].url));   // Vorschau braucht alle Schriften
+    return '<div class="card"><div class="card-h"><h3>🔷 Ecken</h3>' + zurueck("r", d) + '</div>' + chips("r", OPT.r, c.e.r, "d43opt") + '</div>'
+      + '<div class="card"><div class="card-h"><h3>🗂️ Karten-Stil</h3>' + zurueck("card", d) + '</div><p class="small muted">Rahmen = wie bisher · Schatten = wie iPhone · Flach = wie Android · Glas = durchsichtig (am schönsten mit Hintergrund „Aurora“) · 3D-Kante = wie Lern-Apps · Kräftig = dicke schwarze Linien.</p>' + chips("card", OPT.card, c.e.card, "d43opt") + '</div>'
+      + '<div class="card"><div class="card-h"><h3>🧭 Navigation unten</h3>' + zurueck("nav", d) + '</div>' + chips("nav", OPT.nav, c.e.nav, "d43opt") + '</div>'
+      + '<div class="card"><div class="card-h"><h3>🔤 Schrift</h3>' + zurueck("font", d) + '</div><div class="d43-fonts" role="group" aria-label="Schrift">'
+      + Object.keys(FONTS).map(k => '<button type="button" class="d43-font" data-act="d43opt" data-k="font" data-v="' + k + '" aria-pressed="' + (c.e.font === k) + '"><span class="fp" style="font-family:' + esc(FONTS[k].d) + '">' + FONTS[k].n + ' 123</span><small>' + esc(FONTS[k].i) + '</small></button>').join("")
+      + '</div><p class="lbl">Überschriften</p>' + chips("caps", [[true, "GROSSBUCHSTABEN"], [false, "Normal"]], c.e.caps, "d43opt") + zurueck("caps", d) + '</div>'
+      + '<div class="card"><h3>🔎 Textgröße</h3><p class="small muted">Vergrößert den Inhalt, die Leisten oben und unten bleiben gleich.</p>' + chips("size", SIZES, c.e.size, "d43opt") + '</div>'
+      + '<div class="card"><h3>🎞️ Animationen</h3>' + chips("motion", [[true, "An"], [false, "Aus"]], c.e.motion, "d43opt") + '</div>';
+  }
+
+  function tabMehr(d, c) {
+    const p = c.pal, z = x => x.toFixed(1).replace(".", ",") + " : 1";
+    const zeile = (n, a, b, min) => { const k = kon(a, b); return '<tr><td>' + n + '</td><td class="r tnum">' + z(k) + '</td><td>' + (k >= min ? '<span class="d43-ok">✓ gut</span>' : '<span class="d43-bad">⚠️ schwach</span>') + '</td></tr>'; };
+    const minA = Math.min(...["schule", "arbeit", "frei", "privat", "feiertag", "urlaub"].map(k => Math.min(kon(c.A[k], p.surface), kon(c.A[k], p.bg))));
+    const code = JSON.stringify({app:"Wochenkompass-Design", v:1, design:d});
+    return '<div class="card"><h3>👓 Lesbarkeit</h3><p class="small muted">Kontrast nach WCAG: Text braucht mind. 4,5 : 1, Farben und Symbole 3 : 1. Zu helle oder zu dunkle Farben werden automatisch angepasst.</p>'
+      + '<div class="tbl-wrap"><table><thead><tr><th>Was</th><th class="r">Kontrast</th><th></th></tr></thead><tbody>'
+      + zeile("Text auf Karten", p.fg, p.surface, 4.5) + zeile("Grauer Text", p.muted, p.surface, 4.5) + zeile("Schrift auf Haupt-Knopf", c.onAcc, c.acc, 4.5) + zeile("Akzent als Text", c.accT, p.surface, 4.5)
+      + '<tr><td>Bereichsfarben (schwächste)</td><td class="r tnum">' + z(minA) + '</td><td>' + (minA >= 3 ? '<span class="d43-ok">✓ gut</span>' : '<span class="d43-bad">⚠️ schwach</span>') + '</td></tr>'
+      + '</tbody></table></div></div>'
+      + '<div class="card"><h3>📲 Design aufs Handy übertragen</h3><p class="small muted">Claude-Version und Home-Bildschirm-App speichern getrennt. Code kopieren, in der anderen Version hier einfügen, fertig. (Im Backup ist das Design auch drin.)</p>'
+      + '<textarea id="d43Code" readonly aria-label="Design-Code">' + esc(code) + '</textarea><div class="btn-row"><button type="button" class="btn sm" data-act="d43copy">📋 Code kopieren</button>' + (navigator.share ? '<button type="button" class="btn sm" data-act="d43share">📤 Teilen</button>' : "") + '</div>'
+      + '<div class="field"><label for="d43In">Code einfügen</label><textarea id="d43In" placeholder="{&quot;app&quot;:&quot;Wochenkompass-Design&quot;, …}">' + esc(IMPORT_TXT) + '</textarea></div><button type="button" class="btn primary sm" data-act="d43imp">Übernehmen</button></div>'
+      + '<div class="card"><h3>↺ Zurücksetzen</h3><p class="small muted">Alles wieder wie vorher (Kompass, keine eigenen Farben). Deine Daten bleiben, nur der Look ändert sich.</p><button type="button" class="btn sm" data-act="d43reset"' + (istStandard(d) ? " disabled" : "") + '>Standard-Design</button></div>'
+      + '<p class="small muted">Theme-Ideen: bekannte Apps und Editor-Farbschemata (z. B. Dracula, Nord, Solarized, Catppuccin, Gruvbox, Tokyo Night – frei nutzbare Farbpaletten). Namen, Logos und Bilder der Apps sind nicht übernommen.</p>';
+  }
+
+  function viewDesign() {
+    const d = cur(), c = rechne(d, modus());
+    let h = '<div class="stack view d43"><h1>🎨 Design</h1><p class="muted">Farben, Stil und Schrift der ganzen App – auch im Gym. Wirkt sofort und wird gespeichert.</p>';
+    if (UNDO) h += '<div class="banner" style="--c:var(--acc-t,var(--fg))"><span class="ic">↩️</span><div style="flex:1;min-width:0"><b>Design geändert</b><span class="small muted">Vorher: ' + esc(UNDO.name) + '</span></div><button type="button" class="btn sm" data-act="d43undo">Rückgängig</button></div>';
+    // Vorschau mit echten Bausteinen der App
+    h += '<div class="card"><div class="card-h"><h3>👀 Vorschau</h3><span class="tag">' + esc(name(d)) + '</span></div><div class="d43-demo" aria-hidden="true">'
+      + '<div class="legend">' + [["schule", "Schule"], ["arbeit", "Arbeit"], ["gym", "Gym"], ["privat", "Ich"], ["frei", "Frei"], ["urlaub", "Urlaub"]].map(([k, n]) => '<span><i class="dot" style="--c:var(--' + k + ')"></i>' + n + '</span>').join("") + '</div>'
+      + '<div class="blk" style="--c:var(--schule)"><span class="t">8:00</span><span class="n">Berufsschule<small>Beispiel-Block</small></span></div>'
+      + '<div class="bar"><i style="width:64%"></i></div>'
+      + '<div class="chips"><span class="chipbtn" aria-pressed="true">Aktiv</span><span class="chipbtn">Normal</span><span class="tag" style="--c:var(--frei)">✓ erledigt</span></div>'
+      + '<div class="btn-row"><span class="btn primary sm">Haupt-Knopf</span><span class="btn sm">Knopf</span></div></div></div>';
+    h += tabsHtml(TABS, TAB, "d43tab");
+    h += TAB === "farben" ? tabFarben(d, c) : TAB === "stil" ? tabStil(d, c) : TAB === "mehr" ? tabMehr(d, c) : tabThemes(d);
+    return h + '</div>';
+  }
+  VIEWS.design = viewDesign; TITLES.design = "Design"; SUB.push("design");
+
+  /* ---------- Einstellungen: Karte „🎨 Design & Farben“ + Hinweis bei festem Modus ---------- */
+  const _ve = VIEWS.einstellungen;
+  VIEWS.einstellungen = function () {
+    let h = _ve.apply(this, arguments);
+    const d = cur(), z = zwang(d);
+    if (z) h = h.replace('<div class="field"><label for="setName">', '<p class="small muted">' + PRE[d.p].em + ' Dein Theme „' + esc(PRE[d.p].n) + '“ gibt es nur ' + (z === "dark" ? "dunkel" : "hell") + '. Hell/Dunkel gilt wieder bei einem anderen Theme.</p><div class="field"><label for="setName">');
+    const karteE = '<div class="card"><div class="card-h"><h3>🎨 Design & Farben</h3><span class="tag">' + esc(name(d)) + '</span></div><p class="small muted">' + PRESETS.length + ' Themes, Akzent- und Bereichsfarben, Hintergrund, Ecken, Karten-Stil, Schrift und Textgröße.</p><a class="btn primary block" href="#design">🎨 Design ändern</a></div>';
+    return h.replace('<div class="card"><h3>Feste Zeiten</h3>', karteE + '<div class="card"><h3>Feste Zeiten</h3>');
+  };
+
+  /* ---------- Suche: „Design“, „Farbe“, „Theme“ … ---------- */
+  if (typeof searchAll === "function") {
+    const _sa = searchAll;
+    searchAll = function (q) {
+      const r = _sa.apply(this, arguments) || [], t = String(q || "").trim().toLowerCase();
+      if (t.length >= 2 && ["design", "farbe", "farben", "theme", "thema", "dunkel", "hell", "dark", "schrift", "akzent", "hintergrund", "aussehen", "look", "stil", "dark mode", "darkmode"].some(w => w.indexOf(t) === 0 || t.indexOf(w) === 0))
+        r.unshift({cat:"Einstellung", title:"🎨 Design & Farben", text:"Themes, Akzentfarbe, Bereichsfarben, Schrift, Ecken, Hintergrund", go:() => { closeSheet(); go("design"); }, s:0});
+      return r;
+    };
+  }
+
+  /* ---------- Zurück-Knopf auf der Design-Seite führt zu den Einstellungen ---------- */
+  document.addEventListener("click", e => {
+    if (e.target.closest && e.target.closest("#backBtn") && currentView() === "design") { e.stopPropagation(); e.preventDefault(); go("einstellungen"); }
+  }, true);
+  const _render = render;
+  render = function () {
+    const r = _render.apply(this, arguments);
+    try {
+      const dz = currentView() === "design", b = $("#backBtn");
+      const tn = b && [...b.childNodes].find(n => n.nodeType === 3 && n.nodeValue.trim());
+      if (tn) tn.nodeValue = dz ? "Zurück" : "Start";
+      if (b) b.setAttribute("aria-label", dz ? "Zurück zu den Einstellungen" : "Zurück zum Start");
+      if (dz) { const a = document.querySelector('.nav a[data-tab="einstellungen"]'); if (a) a.setAttribute("aria-current", "page"); }
+    } catch (e) {}
+    return r;
+  };
+
+  /* ---------- Klicks auf der Design-Seite ---------- */
+  document.addEventListener("click", e => {
+    const b = e.target.closest && e.target.closest('[data-act^="d43"]');
+    if (!b) return;
+    const a = b.dataset.act, v = b.dataset.v, k = b.dataset.k;
+    switch (a) {
+      case "d43tab": TAB = v; try { sessionStorage.setItem("wk.d43.tab", v); } catch (err) {} rerender(); break;
+      case "d43fam": FAM = v; rerender(); break;
+      case "d43p": {
+        if (!PRE[v]) return;
+        const alt = cur();
+        if (alt.p === v && !hatEigenes(alt)) return;
+        // Neues Theme bringt seinen eigenen Look mit; Textgröße und Animationen (persönlich) bleiben
+        setze(d => { d.p = v; d.acc = ""; d.area = {}; d.bg = ""; d.r = ""; d.card = ""; d.nav = ""; d.font = ""; d.caps = null; }, name(alt));
+        toast(PRE[v].em + " " + PRE[v].n + " ist an");
+        break;
+      }
+      case "d43zufall": {
+        const alt = cur(), andere = PRESETS.filter(P => P.id !== alt.p), P = andere[Math.floor(Math.random() * andere.length)];
+        setze(d => { d.p = P.id; d.acc = ""; d.area = {}; d.bg = ""; d.r = ""; d.card = ""; d.nav = ""; d.font = ""; d.caps = null; }, name(alt));
+        toast("🎲 " + P.em + " " + P.n);
+        break;
+      }
+      case "d43acc": setze(d => { d.acc = HEX.test(v || "") ? v.toLowerCase() : ""; }); break;
+      case "d43areaR": setze(d => { delete d.area[v]; }); break;
+      case "d43opt": {
+        if (k === "caps" || k === "motion") setze(d => { d[k] = v === "true"; });
+        else if (k === "size") setze(d => { d.size = +v; });
+        else setze(d => { d[k] = v; });
+        break;
+      }
+      case "d43wie": setze(d => { if (k === "area") d.area = {}; else if (k === "caps") d.caps = null; else d[k] = ""; }); break;
+      case "d43undo": if (UNDO) { const u = UNDO; UNDO = null; S.settings.design = istStandard(u.d) ? undefined : u.d; if (!S.settings.design) delete S.settings.design; save(); anwenden(); rerender(); toast("↩️ Zurück: " + u.name); } break;
+      case "d43reset": setze(d => Object.assign(d, STD()), name(cur())); toast("Standard-Design ist an"); break;
+      case "d43copy": {
+        const t = $("#d43Code"); if (!t) return;
+        const fertig = () => toast("Code kopiert ✓");
+        if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(t.value).then(fertig, () => { t.select(); try { document.execCommand("copy"); fertig(); } catch (err) { toast("Bitte Text markieren und kopieren"); } });
+        else { t.select(); try { document.execCommand("copy"); fertig(); } catch (err) { toast("Bitte Text markieren und kopieren"); } }
+        break;
+      }
+      case "d43share": { const t = $("#d43Code"); if (t && navigator.share) navigator.share({title:"Wochenkompass-Design", text:t.value}).catch(() => {}); break; }
+      case "d43imp": {
+        const t = $("#d43In"), txt = t ? t.value.trim() : ""; IMPORT_TXT = txt;
+        let o = null; try { o = JSON.parse(txt); } catch (err) {}
+        if (!o || o.app !== "Wochenkompass-Design" || !o.design || !PRE[o.design.p]) { toast("Das ist kein gültiger Design-Code", 3000); return; }
+        IMPORT_TXT = "";
+        setze(d => Object.assign(d, sauber(o.design)), name(cur()));
+        toast("Design übernommen ✓");
+        break;
+      }
+    }
+  });
+
+  /* ---------- Farbwähler: beim Ziehen nur anzeigen, beim Loslassen speichern ---------- */
+  const ausFeld = el => { const d = cur(); if (el.id === "d43Acc") d.acc = el.value.toLowerCase(); else if (el.dataset.d43area) d.area[el.dataset.d43area] = el.value.toLowerCase(); return d; };
+  document.addEventListener("input", e => {
+    const el = e.target;
+    if (!(el.id === "d43Acc" || (el.dataset && el.dataset.d43area)) || !HEX.test(el.value)) return;
+    letzte = ""; anwenden(sauber(ausFeld(el)));
+  });
+  document.addEventListener("change", e => {
+    const el = e.target;
+    if (el.id === "d43In") { IMPORT_TXT = el.value; return; }
+    if (!(el.id === "d43Acc" || (el.dataset && el.dataset.d43area)) || !HEX.test(el.value)) return;
+    const neu = sauber(ausFeld(el));
+    S.settings.design = neu; save(); letzte = ""; anwenden();
+    setTimeout(rerender, 0);   // erst nach dem Schließen des Farbwählers neu zeichnen
+  });
+  // Farbwähler ohne Auswahl geschlossen: wieder das gespeicherte Design zeigen
+  document.addEventListener("focusout", e => {
+    const el = e.target;
+    if (el && (el.id === "d43Acc" || (el.dataset && el.dataset.d43area))) setTimeout(() => { letzte = ""; anwenden(null, true); }, 250);
+  });
+
+  // Test-Hilfe
+  window.__v43 = {PRESETS, FONTS, rechne, sauber, eff, kon, cur, anwenden, rahmen, istStandard, zwang};
+
+  // Start: einmal anwenden (Theme-Modus + Farben), Seite neu zeichnen
+  letzte = ""; themeSetzen(); anwenden();
+  try { rerender(); } catch (e) {}
 })();
 </script>
 
