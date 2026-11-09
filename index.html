@@ -7302,7 +7302,8 @@ h1,h2,h3{padding-top:.06em;padding-bottom:.04em}
      Format: {app:"Wochenkompass-Urlaub-Paket", erstellt, anspruch:{"2026":13}, urlaub:[{key, von, bis, note}]}
      - anspruch setzt den Urlaubsanspruch für einzelne Jahre
      - urlaub fügt Zeiträume hinzu; über key nie doppelt, gleiche Von/Bis-Daten auch nicht
-     - aendern: [{key, match:{von,bis}, von, bis, note}] stellt einen vorhandenen Urlaub um */
+     - aendern: [{key, match:{von,bis}, von, bis, note}] stellt einen vorhandenen Urlaub um
+     - entfernen: [key, …] löscht per Paket eingetragenen Urlaub */
   function urlaubPaketLaden(p) {
     if (!p || p.app !== "Wochenkompass-Urlaub-Paket") throw new Error("Das ist kein Urlaubs-Paket.");
     const iso = /^\d{4}-\d{2}-\d{2}$/;
@@ -7312,6 +7313,12 @@ h1,h2,h3{padding-top:.06em;padding-bottom:.04em}
       if (/^\d{4}$/.test(y) && n >= 0 && n <= 60 && S.settings.vacByYear[y] !== n) { S.settings.vacByYear[y] = n; jahre++; }
     });
     if (!Array.isArray(S.vacation)) S.vacation = [];
+    // entfernen: [key, …] nimmt früher per Paket eingetragenen Urlaub wieder raus (eigene Einträge ohne key bleiben)
+    (p.entfernen || []).forEach(key => {
+      const vor = S.vacation.length;
+      if (key) S.vacation = S.vacation.filter(v => v.key !== key);
+      neu += vor - S.vacation.length;
+    });
     (p.urlaub || []).forEach(u => {
       if (!u || !iso.test(u.von) || !iso.test(u.bis || u.von)) return;
       const bis = u.bis || u.von;
@@ -7430,7 +7437,9 @@ h1,h2,h3{padding-top:.06em;padding-bottom:.04em}
     return best;
   }
   // Freie Tage am Stück: Urlaub + angrenzende Wochenenden, Feiertage und weiterer Urlaub
-  const frei = k => wdOf(k) === 0 || wdOf(k) === 6 || !!holidayOf(k) || vacationOn(k);
+  // 24.12. und 31.12. sind im Betrieb frei (Angabe von Max) – zählen für „frei am Stück“ mit
+  const BETRIEB_FREI = ["12-24", "12-31"];
+  const frei = k => wdOf(k) === 0 || wdOf(k) === 6 || !!holidayOf(k) || vacationOn(k) || BETRIEB_FREI.includes(k.slice(5));
   function amStueck(v) {
     let a = v.von, b = v.bis;
     while (frei(addDays(a, -1))) a = addDays(a, -1);
