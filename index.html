@@ -9175,6 +9175,196 @@ html[data-d43-motion="0"] *,html[data-d43-motion="0"] *::before,html[data-d43-mo
 </script>
 
 
+<!-- ERWEITERUNG v46 (10.11.2026): 🔄 Abgleich – Daten aus der Claude-Version aufs Handy holen, OHNE etwas zu löschen.
+     Wunsch von Max: „mit Handy synchronisieren“. Ohne persönliche Werte – darf in die GitHub-Pages-Version.
+     Einstellungen → Karte „🔄 Abgleich mit der Claude-Version“: Abgleich-Datei (.json) wählen oder Text einfügen.
+     Regeln (3-Wege-Abgleich, nichts wird gelöscht):
+       - Neue Einträge in Listen kommen dazu. Gleich = gleiche key, gleiche id, gleicher Zeitraum (von+bis) oder gleiches Datum (d).
+       - Ein Feld wird nur gefüllt, wenn es auf dem Handy leer ist oder noch den alten Standardwert hat („alt“ in der Datei).
+         Hat Max es auf dem Handy selbst geändert, bleibt seine Version.
+       - Vorher wird der alte Stand gemerkt (localStorage „wochenkompass.vorAbgleich“) → Knopf „Rückgängig“.
+     Datei-Format: {app:"Wochenkompass-Abgleich", v:1, erstellt, quelle, wk:[Op], hb:[Op]}
+       Op = {p:[Pfad], v:Wert, alt?:alter Wert} · {p:[Pfad], add:[Einträge]} · {p:[Pfad], weg:[keys]} (nur Paket-Einträge)
+            · {p:[Pfad], v:Wert, stark:true} (Korrektur aus einem Paket, überschreibt wie das Paket-Laden)
+       Pfad-Teil {"@":"x"} = Eintrag in einer Liste mit key oder id "x".
+     Zurück: diesen Block löschen. -->
+<script>
+(function () {
+  "use strict";
+  if (typeof S !== "object" || !S || typeof VIEWS !== "object") return;
+  const VOR_KEY = "wochenkompass.vorAbgleich";
+
+  /* ---------- Helfer ---------- */
+  const clone = x => x === undefined ? undefined : JSON.parse(JSON.stringify(x));
+  const gleich = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+  const leer = x => x === undefined || x === null || x === "" || (Array.isArray(x) && !x.length) || (typeof x === "object" && !Array.isArray(x) && !Object.keys(x).length);
+  const istObj = x => x && typeof x === "object" && !Array.isArray(x);
+
+  // Gehört „neu“ zum selben Eintrag wie „da“?
+  function passt(da, neu) {
+    if (!istObj(da) || !istObj(neu)) return gleich(da, neu);
+    if (neu.key && da.key) return neu.key === da.key;
+    if (neu.id && da.id && neu.id === da.id) return true;
+    if (neu.von && neu.von === da.von && (neu.bis || "") === (da.bis || "")) return true;
+    if (neu.d && !neu.id && !neu.key && neu.d === da.d) return true;
+    if (neu.text !== undefined && neu.text === da.text && (neu.day || "") === (da.day || "")) return true;   // Berichtsheft-Stichpunkt
+    return gleich(ohneId(da), ohneId(neu));          // gleicher Inhalt, nur andere id
+  }
+  function ohneId(x) { const o = Object.assign({}, x); delete o.id; delete o.ts; return o; }
+  const finde = (liste, sel) => liste.find(x => istObj(x) && (x.key === sel || x.id === sel));
+
+  // Pfad bis zum Eltern-Objekt gehen; fehlende Zwischen-Objekte anlegen (nur bei mach = true)
+  function eltern(root, p, mach) {
+    let o = root;
+    for (let i = 0; i < p.length - 1; i++) {
+      const k = p[i];
+      if (istObj(k)) { if (!Array.isArray(o)) return null; o = finde(o, k["@"]); if (!o) return null; continue; }
+      if (o[k] === undefined || o[k] === null) { if (!mach) return null; o[k] = istObj(p[i + 1]) ? [] : {}; }
+      o = o[k]; if (typeof o !== "object") return null;
+    }
+    return o;
+  }
+
+  // Objekt tief auffüllen: nur Fehlendes/Leeres, Listen ergänzen
+  // Listen mit Objekten werden ergänzt. Listen mit einfachen Werten (z. B. „tage“ = Mo–Fr) zählen nach Position → nie mischen.
+  const objListe = (a, b) => Array.isArray(a) && Array.isArray(b) && b.some(istObj) && !a.some(x => !istObj(x));
+  function auffuellen(ziel, quelle, st) {
+    Object.keys(quelle).forEach(k => {
+      if (k === "id" || k === "ts") return;          // andere id = gleicher Eintrag, nicht zählen
+      const q = quelle[k], z = ziel[k];
+      if (leer(z)) { if (!leer(q)) { ziel[k] = clone(q); st.neu++; } }
+      else if (objListe(z, q)) dazu(z, q, st);
+      else if (istObj(z) && istObj(q)) auffuellen(z, q, st);
+      else if (!gleich(z, q)) st.eigen++;
+    });
+  }
+  function dazu(liste, neue, st) {
+    // Nur mit Einträgen vergleichen, die schon vorher da waren; jeder davon passt höchstens einmal
+    // (so bleiben zwei gleiche Einträge – z. B. zweimal Döner am selben Tag – auch zwei).
+    const vorher = liste.slice(), benutzt = new Set();
+    neue.forEach(n => {
+      const da = vorher.find(x => !benutzt.has(x) && passt(x, n));
+      if (!da) { liste.push(clone(n)); st.neu++; return; }
+      benutzt.add(da);
+      if (istObj(da) && istObj(n)) auffuellen(da, n, st);
+    });
+  }
+
+  function anwenden(root, ops, st) {
+    (ops || []).forEach(op => {
+      if (!op || !Array.isArray(op.p) || !op.p.length) return;
+      const o = eltern(root, op.p, !op.stark); if (!o) { if (!op.stark) st.fehlt++; return; }
+      const k = op.p[op.p.length - 1];
+      if (istObj(k)) return;                         // ungültig
+      if (Array.isArray(op.weg)) {                    // nur Einträge aus alten Paketen (über key) entfernen
+        if (Array.isArray(o[k])) { const n = o[k].length; o[k] = o[k].filter(x => !(istObj(x) && x.key && op.weg.includes(x.key))); st.neu += n - o[k].length; }
+        return;
+      }
+      if (op.stark) {                                 // Korrektur aus einem Paket: wie beim Paket-Laden überschreiben
+        if (!gleich(o[k], op.v)) { o[k] = clone(op.v); st.neu++; }
+        return;
+      }
+      if (Array.isArray(op.add)) {
+        if (o[k] === undefined || o[k] === null) o[k] = [];
+        if (!Array.isArray(o[k])) { st.eigen++; return; }
+        if (op.add.some(x => !istObj(x))) { op.add.forEach(x => { if (!o[k].some(y => gleich(y, x))) { o[k].push(clone(x)); st.neu++; } }); return; }
+        dazu(o[k], op.add, st); return;
+      }
+      const cur = o[k];
+      if (gleich(cur, op.v)) return;                 // schon gleich
+      if (leer(cur) || ("alt" in op && gleich(cur, op.alt))) { o[k] = clone(op.v); st.neu++; }
+      else if (objListe(cur, op.v)) dazu(cur, op.v, st);
+      else if (istObj(cur) && istObj(op.v)) auffuellen(cur, op.v, st);
+      else st.eigen++;                               // auf dem Handy selbst geändert → bleibt
+    });
+  }
+
+  function hbLesen() { try { return JSON.parse(localStorage.getItem(HB_KEY) || "null"); } catch (e) { return null; } }
+
+  /* ---------- Laden ---------- */
+  function abgleichLaden(paket) {
+    if (!paket || paket.app !== "Wochenkompass-Abgleich" || !Array.isArray(paket.wk)) { toast("Das ist keine Abgleich-Datei.", 3500); return false; }
+    // Vorher-Stand merken (für „Rückgängig“)
+    const vor = {zeit: new Date().toISOString(), wk: clone(S), hb: hbLesen(), paket: paket.erstellt || ""};
+    try { localStorage.setItem(VOR_KEY, JSON.stringify(vor)); }
+    catch (e) { toast("Kein Platz für die Sicherheitskopie – Abgleich abgebrochen.", 4000); return false; }
+
+    const st = {neu: 0, eigen: 0, fehlt: 0};
+    const neuS = clone(S);
+    try { anwenden(neuS, paket.wk, st); } catch (e) { toast("Fehler beim Abgleich – nichts geändert.", 4000); return false; }
+    let hbNeu = null;
+    if (Array.isArray(paket.hb) && paket.hb.length) {
+      const hb = hbLesen();
+      if (hb && hb.workouts) { hbNeu = clone(hb); try { anwenden(hbNeu, paket.hb, st); } catch (e) { hbNeu = null; } }
+      else st.fehlt++;                               // Hantelbuch noch nie geöffnet → später nochmal laden
+    }
+    S = neuS; save();
+    if (hbNeu) { try { localStorage.setItem(HB_KEY, JSON.stringify(hbNeu)); } catch (e) {} if (typeof reloadGym === "function") reloadGym(); }
+    S.settings.abgleich = {d: new Date().toISOString().slice(0, 10), paket: paket.erstellt || "", neu: st.neu, eigen: st.eigen}; save();
+    toast(st.neu ? "Abgleich fertig ✓ " + st.neu + " Sachen übernommen" + (st.eigen ? ", " + st.eigen + " eigene behalten" : "") : "Schon alles da ✓ Nichts Neues.", 4500);
+    rerender();
+    return st;
+  }
+
+  function rueckgaengig() {
+    let vor = null; try { vor = JSON.parse(localStorage.getItem(VOR_KEY) || "null"); } catch (e) {}
+    if (!vor || !vor.wk) { toast("Es gibt nichts zum Rückgängigmachen.", 3000); return false; }
+    S = vor.wk; save();
+    if (vor.hb) { try { localStorage.setItem(HB_KEY, JSON.stringify(vor.hb)); } catch (e) {} if (typeof reloadGym === "function") reloadGym(); }
+    try { localStorage.removeItem(VOR_KEY); } catch (e) {}
+    toast("Zurück auf den Stand vor dem Abgleich ✓", 3500); rerender(); return true;
+  }
+
+  /* ---------- Karte in den Einstellungen ---------- */
+  function karte() {
+    const a = S.settings && S.settings.abgleich;
+    let vor = null; try { vor = JSON.parse(localStorage.getItem(VOR_KEY) || "null"); } catch (e) {}
+    return '<div class="card" id="abgleichKarte"><div class="card-h"><h3>🔄 Abgleich mit der Claude-Version</h3>' + (a ? '<span class="tag">zuletzt ' + esc(fmt(a.d, {day: "2-digit", month: "2-digit"})) + '</span>' : '') + '</div>'
+      + '<p class="small muted">Holt Daten aus einer Abgleich-Datei dazu. <b>Es wird nichts gelöscht:</b> Neues kommt dazu, was du hier selbst geändert hast, bleibt.</p>'
+      + '<div class="field"><label for="abgFile">Abgleich-Datei (.json)</label><input id="abgFile" type="file" accept=".json,application/json,text/plain" class="inp"></div>'
+      + '<details class="how"><summary>… oder Text einfügen</summary><textarea id="abgText" rows="3" placeholder="{&quot;app&quot;:&quot;Wochenkompass-Abgleich&quot;, …}"></textarea><button class="btn primary" data-abg="text" style="margin-top:8px">Text laden</button></details>'
+      + (a ? '<p class="small" style="margin-top:8px">Letzter Abgleich: ' + a.neu + ' übernommen' + (a.eigen ? ', ' + a.eigen + ' eigene behalten' : '') + '.</p>' : '')
+      + (vor ? '<button class="btn" data-abg="undo" style="margin-top:8px">↩️ Letzten Abgleich rückgängig machen</button>' : '')
+      + '</div>';
+  }
+  const _ve = VIEWS.einstellungen;
+  VIEWS.einstellungen = function () {
+    const h = _ve.apply(this, arguments), m = '<div class="card"><h3>Backup</h3>';
+    return h.indexOf(m) >= 0 ? h.replace(m, karte() + m) : h + karte();
+  };
+
+  document.addEventListener("click", e => {
+    const b = e.target.closest ? e.target.closest("[data-abg]") : null; if (!b) return;
+    if (b.dataset.abg === "undo") { rueckgaengig(); return; }
+    const ta = document.getElementById("abgText"), txt = ta ? ta.value.trim() : "";
+    if (!txt) { toast("Bitte erst den Text einfügen.", 3000); return; }
+    let o = null; try { o = JSON.parse(txt); } catch (x) { toast("Der Text ist keine gültige Abgleich-Datei.", 3500); return; }
+    if (abgleichLaden(o) && ta) ta.value = "";
+  });
+  document.addEventListener("change", e => {
+    const el = e.target; if (!el || el.id !== "abgFile") return;
+    const f = el.files && el.files[0]; if (!f) return;
+    const r = new FileReader();
+    r.onload = () => { let o = null; try { o = JSON.parse(r.result); } catch (x) { toast("Datei konnte nicht gelesen werden.", 3500); return; } abgleichLaden(o); };
+    r.readAsText(f); el.value = "";
+  });
+
+  // Suche: „Abgleich“, „Sync“, „Handy“
+  if (typeof searchAll === "function") {
+    const _sa = searchAll;
+    searchAll = function (q) {
+      const r = _sa.apply(this, arguments) || [], t = String(q || "").trim().toLowerCase();
+      if (t.length >= 3 && ["abgleich", "sync", "synchron", "synchro", "handy", "übertragen"].some(w => w.indexOf(t) === 0 || t.indexOf(w) === 0))
+        r.unshift({cat: "Einstellung", title: "🔄 Abgleich mit der Claude-Version", text: "Daten aufs Handy holen, ohne etwas zu löschen", go: () => { closeSheet(); go("einstellungen"); }, s: 0});
+      return r;
+    };
+  }
+
+  window.abgleichLaden = abgleichLaden;
+  window.__v46 = {abgleichLaden, rueckgaengig, anwenden, passt, VOR_KEY};
+})();
+</script>
+
 <script>
 /* Service Worker: App startet auch mit schlechtem Netz */
 if ("serviceWorker" in navigator) addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));
