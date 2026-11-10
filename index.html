@@ -9365,6 +9365,657 @@ html[data-d43-motion="0"] *,html[data-d43-motion="0"] *::before,html[data-d43-mo
 })();
 </script>
 
+<!-- ERWEITERUNG v47 (10.11.2026): Schule → neuer Tab „🎯 Klausur“ mit Probeklausuren zum Lösen in der App.
+     Wunsch von Max: Er wollte für die ITD-Klausur lernen und hat keine Probeklausur gefunden („Bereich Test-Klausuren“).
+     - Probeklausur A + B (je 90 Min., 100 Punkte, wie echt) und Blitz-Test (alles automatisch) für ITD LS 1.1 + 1.2.
+       52 Aufgaben, geprüft gegen die Lernunterlagen/Lernzettel im Vault. Ankreuzen, Zuordnen, Rechnen = automatisch,
+       offene Antworten bewertet Max selbst am Erwartungshorizont (Häkchen = Punkte).
+     - Zufalls-Klausur (15/30/45/90 Min.) für jedes Fach: ITD aus dem Pool, sonst aus den Vault-Fragen (selbst bewerten).
+     - Fehlerheft: Aufgaben mit Punktverlust kommen rein, volle Punkte in der Fehler-Runde → raus.
+     - Nächste Klausur aus S.tests mit Countdown, Bereitschafts-Ampel, schwächstes Thema mit Lernzettel/Karteikarten-Knopf.
+     - Probearbeiten aus dem Vault, MC-Test und alte IHK-Prüfungen sind dort auch verlinkt.
+     - Speicher: S.pk = {res, fehler, run}. Laufende Klausur überlebt Neuladen. Kommt mit ins Backup.
+     Ohne persönliche Werte – darf auch in die GitHub-Pages-Version. Zurück: diesen Block löschen. -->
+<style>
+.pk-qh{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.pk-pts{flex:none;font-weight:800;font-size:13px;padding:2px 8px;border-radius:999px;background:var(--soft);font-variant-numeric:tabular-nums}
+.pk-q.ok .pk-pts{background:color-mix(in srgb,var(--ok) 20%,var(--surface))}
+.pk-q.bad .pk-pts{background:color-mix(in srgb,var(--feiertag) 16%,var(--surface))}
+.pk-q.pk-open{border:2px dashed var(--privat)}
+.pk-q p{margin:0;overflow-wrap:anywhere}
+.pk-zu,.pk-zahl{display:flex;flex-direction:column;gap:8px}
+.pk-zr{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,46%);gap:6px 10px;align-items:center;padding:8px 10px;border-radius:10px;border:1px solid var(--line);background:var(--bg)}
+.pk-zr label{font-size:15px;min-width:0;overflow-wrap:anywhere}
+.pk-zr select.inp{width:100%;min-width:0;min-height:44px}
+.pk-zr.ok{border:2px solid var(--ok)}
+.pk-zr.bad{border:2px solid var(--feiertag)}
+.pk-rk{grid-column:1/-1;font-size:13px}
+.pk-in{display:flex;align-items:center;gap:6px;min-width:0}
+.pk-in input{flex:1;min-width:0;min-height:44px;text-align:right;font-variant-numeric:tabular-nums}
+.pk-ta{width:100%;min-height:96px;resize:vertical;font:inherit}
+.pk-ans{border-left:3px solid var(--line);padding:4px 10px;background:var(--bg);border-radius:0 10px 10px 0}
+.pk-ans p{margin:2px 0 0;overflow-wrap:anywhere}
+.pk-sit{margin:8px 0 0;padding:10px 12px;border-radius:12px;background:var(--soft);font-size:15px}
+.pk-amp{margin:8px 0 0;padding:8px 10px;border-radius:10px;border:2px solid var(--c);background:color-mix(in srgb,var(--c) 14%,transparent)}
+.pk-themen{margin-top:8px}
+.pk-themen .chipbtn{min-height:40px;font-size:13px;padding:0 12px;text-align:left;white-space:normal}
+.pk-op{width:100%;border-collapse:collapse;font-size:14px}
+.pk-op td{padding:6px 4px;border-bottom:1px solid var(--line);vertical-align:top;overflow-wrap:anywhere}
+.pk-op td:first-child{width:42%}
+.pk-q .md{min-width:0;max-width:100%}
+.pk-q .md code{overflow-wrap:anywhere;word-break:break-word;white-space:pre-wrap}
+.pk-q .md pre{max-width:100%;overflow-x:auto}
+.pk-q .md table{display:block;max-width:100%;overflow-x:auto}
+@media (max-width:560px){ .pk-zr{grid-template-columns:minmax(0,1fr)} }
+</style>
+<script>
+(function () {
+  "use strict";
+  if (typeof S !== "object" || !S || typeof SCH_TABS === "undefined" || typeof schUebersicht !== "function" || typeof SCHUL !== "object") return;
+
+  /* ---------- 1. Aufgaben-Pool ITD (LF 1 · LS 1.1 + 1.2) ----------
+     Inhalt geprüft gegen deine Lernunterlagen im Vault (ITD - LS 1.1 / LS 1.2 - Lernen + Lernzettel).
+     Felder: id, tag (Thema), typ (mc | zu | zahl | offen), p = Punkte, q = Aufgabe (**fett** erlaubt)
+       mc:    o = Antworten, k = richtige (Index), w = Begründung
+       zu:    opts = Auswahl, rows = [Text, Index der richtigen Auswahl], w
+       zahl:  f = [Beschriftung, richtiger Wert, Einheit, Punkte], w = Rechenweg
+       offen: ew = Erwartungshorizont [Gesichtspunkt, Punkte], bsp = Musterlösung */
+  const TAGS = {
+    gruend: {n:"Selbstständigkeit & Gründung", ls:"LS 1.1", note:"ITD - LS 1.1 Selbstständigkeit und Unternehmensgründung - Lernzettel"},
+    swot:   {n:"SWOT & Businessplan", ls:"LS 1.1", note:"ITD - LS 1.1 SWOT-Analyse und Businessplan - Lernzettel"},
+    firma:  {n:"Firma, Handelsregister & Kaufleute", ls:"LS 1.2", note:"ITD - LS 1.2 Rechtsformen, Handelsregister und Vollmachten - Lernzettel"},
+    rf:     {n:"Rechtsformen", ls:"LS 1.2", note:"ITD - LS 1.2 Rechtsformen, Handelsregister und Vollmachten - Lernzettel"},
+    voll:   {n:"Vollmachten", ls:"LS 1.2", note:"ITD - LS 1.2 Rechtsformen, Handelsregister und Vollmachten - Lernzettel"}
+  };
+  const JN = ["ja, darf er/sie", "nein, nicht ohne Weiteres"];
+  const P = [
+    /* ===== Selbstständigkeit & Gründung ===== */
+    {id:"g1", tag:"gruend", typ:"mc", p:2, q:"Welche drei Merkmale einer Gründerpersönlichkeit gelten laut Gründungsforschung als gut belegt?",
+     o:["Leistungsmotivation", "Selbstwirksamkeit", "Perfektionismus", "Risikoneigung", "Harmoniebedürfnis"], k:[0, 1, 3],
+     w:"Leistungsmotivation, Selbstwirksamkeit und Risikoneigung (kalkuliertes Risiko, kein Glücksspiel)."},
+    {id:"g2", tag:"gruend", typ:"zu", p:4, q:"Ordnen Sie die Voraussetzungen einer Gründung zu.",
+     opts:["persönlich", "wirtschaftlich", "rechtlich"],
+     rows:[["Standort", 1], ["Durchhaltevermögen", 0], ["Steuernummer beim Finanzamt", 2], ["Businessplan", 1], ["Anmeldung bei der Berufsgenossenschaft", 2], ["Fachkenntnisse", 0], ["Investoren", 1], ["Gewerbeanmeldung", 2]],
+     w:"Persönlich = was in dir steckt. Wirtschaftlich = Geld, Markt, Plan. Rechtlich = Anmeldungen und Formalitäten."},
+    {id:"g3", tag:"gruend", typ:"offen", p:6, q:"Nennen Sie je drei Chancen und drei Risiken der unternehmerischen Selbstständigkeit.",
+     ew:[["1. Chance (z. B. eigene Ideen umsetzen)", 1], ["2. Chance (z. B. eigene Entscheidungen, flexible Zeiten)", 1], ["3. Chance (z. B. hoher Verdienst möglich, Arbeitsplätze schaffen)", 1], ["1. Risiko (z. B. Haftung evtl. mit Privatvermögen)", 1], ["2. Risiko (z. B. unsicheres Einkommen)", 1], ["3. Risiko (z. B. keine automatische Sozialversicherung, Überlastung)", 1]],
+     bsp:"Chancen: eigene Ideen verwirklichen, eigene Entscheidungen treffen, flexible Arbeitszeiten, hoher Verdienst möglich, Arbeitsplätze schaffen. Risiken: Haftung (je nach Rechtsform mit Privatvermögen), unsicheres Einkommen, keine automatische Renten- und Sozialversicherung, viel Arbeit/Überlastung, Verantwortung für Personal, Bürokratie."},
+    {id:"g4", tag:"gruend", typ:"zahl", p:6, q:"Herr Novak ist arbeitslos und bekommt 1.450 € Arbeitslosengeld im Monat (noch 210 Tage Anspruch). Er macht sich hauptberuflich mit einem IT-Service selbstständig und bekommt den Gründungszuschuss in voller Länge. Berechnen Sie:",
+     f:[["a) Zuschuss pro Monat in den ersten 6 Monaten", 1750, "€", 2], ["b) Summe der 1. Phase (6 Monate)", 10500, "€", 2], ["c) höchstmögliche Gesamtsumme (1. + 2. Phase)", 13200, "€", 2]],
+     w:"1. Phase: ALG + 300 € = 1.450 € + 300 € = 1.750 € × 6 = 10.500 €. 2. Phase: 300 € × 9 Monate = 2.700 €. Gesamt höchstens 13.200 € in 15 Monaten. Voraussetzung 150 Tage Rest-Anspruch ist mit 210 Tagen erfüllt."},
+    {id:"g5", tag:"gruend", typ:"mc", p:2, q:"Welche Aussagen zum Gründungszuschuss der Agentur für Arbeit stimmen?",
+     o:["Man braucht bei Start noch mindestens 150 Tage Anspruch auf Arbeitslosengeld.", "Die Selbstständigkeit muss hauptberuflich sein.", "Eine fachkundige Stelle (z. B. IHK) muss die Tragfähigkeit bestätigen.", "Es besteht ein Rechtsanspruch auf den Zuschuss.", "Er muss nach 15 Monaten zurückgezahlt werden."], k:[0, 1, 2],
+     w:"Kein Rechtsanspruch (Ermessen der Arbeitsagentur) und kein Kredit – er wird nicht zurückgezahlt."},
+    {id:"g6", tag:"gruend", typ:"offen", p:4, q:"Ein angestellter Fachinformatiker (nicht arbeitslos) will nebenbei 10 Stunden pro Woche als IT-Berater arbeiten. Kann er den Gründungszuschuss bekommen? Begründen Sie.",
+     ew:[["Ergebnis: Nein", 1], ["Grund 1: nicht arbeitslos, kein Arbeitslosengeld-Anspruch", 1.5], ["Grund 2: nur nebenberuflich (unter ca. 15 Std./Woche), nicht hauptberuflich", 1.5]],
+     bsp:"Nein. Er bezieht kein Arbeitslosengeld (ist angestellt) und die Tätigkeit ist nebenberuflich. Beides sind Voraussetzungen für den Gründungszuschuss."},
+    {id:"g7", tag:"gruend", typ:"offen", p:6, q:"Lea und Jonas wollen ihre Firma Rheinbyte mit 30.000 € Ersparnissen und einem Bankkredit gründen. Erläutern Sie den Unterschied zwischen Eigenkapital und Fremdkapital an diesem Beispiel.",
+     ew:[["Eigenkapital erklärt (eigenes Geld der Gründer)", 1.5], ["Beispiel Eigenkapital (die 30.000 € Ersparnisse)", 1.5], ["Fremdkapital erklärt (geliehenes Geld, muss mit Zinsen zurück)", 1.5], ["Beispiel Fremdkapital (Bankkredit, z. B. für Server/Laptops) + Bank will Businessplan/Sicherheiten", 1.5]],
+     bsp:"Eigenkapital ist das eigene Geld der Gründer, hier die 30.000 € Ersparnisse. Es macht unabhängig und kostet keine Zinsen. Fremdkapital ist geliehenes Geld, hier der Bankkredit, z. B. für Server und Laptops. Es muss mit Zinsen zurückgezahlt werden, und die Bank verlangt vorher einen Businessplan und Sicherheiten."},
+    {id:"g8", tag:"gruend", typ:"mc", p:2, q:"Wo meldet ein IT-Systemhaus sein Gewerbe an? (eine Antwort)",
+     o:["beim Gewerbeamt der Stadt", "beim Amtsgericht", "bei der Agentur für Arbeit", "bei der Berufsgenossenschaft"], k:[0],
+     w:"Gewerbe → Gewerbeamt (Gewerbeanzeige). Das Amt gibt die Daten u. a. an Finanzamt und IHK weiter."},
+    {id:"g9", tag:"gruend", typ:"mc", p:2, q:"Wer meldet KEIN Gewerbe an?",
+     o:["eine Ärztin mit eigener Praxis", "ein Rechtsanwalt", "ein Händler für Computer-Hardware", "ein Imbiss"], k:[0, 1],
+     w:"Ärzte und Anwälte sind freie Berufe → nur Finanzamt, kein Gewerbeamt."},
+    {id:"g10", tag:"gruend", typ:"offen", p:6, q:"Nehmen Sie Stellung zur Aussage: „In Deutschland sollte Scheitern als Unternehmer weniger negativ gesehen werden.“",
+     ew:[["1. Argument (z. B. Angst vor dem Scheitern hält viele von der Gründung ab)", 2], ["2. Argument oder Gegenargument (z. B. aus Fehlern lernen / aber: Privatinsolvenz möglich)", 2], ["eigene Meinung als Fazit, begründet", 2]],
+     bsp:"Pro: Viele gründen aus Angst vor dem Scheitern gar nicht; wer scheitert, lernt daraus für die nächste Gründung (in den USA eher normal, Investoren geben Gescheiterten oft wieder Geld). Mehr Gründungen schaffen Arbeitsplätze. Contra: Scheitern kann Existenz und Privatvermögen kosten, deshalb trotzdem gut planen (Businessplan). Fazit mit eigener Meinung und Begründung."},
+    {id:"g11", tag:"gruend", typ:"zu", p:3, q:"Bringen Sie die Schritte der Gründung einer GmbH in die richtige Reihenfolge (1 = zuerst).",
+     opts:["1", "2", "3", "4", "5", "6"],
+     rows:[["Gesellschaftsvertrag beim Notar", 4], ["Geschäftsidee prüfen", 0], ["Finanzierung klären (Eigenkapital, Kredit)", 3], ["Eintragung ins Handelsregister", 5], ["Businessplan schreiben", 2], ["Markt und Konkurrenz untersuchen (z. B. SWOT)", 1]],
+     w:"Idee → Markt (SWOT) → Businessplan → Finanzierung → Notar → Handelsregister. Danach: Gewerbeanmeldung, Finanzamt, Berufsgenossenschaft."},
+
+    /* ===== SWOT & Businessplan ===== */
+    {id:"s1", tag:"swot", typ:"zu", p:4, q:"Ordnen Sie für das IT-Systemhaus Rheinbyte zu: Stärke (S), Schwäche (W), Chance (O) oder Risiko (T)?",
+     opts:["S – Stärke", "W – Schwäche", "O – Chance", "T – Risiko"],
+     rows:[["Die Techniker haben Zertifikate in IT-Sicherheit.", 0], ["Die eigene Website ist veraltet, es gibt kaum Werbung.", 1], ["Viele Arztpraxen müssen ihre Telematik-Technik erneuern.", 2], ["In der IT fehlen Fachkräfte.", 3], ["Große Anbieter verkaufen günstige Cloud-Komplettpakete.", 3], ["Es gibt ein Förderprogramm für Digitalisierung im Mittelstand.", 2], ["Vor-Ort-Service in Köln innerhalb von 30 Minuten.", 0], ["Am Wochenende gibt es keine Rufbereitschaft.", 1]],
+     w:"S und W = innen (kann Rheinbyte selbst ändern). O und T = außen (Markt, Umwelt). Fachkräftemangel ist extern → Risiko, keine Schwäche."},
+    {id:"s2", tag:"swot", typ:"mc", p:2, q:"Welche Felder der SWOT-Analyse gehören zur externen Analyse (Umweltanalyse)?",
+     o:["Stärken", "Schwächen", "Chancen", "Risiken"], k:[2, 3],
+     w:"SW = innen, OT = außen."},
+    {id:"s3", tag:"swot", typ:"zu", p:4, q:"Ordnen Sie die Strategien der Schnittstellenbetrachtung zu.",
+     opts:["SO", "ST", "WO", "WT"],
+     rows:[["Ausbauen: Stärken nutzen, um Chancen zu ergreifen", 0], ["Absichern: Stärken einsetzen, um Risiken abzuwehren", 1], ["Aufholen: Schwächen abbauen, um Chancen zu nutzen", 2], ["Vermeiden: Schwächen abbauen, damit Risiken nicht schaden", 3]],
+     w:"Merksatz: SO ausbauen – ST absichern – WO aufholen – WT vermeiden."},
+    {id:"s4", tag:"swot", typ:"offen", p:8, q:"Ein Kölner IT-Dienstleister hat sehr erfahrene Techniker (S), aber eine veraltete eigene Ticket-Software (W). Viele Praxen bekommen Fördergeld für Digitalisierung (O). Neue IT-Sicherheitsvorgaben bringen bei Verstößen hohe Strafen (T). Formulieren Sie je eine konkrete Strategie für SO, ST, WO und WT.",
+     ew:[["SO: Erfahrung nutzen, um Förderprojekte bei Praxen umzusetzen", 2], ["ST: Erfahrung nutzen, um Kunden bei den Sicherheitsvorgaben zu helfen (Beratung als Dienstleistung)", 2], ["WO: Ticket-Software modernisieren, um mehr Förder-Aufträge zu schaffen", 2], ["WT: eigene Ticket-Software/IT sicher machen, damit keine Strafen drohen", 2]],
+     bsp:"SO: Mit den erfahrenen Technikern Förderprojekte für Praxen beraten und umsetzen. ST: Die Erfahrung nutzen, um Kunden die Umsetzung der neuen Sicherheitsvorgaben als Dienstleistung anzubieten. WO: Eigene Ticket-Software modernisieren (evtl. mit Fördergeld), um mehr Aufträge schneller abzuwickeln. WT: Moderne, sichere Ticket-Software einführen, damit die eigene IT die Vorgaben erfüllt und keine Strafen oder Imageschäden drohen."},
+    {id:"s5", tag:"swot", typ:"offen", p:5, q:"Nennen Sie fünf Inhalte (Kapitel) eines Businessplans.",
+     ew:[["1. Inhalt (z. B. Executive Summary)", 1], ["2. Inhalt (z. B. Geschäftsidee, Ziele)", 1], ["3. Inhalt (z. B. Markt und Wettbewerb)", 1], ["4. Inhalt (z. B. Marketing, Team, Rechtsform)", 1], ["5. Inhalt (z. B. Chancen/Risiken, Finanzplan)", 1]],
+     bsp:"Executive Summary, Geschäftsidee und Ziele, Produkt/Dienstleistung, Markt und Wettbewerb, Marketing und Vertrieb, Management und Team, Organisation und Rechtsform, Umsetzungsplan, Chancen und Risiken (SWOT), Finanzplan."},
+    {id:"s6", tag:"swot", typ:"offen", p:4, q:"Erläutern Sie, warum die Executive Summary zuletzt geschrieben wird, obwohl sie ganz vorne im Businessplan steht.",
+     ew:[["Sie fasst die wichtigsten Ergebnisse aller Kapitel zusammen – die kennt man erst am Ende", 2], ["Sie steht vorne, weil Kapitalgeber sie zuerst und oft nur sie lesen (wichtigster Teil für sie)", 2]],
+     bsp:"Die Executive Summary ist die Zusammenfassung des ganzen Plans auf 1–2 Seiten. Die Ergebnisse (Markt, Finanzen …) stehen erst fest, wenn alle Kapitel fertig sind – deshalb zuletzt schreiben. Vorne steht sie, weil Banken und Investoren sie zuerst lesen und danach entscheiden, ob sie weiterlesen."},
+    {id:"s7", tag:"swot", typ:"mc", p:2, q:"Wer ist der wichtigste Empfänger eines Businessplans? (eine Antwort)",
+     o:["der Gründer selbst", "die Hausbank", "das Finanzamt", "die Lieferanten"], k:[0],
+     w:"Der Businessplan ist zuerst der Kompass für den Gründer selbst (Orientierung, Kontrolle, Plan B). Danach Bank, Investoren, Arbeitsagentur."},
+    {id:"s8", tag:"swot", typ:"offen", p:6, q:"Ein Azubi schreibt in die SWOT-Analyse eines Systemhauses unter „Chancen“: „Mehr Werbung machen“ und unter „Schwächen“: „Fachkräftemangel“. Beurteilen Sie beide Einträge und korrigieren Sie sie.",
+     ew:[["„Mehr Werbung machen“ ist eine Maßnahme/Strategie, keine Chance", 1.5], ["Korrektur: echte Chance = äußerer Trend, z. B. „Nachfrage nach IT-Sicherheit steigt“", 1.5], ["„Fachkräftemangel“ ist extern → Risiko, keine Schwäche", 1.5], ["Korrektur: echte Schwäche = intern, z. B. „wenige Techniker, Wissen nicht dokumentiert“", 1.5]],
+     bsp:"„Mehr Werbung machen“ ist eine Strategie (was man tut), keine Chance. Eine Chance wäre ein äußerer Trend, z. B. „Arztpraxen müssen digitalisieren“. „Fachkräftemangel“ kommt von außen und ist deshalb ein Risiko. Eine Schwäche wäre etwas Internes, z. B. „nur zwei Techniker, Wissen nicht dokumentiert“."},
+    {id:"s9", tag:"swot", typ:"offen", p:3, q:"Nennen Sie die drei Teile des Finanzplans in einem Businessplan.",
+     ew:[["Kapitalbedarfsplan", 1], ["Rentabilitätsvorschau (Plan-GuV)", 1], ["Liquiditätsplan", 1]],
+     bsp:"Kapitalbedarfsplan (wie viel Geld wofür?), Rentabilitätsvorschau (macht man Gewinn?), Liquiditätsplan (ist man immer zahlungsfähig?)."},
+    {id:"s10", tag:"swot", typ:"offen", p:4, q:"Begründen Sie, warum ein Gründer auch dann einen Businessplan schreiben sollte, wenn er keinen Kredit braucht. (vier Gründe)",
+     ew:[["Kompass/Orientierung: Ziele und Weg festlegen", 1], ["Chancen und Risiken erkennen, Plan B", 1], ["Kontrolle: später Plan und Wirklichkeit vergleichen", 1], ["nötig z. B. für Gründungszuschuss/Tragfähigkeit, Partner, Mitgründer", 1]],
+     bsp:"Er ist ein Kompass für den Gründer selbst, zeigt Chancen und Risiken (Plan B), erlaubt später einen Soll-Ist-Vergleich und wird auch für den Gründungszuschuss (Tragfähigkeitsbescheinigung) und für Partner gebraucht."},
+    {id:"s11", tag:"swot", typ:"mc", p:2, q:"Wofür steht SMART bei Zielen im Businessplan? Welche Begriffe gehören dazu?",
+     o:["spezifisch", "messbar", "schnell", "realistisch", "terminiert"], k:[0, 1, 3, 4],
+     w:"SMART = spezifisch, messbar, attraktiv/akzeptiert, realistisch, terminiert. „schnell“ gehört nicht dazu."},
+
+    /* ===== Firma, Handelsregister & Kaufleute ===== */
+    {id:"f1", tag:"firma", typ:"mc", p:2, q:"Was ist die „Firma“ nach § 17 HGB? (eine Antwort)",
+     o:["der Name, unter dem ein Kaufmann seine Geschäfte betreibt und unterschreibt", "das Unternehmen als wirtschaftliche Einheit", "das Gebäude, in dem gearbeitet wird", "der Betrieb mit allen Maschinen"], k:[0],
+     w:"Firma = nur der Name. Unternehmen = wirtschaftliche/rechtliche Einheit. Betrieb = technische/örtliche Einheit."},
+    {id:"f2", tag:"firma", typ:"zu", p:4, q:"Welche Firmenart liegt vor?",
+     opts:["Personenfirma", "Sachfirma", "Fantasiefirma", "Mischfirma"],
+     rows:[["Jonas Becker e. K.", 0], ["Rheinische Druckertechnik GmbH", 1], ["Quvexa AG", 2], ["Becker Netzwerkservice OHG", 3]],
+     w:"Person = Name einer Person · Sache = was das Unternehmen macht · Fantasie = ausgedacht · Misch = Kombination."},
+    {id:"f3", tag:"firma", typ:"zu", p:4, q:"In welche Abteilung des Handelsregisters gehört die Rechtsform?",
+     opts:["Abteilung A (HRA)", "Abteilung B (HRB)", "gar nicht ins Handelsregister"],
+     rows:[["e. K.", 0], ["OHG", 0], ["KG", 0], ["GmbH", 1], ["UG (haftungsbeschränkt)", 1], ["AG", 1], ["GmbH & Co. KG", 0], ["GbR", 2]],
+     w:"A wie alle Personen(gesellschaften), B wie beschränkte Haftung. Die GmbH & Co. KG ist eine KG → A. Die GbR steht nicht im Handelsregister (höchstens als eGbR im Gesellschaftsregister)."},
+    {id:"f4", tag:"firma", typ:"zu", p:6, q:"Welche Kaufmannsart liegt vor?",
+     opts:["Istkaufmann", "Kannkaufmann", "Formkaufmann", "kein Kaufmann"],
+     rows:[["IT-Systemhaus mit 25 Mitarbeitenden, vielen Kunden, noch nicht eingetragen", 0], ["Rechtsanwaltskanzlei mit 3 Mitarbeitenden", 3], ["Datenwerk GmbH", 2], ["Kiosk ohne Mitarbeitende, nicht eingetragen", 3], ["Kleingewerbe ohne Mitarbeitende, freiwillig als e. K. eingetragen", 1], ["Land- und Forstwirt, freiwillig eingetragen", 1]],
+     w:"Ist = Handelsgewerbe mit kaufmännischem Geschäftsbetrieb (auch ohne Eintrag). Kann = Kleingewerbe oder Land-/Forstwirtschaft, freiwillig eingetragen. Form = GmbH, UG, AG, eG. Freie Berufe und nicht eingetragene Kleingewerbe = kein Kaufmann."},
+    {id:"f5", tag:"firma", typ:"zu", p:4, q:"Ist die Eintragung ins Handelsregister deklaratorisch (bestätigt nur) oder konstitutiv (erzeugt erst)?",
+     opts:["deklaratorisch", "konstitutiv"],
+     rows:[["Istkaufmann", 0], ["Kannkaufmann", 1], ["GmbH (Formkaufmann)", 1], ["Prokura", 0]],
+     w:"Deklaratorisch: Istkaufmann und Prokura (gelten schon vorher). Konstitutiv: Kannkaufmann und GmbH/AG (entstehen erst mit der Eintragung)."},
+    {id:"f6", tag:"firma", typ:"offen", p:4, q:"Nennen Sie vier Inhalte, die im Handelsregister über eine GmbH stehen.",
+     ew:[["1. Inhalt (z. B. Firma)", 1], ["2. Inhalt (z. B. Sitz)", 1], ["3. Inhalt (z. B. Unternehmensgegenstand, Stammkapital)", 1], ["4. Inhalt (z. B. Geschäftsführer, Prokuristen, Vertretung)", 1]],
+     bsp:"Firma, Sitz, Unternehmensgegenstand, Rechtsform, Stammkapital, Geschäftsführer und ihre Vertretungsbefugnis, Prokuristen, später Änderungen und Insolvenz."},
+    {id:"f7", tag:"firma", typ:"mc", p:2, q:"Ein Ein-Personen-Betrieb nennt sich „Europa IT-Konzern e. K.“. Gegen welchen Firmengrundsatz verstößt er? (eine Antwort)",
+     o:["Firmenwahrheit und -klarheit", "Firmenbeständigkeit", "Firmenöffentlichkeit", "Firmeneinheit"], k:[0],
+     w:"Die Firma darf nicht täuschen (§ 18 Abs. 2 HGB). Ein Ein-Personen-Betrieb ist kein Konzern."},
+    {id:"f8", tag:"firma", typ:"mc", p:2, q:"Welche Aussagen zum Handelsregister stimmen?",
+     o:["Es wird vom Amtsgericht (Registergericht) geführt.", "Jeder darf es einsehen.", "Es wird vom Finanzamt geführt.", "Anmeldungen gehen über einen Notar (öffentlich beglaubigt)."], k:[0, 1, 3],
+     w:"Amtsgericht, öffentlich für jeden (online, inzwischen kostenlos), Anmeldung über den Notar."},
+    {id:"f9", tag:"firma", typ:"offen", p:4, q:"Nennen Sie vier Kriterien, nach denen geprüft wird, ob ein Gewerbe einen kaufmännisch eingerichteten Geschäftsbetrieb braucht.",
+     ew:[["1. Kriterium (z. B. Höhe des Umsatzes)", 1], ["2. Kriterium (z. B. Zahl der Mitarbeitenden)", 1], ["3. Kriterium (z. B. Zahl der Kunden und Lieferanten)", 1], ["4. Kriterium (z. B. Filialen, Kredit-/Zahlungsverkehr, doppelte Buchführung nötig)", 1]],
+     bsp:"Umsatz, Zahl der Beschäftigten, Zahl der Kunden und Lieferanten, Umfang des Kredit- und Zahlungsverkehrs, Zahl und Größe der Betriebsstätten, Vielfalt des Sortiments, Notwendigkeit doppelter Buchführung."},
+
+    /* ===== Rechtsformen ===== */
+    {id:"r1", tag:"rf", typ:"zahl", p:3, q:"Nennen Sie das gesetzliche Mindestkapital.",
+     f:[["GmbH (Stammkapital)", 25000, "€", 1], ["UG (haftungsbeschränkt)", 1, "€", 1], ["AG (Grundkapital)", 50000, "€", 1]],
+     w:"Merksatz 25 – 1 – 50: GmbH 25.000 €, UG 1 €, AG 50.000 €. e. K., GbR, OHG und KG brauchen kein Mindestkapital."},
+    {id:"r2", tag:"rf", typ:"zu", p:3, q:"Wie haften die Personen?",
+     opts:["unbeschränkt, auch privat", "nur mit ihrer Einlage"],
+     rows:[["Inhaber eines e. K.", 0], ["Gesellschafter einer OHG", 0], ["Komplementär einer KG", 0], ["Kommanditist einer KG", 1], ["Gesellschafter einer GmbH", 1], ["Aktionär einer AG", 1]],
+     w:"Personengesellschaften: mindestens einer haftet unbeschränkt. Kapitalgesellschaften: nur das Gesellschaftsvermögen haftet – der Gesellschafter riskiert nur seine Einlage."},
+    {id:"r3", tag:"rf", typ:"mc", p:2, q:"Welche Rechtsformen sind Kapitalgesellschaften?",
+     o:["GmbH", "KG", "UG (haftungsbeschränkt)", "OHG", "AG"], k:[0, 2, 4],
+     w:"Kapitalgesellschaften = GmbH, UG, AG (juristische Personen). OHG und KG sind Personengesellschaften."},
+    {id:"r4", tag:"rf", typ:"offen", p:6, q:"Erklären Sie den Unterschied zwischen Komplementär und Kommanditist in einer KG.",
+     ew:[["Haftung: Komplementär unbeschränkt (auch privat), Kommanditist nur bis zur Einlage", 2], ["Geschäftsführung/Vertretung: nur der Komplementär", 2], ["Rechte des Kommanditisten: Kontrollrecht (Jahresabschluss) und Widerspruchsrecht bei außergewöhnlichen Geschäften", 2]],
+     bsp:"Der Komplementär haftet unbeschränkt, auch mit seinem Privatvermögen, und führt und vertritt die KG. Der Kommanditist haftet nur bis zur Höhe seiner Einlage, darf die Geschäfte nicht führen und die KG nicht vertreten, hat aber ein Kontrollrecht (Einsicht in den Jahresabschluss) und ein Widerspruchsrecht bei außergewöhnlichen Geschäften."},
+    {id:"r5", tag:"rf", typ:"offen", p:10, q:"Lina (22) und Ben (24) wollen zusammen eine Webagentur gründen. Sie haben zusammen 5.000 € Erspartes, wollen beide mitentscheiden und auf keinen Fall mit ihrem Privatvermögen haften. Empfehlen Sie eine Rechtsform und begründen Sie Ihre Wahl.",
+     ew:[["Empfehlung: UG (haftungsbeschränkt)", 2], ["Haftung: Kapitalgesellschaft → nur Gesellschaftsvermögen haftet, nicht privat", 2], ["Kapital: UG ab 1 € möglich, GmbH bräuchte 25.000 € (zu viel)", 2], ["Pflicht: jedes Jahr 25 % des Jahresüberschusses in die Rücklage, bis 25.000 € → später GmbH möglich", 2], ["Abgrenzung oder Nachteil: GbR/OHG passen nicht (volle Haftung); UG braucht Notar + HRB, schwächeres Image", 2]],
+     bsp:"Empfehlung: UG (haftungsbeschränkt). Sie ist eine Kapitalgesellschaft, also haftet nur das Vermögen der UG, nicht das Privatvermögen. Sie kann schon mit 1 € gegründet werden – für eine GmbH fehlen die 25.000 €. Beide werden Gesellschafter und können Geschäftsführer sein. Pflicht: 25 % des Jahresüberschusses in eine Rücklage, bis 25.000 € erreicht sind; dann ist eine Umwandlung in eine GmbH möglich. GbR oder OHG passen nicht, weil dort alle unbeschränkt haften. Nachteile: Notar, Eintrag in HRB, bei manchen Banken/Kunden schwächeres Image."},
+    {id:"r6", tag:"rf", typ:"zahl", p:4, q:"An der Rheinbyte GmbH sind Lea mit 18.000 € und Jonas mit 12.000 € beteiligt. Im Gesellschaftsvertrag steht nichts zur Gewinnverteilung. Der Gewinn von 45.000 € wird komplett ausgeschüttet. Wie viel bekommt jeder?",
+     f:[["Lea", 27000, "€", 2], ["Jonas", 18000, "€", 2]],
+     w:"GmbH ohne Regel: nach Geschäftsanteilen (§ 29 GmbHG). Stammkapital 30.000 €. Lea: 18.000 / 30.000 = 60 % → 27.000 €. Jonas: 40 % → 18.000 €."},
+    {id:"r7", tag:"rf", typ:"zahl", p:2, q:"Die Pixel UG (haftungsbeschränkt) hat einen Jahresüberschuss von 8.000 € (kein Verlustvortrag). Wie viel muss sie mindestens in die gesetzliche Rücklage stellen?",
+     f:[["Rücklage mindestens", 2000, "€", 2]],
+     w:"Ein Viertel (25 %) des Jahresüberschusses: 8.000 € × 0,25 = 2.000 €."},
+    {id:"r8", tag:"rf", typ:"zu", p:3, q:"Ordnen Sie die Organe der AG ihren Aufgaben zu.",
+     opts:["Vorstand", "Aufsichtsrat", "Hauptversammlung"],
+     rows:[["leitet die AG und vertritt sie nach außen", 0], ["überwacht die Geschäftsführung", 1], ["Versammlung der Aktionäre, z. B. Beschluss über den Gewinn", 2]],
+     w:"Vorstand = führt. Aufsichtsrat = kontrolliert. Hauptversammlung = Aktionäre entscheiden."},
+    {id:"r9", tag:"rf", typ:"mc", p:2, q:"Welche Aussagen zur UG (haftungsbeschränkt) stimmen?",
+     o:["Sie kann mit 1 € Stammkapital gegründet werden.", "Sie muss jedes Jahr 25 % des Jahresüberschusses in eine Rücklage stellen, bis 25.000 € erreicht sind.", "Die Gesellschafter haften mit ihrem Privatvermögen.", "Der Zusatz „UG (haftungsbeschränkt)“ muss genau so im Namen stehen."], k:[0, 1, 3],
+     w:"Die UG ist eine „Mini-GmbH“: Haftung beschränkt, Rücklagenpflicht, genauer Rechtsformzusatz."},
+    {id:"r10", tag:"rf", typ:"offen", p:4, q:"Vergleichen Sie das Einzelunternehmen (e. K.) mit der GmbH bei Haftung und Gründung.",
+     ew:[["Haftung e. K.: Inhaber unbeschränkt mit Privatvermögen", 1], ["Haftung GmbH: nur das Gesellschaftsvermögen", 1], ["Gründung e. K.: einfach, kein Mindestkapital", 1], ["Gründung GmbH: notarieller Vertrag, 25.000 € Stammkapital, Eintrag HRB", 1]],
+     bsp:"Beim e. K. haftet der Inhaber unbeschränkt, auch privat; bei der GmbH haftet nur das Gesellschaftsvermögen. Ein e. K. ist schnell und ohne Mindestkapital gegründet (Eintrag in HRA). Für die GmbH braucht man einen notariellen Gesellschaftsvertrag, 25.000 € Stammkapital (mind. 12.500 € bei Anmeldung) und den Eintrag in HRB."},
+    {id:"r11", tag:"rf", typ:"mc", p:2, q:"Welche Aussagen zur GmbH stimmen?",
+     o:["Eine GmbH kann von einer einzigen Person gegründet werden.", "Bei der Anmeldung müssen mindestens 12.500 € eingezahlt sein.", "Ein mündlicher Gesellschaftsvertrag reicht aus.", "Die GmbH wird in Abteilung A des Handelsregisters eingetragen."], k:[0, 1],
+     w:"Ein-Personen-GmbH ist erlaubt. Vertrag muss notariell beurkundet sein. GmbH steht in Abteilung B."},
+    {id:"r12", tag:"rf", typ:"mc", p:2, q:"Wer führt die Geschäfte einer OHG, wenn im Vertrag nichts anderes steht? (eine Antwort)",
+     o:["jeder Gesellschafter", "nur der älteste Gesellschafter", "ein angestellter Geschäftsführer", "der Vorstand"], k:[0],
+     w:"In der OHG führt und vertritt grundsätzlich jeder Gesellschafter (Einzelgeschäftsführung), wenn nichts anderes vereinbart ist."},
+
+    /* ===== Vollmachten ===== */
+    {id:"v1", tag:"voll", typ:"zu", p:3, q:"Wer unterschreibt mit welchem Zusatz?",
+     opts:["Prokurist", "Handlungsbevollmächtigter", "Mitarbeiter mit Einzelauftrag (z. B. Azubi)"],
+     rows:[["ppa.", 0], ["i. V.", 1], ["i. A.", 2]],
+     w:"ppa. = per procura · i. V. = in Vollmacht · i. A. = im Auftrag. Rangfolge: ppa. > i. V. > i. A."},
+    {id:"v2", tag:"voll", typ:"zu", p:4, q:"Darf ein Prokurist (ohne besondere Befugnis) das?",
+     opts:JN,
+     rows:[["einen Server für 35.000 € kaufen", 0], ["einen neuen Mitarbeiter einstellen", 0], ["einen Kredit aufnehmen", 0], ["ein Grundstück der Firma verkaufen", 1], ["die Jahresbilanz unterschreiben", 1], ["einem Kollegen Prokura erteilen", 1], ["Insolvenz anmelden", 1], ["ein Grundstück für die Firma kaufen", 0]],
+     w:"Prokura = fast alle Geschäfte (§ 49 HGB). Nicht: Grundstücke verkaufen/belasten (nur mit Sonderbefugnis) und Grundlagengeschäfte wie Bilanz unterschreiben, Prokura erteilen, Insolvenz anmelden. Grundstücke kaufen ist erlaubt."},
+    {id:"v3", tag:"voll", typ:"zu", p:3, q:"Darf ein Handlungsbevollmächtigter mit allgemeiner Handlungsvollmacht (ohne besondere Befugnis) das?",
+     opts:JN,
+     rows:[["Büromaterial bestellen", 0], ["Hardware für den Weiterverkauf einkaufen", 0], ["einen Kredit aufnehmen", 1], ["einen Prozess vor Gericht führen", 1], ["einen Wechsel unterschreiben", 1], ["ein Grundstück verkaufen", 1]],
+     w:"Handlungsvollmacht = nur gewöhnliche Geschäfte dieses Betriebs (§ 54 HGB). Für Darlehen, Wechsel, Prozesse und Grundstücke braucht es eine besondere Befugnis."},
+    {id:"v4", tag:"voll", typ:"offen", p:6, q:"Unterscheiden Sie Prokura und Handlungsvollmacht nach Erteilung, Eintragung ins Handelsregister und Umfang.",
+     ew:[["Erteilung: Prokura nur ausdrücklich und nur vom Kaufmann; Handlungsvollmacht formlos, auch stillschweigend", 2], ["Eintragung: Prokura muss eingetragen werden; Handlungsvollmacht wird nicht eingetragen", 2], ["Umfang: Prokura alle Geschäfte irgendeines Handelsgewerbes; Handlungsvollmacht nur gewöhnliche Geschäfte dieses Gewerbes", 2]],
+     bsp:"Erteilung: Prokura nur ausdrücklich durch den Kaufmann/Geschäftsführer persönlich; Handlungsvollmacht formlos, auch durch Duldung. Eintragung: Prokura wird ins Handelsregister eingetragen (deklaratorisch), Handlungsvollmacht nicht. Umfang: Prokura umfasst alle Geschäfte, die irgendein Handelsgewerbe mit sich bringt; Handlungsvollmacht nur die gewöhnlichen Geschäfte dieses Betriebs. Unterschrift ppa. bzw. i. V."},
+    {id:"v5", tag:"voll", typ:"offen", p:9, q:"Frau Yildiz ist Prokuristin der Rheinbyte GmbH. Intern darf sie nur Verträge bis 10.000 € abschließen. Beurteilen Sie: a) Sie kauft einen Firmenwagen für 28.000 €. b) Sie will ein Grundstück der GmbH verkaufen (keine Sonderbefugnis). c) Sie gibt einem Azubi Handlungsvollmacht für Büro-Bestellungen.",
+     ew:[["a) Kauf ist gültig", 1.5], ["a) Begründung: interne Beschränkung gilt nach außen nicht (§ 50 HGB); intern evtl. Schadensersatz/Abmahnung", 1.5], ["b) nicht erlaubt", 1.5], ["b) Begründung: Grundstücke verkaufen/belasten nur mit besonderer Befugnis (§ 49 Abs. 2 HGB)", 1.5], ["c) erlaubt", 1.5], ["c) Begründung: Prokuristen dürfen Handlungsvollmacht erteilen (nur Prokura nicht)", 1.5]],
+     bsp:"a) Gültig. Die interne Grenze von 10.000 € gilt gegenüber dem Autohaus nicht (§ 50 HGB). Intern kann sie aber Ärger bekommen (Schadensersatz, Abmahnung). b) Nicht erlaubt: Für den Verkauf von Grundstücken braucht ein Prokurist eine besondere Befugnis (§ 49 Abs. 2 HGB). c) Erlaubt: Ein Prokurist darf Handlungsvollmacht erteilen – nur Prokura darf er nicht erteilen."},
+    {id:"v6", tag:"voll", typ:"mc", p:2, q:"Welche Rangfolge der Vollmachten ist richtig (stärkste zuerst)? (eine Antwort)",
+     o:["ppa. > i. V. > i. A.", "i. V. > ppa. > i. A.", "i. A. > i. V. > ppa.", "ppa. > i. A. > i. V."], k:[0],
+     w:"Prokura (ppa.) ist die stärkste Vollmacht, dann Handlungsvollmacht (i. V.), dann „im Auftrag“ (i. A.)."},
+    {id:"v7", tag:"voll", typ:"mc", p:2, q:"Wann erlischt eine Prokura?",
+     o:["bei Widerruf durch den Inhaber", "wenn das Arbeitsverhältnis endet", "beim Tod des Inhabers", "wenn das Unternehmen aufgegeben wird"], k:[0, 1, 3],
+     w:"Die Prokura erlischt NICHT beim Tod des Inhabers (§ 52 Abs. 3 HGB). Widerruf geht jederzeit."},
+    {id:"v8", tag:"voll", typ:"mc", p:2, q:"Zwei Prokuristen dürfen nur gemeinsam unterschreiben. Wie heißt diese Prokura? (eine Antwort)",
+     o:["Gesamtprokura", "Einzelprokura", "Filialprokura", "Artvollmacht"], k:[0],
+     w:"Gesamtprokura = nur zusammen mit einer anderen Person. Filialprokura = nur für eine Niederlassung."},
+    {id:"v9", tag:"voll", typ:"zu", p:3, q:"Welche Art von Handlungsvollmacht liegt vor?",
+     opts:["allgemeine Handlungsvollmacht", "Artvollmacht", "Einzelvollmacht"],
+     rows:[["Die Abteilungsleiterin darf alle gewöhnlichen Geschäfte ihres Bereichs erledigen.", 0], ["Ein Einkäufer darf dauerhaft Hardware bestellen.", 1], ["Ein Azubi soll einmalig ein Paket bei der Post abholen.", 2]],
+     w:"Allgemein = alle gewöhnlichen Geschäfte. Art = eine bestimmte Art von Geschäften dauerhaft. Einzel = ein einzelnes Geschäft."}
+  ];
+
+  /* ---------- 2. Feste Probeklausuren ---------- */
+  const EX = [
+    {id:"itd-a", f:"itd", t:"Probeklausur A", min:90, st:"wie echt",
+     sit:"Lea Hoffmann (Fachinformatikerin) und Jonas Becker (Kaufmann für Digitalisierungsmanagement) wollen in Köln die **Rheinbyte** gründen: IT-Service für Arztpraxen und kleine Büros (Netzwerk, Datensicherung, Fernwartung). Sie haben zusammen 30.000 € gespart und bitten Sie um Hilfe.",
+     items:["g1", "g2", "g4", "g7", "g3", "s1", "s3", "s4", "s5", "s7", "s11", "f1", "f3", "f4", "f5", "f8", "r1", "r5", "r9", "v1", "v2", "v5", "v6"]},
+    {id:"itd-b", f:"itd", t:"Probeklausur B", min:90, st:"wie echt",
+     sit:"Die Webagentur **PixelHafen** aus Köln (Inhaberin Mira Schulz, 4 Mitarbeitende) läuft gut. Mira will wachsen, holt einen Partner dazu und überlegt, die Rechtsform zu wechseln. Sie sollen sie beraten.",
+     items:["g5", "g6", "g8", "g9", "g11", "g10", "s2", "s6", "s8", "s9", "s10", "s11", "f2", "f6", "f7", "f8", "f9", "r2", "r3", "r4", "r6", "r7", "r8", "r10", "r11", "r12", "v3", "v4", "v7", "v8", "v9"]},
+    {id:"itd-blitz", f:"itd", t:"Blitz-Test (alles automatisch)", min:25, st:"leicht",
+     sit:"Nur Ankreuzen, Zuordnen und Rechnen – die App bewertet alles sofort. Gut für zwischendurch am Handy.",
+     items:["g1", "g8", "s2", "s3", "s7", "f1", "f3", "f5", "r1", "r3", "r7", "v1", "v6", "v8"]}
+  ];
+
+  /* ---------- 3. Zustand ----------
+     Gespeichert in S.pk: res = Ergebnisse, fehler = {Aufgaben-ID: wie oft falsch}, run = laufende Klausur (überlebt Neuladen). */
+  const FAECHER = [["itd", "ITD"], ["evp", "EVP"], ["sdm", "SDM"], ["deu", "Deutsch"], ["ge", "Politik/WiSo"], ["ihk", "IHK Teil 1"]];
+  const T_PKT = {leicht:3, mittel:5, schwer:8};          // Punkte für Fragen aus dem Vault (selbst bewerten)
+  const LANG = [[15, "15 Min."], [30, "30 Min."], [45, "45 Min."], [90, "90 Min."]];
+  const BY = {}; P.forEach(x => { BY[x.id] = x; });
+  const PK = {fach:null, zlen:30, ztags:{}, confirm:null, ansicht:"liste"};
+  let PK_T = null;
+  // Nach Neuladen mitten in der Klausur direkt wieder dort landen (nur in diesem Tab/Fenster)
+  const merkTab = on => { try { if (on) sessionStorage.setItem("wk.pk.lauf", "1"); else sessionStorage.removeItem("wk.pk.lauf"); } catch (e) {} };
+
+  function ensure() {
+    if (!S.pk || typeof S.pk !== "object") S.pk = {res:[], fehler:{}, run:null};
+    if (!Array.isArray(S.pk.res)) S.pk.res = [];
+    if (!S.pk.fehler || typeof S.pk.fehler !== "object") S.pk.fehler = {};
+    if (S.pk.run && (!Array.isArray(S.pk.run.items) || !S.pk.run.items.length)) S.pk.run = null;
+    return S.pk;
+  }
+
+  // **fett** in eigenen Texten erlauben, sonst alles escapen
+  const fx = s => esc(s).replace(/\*\*(.+?)\*\*/g, "<b>$1</b>");
+  const r05 = v => Math.round(v * 2) / 2;
+  const pct = (p, m) => m ? Math.round(p / m * 100) : 0;
+
+  /* ---------- 4. Aufgaben finden (eigene + Fragen aus dem Vault) ---------- */
+  function tItem(id) {                                   // "T|<stem>|<stufe>|<nr>"
+    const [, stem, st, i] = id.split("|"), t = SCHUL.T.find(x => x.stem === stem);
+    if (!t || !t.q[st] || !t.q[st][+i]) return null;
+    const [q, a] = t.q[st][+i];
+    return {id, tag:"T|" + stem, typ:"self", p:T_PKT[st] || 4, md:q, a, st, top:t};
+  }
+  const item = id => String(id).startsWith("T|") ? tItem(id) : BY[id] || null;
+  function tagInfo(tag) {
+    if (TAGS[tag]) { const i = NOTE_IDX[TAGS[tag].note]; return {n:TAGS[tag].n, ls:TAGS[tag].ls, ni:i}; }
+    const stem = String(tag).slice(2), t = SCHUL.T.find(x => x.stem === stem);
+    return t ? {n:t.t.replace(/^LS \d\.\d+ /, ""), ls:t.ls ? "LS " + t.ls : FACH_N[t.f] || "", ni:t.zi != null ? t.zi : t.ni, deck:DECK_OF(SCHUL.T.indexOf(t))} : {n:"Thema", ls:""};
+  }
+  // Welche Themen gibt es pro Fach? ITD: eigene Aufgaben für LS 1.1/1.2 + Vault-Fragen für den Rest
+  function themen(f) {
+    const L = [];
+    if (f === "itd") Object.keys(TAGS).forEach(k => L.push({k, n:TAGS[k].n, ls:TAGS[k].ls, app:true, an:true}));
+    const deckt = f === "itd" ? ["1.1", "1.2"] : [];
+    SCHUL.T.forEach(t => {
+      if (f === "ihk" ? !t.ihk : t.f !== f) return;
+      if (deckt.includes(t.ls)) return;
+      L.push({k:"T|" + t.stem, n:t.t.replace(/^LS \d\.\d+ /, ""), ls:t.ls ? "LS " + t.ls : FACH_N[t.f], app:false, an:f !== "itd"});
+    });
+    return L;
+  }
+
+  /* ---------- 5. Bewerten ---------- */
+  function zahlParse(s) {
+    let x = String(s == null ? "" : s).replace(/[€%\s]/g, "").replace(/[^\d.,-]/g, "");
+    if (!x) return null;
+    if (x.includes(",")) x = x.replace(/\./g, "").replace(",", ".");
+    else if (/^-?\d{1,3}(\.\d{3})+$/.test(x)) x = x.replace(/\./g, "");
+    const n = parseFloat(x); return isFinite(n) ? n : null;
+  }
+  function score(it, run) {
+    const a = run.ans[it.id], s = run.self[it.id];
+    if (it.typ === "mc") { const sel = (a || []).slice().sort().join(","), ok = it.k.slice().sort().join(","); return {p:sel === ok ? it.p : 0, max:it.p}; }
+    if (it.typ === "zu") { const n = it.rows.filter((r, i) => a && +a[i] === r[1]).length; return {p:r05(it.p * n / it.rows.length), max:it.p, n}; }
+    if (it.typ === "zahl") { let p = 0; it.f.forEach((f, i) => { const v = zahlParse(a && a[i]); if (v != null && Math.abs(v - f[1]) <= Math.max(0.01, Math.abs(f[1]) * 0.001)) p += f[3]; }); return {p, max:it.p}; }
+    if (it.typ === "offen") { if (!Array.isArray(s)) return {p:0, max:it.p, offen:true}; return {p:it.ew.reduce((x, e, i) => x + (s[i] ? e[1] : 0), 0), max:it.p}; }
+    if (it.typ === "self") { if (!s) return {p:0, max:it.p, offen:true}; return {p:s === "voll" ? it.p : s === "halb" ? r05(it.p / 2) : 0, max:it.p}; }
+    return {p:0, max:it.p || 0};
+  }
+  function gesamt(run) {
+    let p = 0, max = 0, offen = 0; const tags = {};
+    run.items.forEach(id => { const it = item(id); if (!it) return; const r = score(it, run); p += r.p; max += r.max; if (r.offen) offen++;
+      const t = tags[it.tag] = tags[it.tag] || [0, 0]; t[0] += r.p; t[1] += r.max; });
+    return {p:r05(p), max, offen, tags};
+  }
+  const beantwortet = (it, run) => {
+    const a = run.ans[it.id];
+    if (it.typ === "mc") return !!(a && a.length);
+    if (it.typ === "zu") return !!(a && it.rows.every((r, i) => a[i] != null && a[i] !== ""));
+    if (it.typ === "zahl") return !!(a && it.f.every((f, i) => String(a[i] || "").trim()));
+    return !!String(a || "").trim();
+  };
+
+  /* ---------- 6. Klausur zusammenstellen ---------- */
+  function mischen(L) { const a = L.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
+  function zufallsItems(f, min, tags) {
+    const kand = [];
+    P.forEach(x => { if (f === "itd" && tags.includes(x.tag)) kand.push(x.id); });
+    SCHUL.T.forEach(t => { if (!tags.includes("T|" + t.stem)) return; ["leicht", "mittel", "schwer"].forEach(st => t.q[st].forEach((q, i) => kand.push("T|" + t.stem + "|" + st + "|" + i))); });
+    const ziel = min, wahl = []; let sum = 0;
+    // erst je Thema eine Aufgabe (damit jedes gewählte Thema drankommt), dann auffüllen
+    const gemischt = mischen(kand), gesehen = new Set();
+    gemischt.forEach(id => { const it = item(id); if (!it || gesehen.has(it.tag) || sum + it.p > ziel + 2) return; gesehen.add(it.tag); wahl.push(id); sum += it.p; });
+    gemischt.forEach(id => { if (wahl.includes(id)) return; const it = item(id); if (!it || sum + it.p > ziel + 2) return; wahl.push(id); sum += it.p; });
+    // sortieren: nach Thema (Reihenfolge der Themen-Liste), innerhalb automatisch bewertbare zuerst
+    const ord = themen(f).map(x => x.k), typO = {mc:0, zu:1, zahl:2, offen:3, self:4};
+    return wahl.sort((a, b) => { const A = item(a), B = item(b); return (ord.indexOf(A.tag) - ord.indexOf(B.tag)) || (typO[A.typ] - typO[B.typ]); });
+  }
+  function starten(run) {
+    acUnlock();
+    run.ans = {}; run.self = {}; run.t0 = Date.now(); run.end = run.t0 + run.min * 60000; run.phase = "run"; run.warned = false;
+    ensure().run = run; PK.confirm = null; merkTab(true); save(); rerender(); window.scrollTo(0, 0); uhr(true);
+  }
+  function startFix(id) { const e = EX.find(x => x.id === id); if (e) starten({k:"fix:" + e.id, f:e.f, t:FACH_N[e.f] + " · " + e.t, min:e.min, sit:e.sit, items:e.items.slice()}); }
+  function startZufall(f) {
+    const tags = aktiveTags(f); if (!tags.length) { toast("Wähl mindestens ein Thema aus"); return; }
+    const items = zufallsItems(f, PK.zlen, tags); if (!items.length) { toast("Für diese Auswahl gibt es keine Aufgaben"); return; }
+    const sum = items.reduce((s, id) => s + item(id).p, 0);
+    starten({k:"zufall", f, t:(FACH_N[f] || f) + " · Zufalls-Klausur", min:Math.max(PK.zlen, Math.ceil(sum * 0.9)), sit:"Jedes Mal neu gemischt aus deinen Themen. Erst alles lösen, dann abgeben.", items});
+  }
+  function startFehler(f, nur) {
+    const F = ensure().fehler, L = (nur || Object.keys(F).sort((a, b) => F[b] - F[a])).filter(id => { const it = item(id); return it && (nur || fachVon(it) === f); }).slice(0, 15);
+    if (!L.length) { toast("Keine Fehler offen 🎉"); return; }
+    const sum = L.reduce((s, id) => s + item(id).p, 0);
+    starten({k:"fehler", f, t:(FACH_N[f] || f) + " · Fehler-Runde", min:Math.max(5, Math.ceil(sum * 0.9)), sit:"Nur Aufgaben, bei denen du zuletzt Punkte verloren hast. Volle Punkte = raus aus dem Fehlerheft.", items:L});
+  }
+  const fachVon = it => it.top ? (it.top.ihk && PK.fach === "ihk" ? "ihk" : it.top.f) : "itd";
+  function aktiveTags(f) {
+    if (!PK.ztags[f]) PK.ztags[f] = themen(f).filter(x => x.an).map(x => x.k);
+    return PK.ztags[f];
+  }
+
+  /* ---------- 7. Uhr ---------- */
+  function uhr(on) { clearInterval(PK_T); PK_T = on ? setInterval(tick, 1000) : null; tick(); }
+  function tick() {
+    const run = S.pk && S.pk.run, el = document.getElementById("pkClock");
+    if (!run || run.phase !== "run" || !el) { if (!el) { clearInterval(PK_T); PK_T = null; } return; }
+    el.textContent = clockTxt(run.end);
+    if (Date.now() > run.end && !run.warned) { run.warned = true; save(); ding(); toast("⏰ Zeit ist um – gib ab und schau, wie viele Punkte du hast", 4000); }
+  }
+
+  /* ---------- 8. Ansicht: Übersicht ---------- */
+  function naechste(f) {
+    const heute = todayKey();
+    return (S.tests || []).filter(t => t && t.date && t.date >= heute && (!f || t.fach === f)).sort((a, b) => a.date < b.date ? -1 : 1)[0] || null;
+  }
+  function resFach(f) { return ensure().res.filter(r => r.f === f); }
+  function bereit(f) {
+    const R = resFach(f).slice(-3); if (!R.length) return null;
+    const best = Math.max(...R.map(r => pct(r.p, r.max)));
+    return best >= 81 ? ["🟢", "Sieht gut aus", "var(--ok)", best] : best >= 67 ? ["🟡", "Fast da – Fehler wiederholen", "var(--privat)", best] : best >= 50 ? ["🟠", "Bestanden, aber noch Lücken", "var(--privat)", best] : ["🔴", "Noch üben – Lernzettel und Fehler-Runde", "var(--feiertag)", best];
+  }
+  function schwach(f) {
+    const T = {}; resFach(f).slice(-5).forEach(r => Object.keys(r.tags || {}).forEach(k => { const t = T[k] = T[k] || [0, 0]; t[0] += r.tags[k][0]; t[1] += r.tags[k][1]; }));
+    return Object.keys(T).filter(k => T[k][1]).map(k => [k, pct(T[k][0], T[k][1])]).sort((a, b) => a[1] - b[1]);
+  }
+  function lernBtns(tag) {
+    const i = tagInfo(tag); let h = "";
+    if (i.ni != null) h += '<button class="btn sm" data-act="note" data-i="' + i.ni + '">📝 Lernzettel</button>';
+    const d = TAGS[tag] ? DECK_OF(TOPIC_IDX[TAGS[tag].note.replace(/ - Lernzettel$/, "")]) : i.deck;
+    if (d != null && d >= 0) h += '<button class="btn sm" data-act="u-deckgo" data-v="' + d + '">🃏 Karteikarten</button>';
+    return h;
+  }
+
+  function listeHtml() {
+    const pk = ensure(), nt = naechste();
+    if (!PK.fach) PK.fach = nt && FAECHER.some(x => x[0] === nt.fach) ? nt.fach : "itd";
+    const f = PK.fach, nf = naechste(f), b = bereit(f), sw = schwach(f);
+    let h = "";
+    // Läuft noch was?
+    if (pk.run) h += '<div class="banner" style="--c:var(--schule)"><span class="ic">' + (pk.run.phase === "run" ? "⏳" : "📋") + '</span><div><b>' + esc(pk.run.t) + '</b> ' + (pk.run.phase === "run" ? "läuft noch (" + clockTxt(pk.run.end) + ")" : "– Auswertung noch nicht gespeichert") + '<br><button class="btn sm primary" data-pk="weiter">Weiter</button> <button class="btn sm" data-pk="verwerfen">Verwerfen</button></div></div>';
+    if (PK.confirm === "verwerfen") h += '<div class="card note"><p><b>Wirklich verwerfen?</b> Deine Antworten in „' + esc(pk.run ? pk.run.t : "") + '“ gehen verloren.</p><div class="btn-row"><button class="btn danger primary" data-pk="verwerfen-ja">Ja, verwerfen</button><button class="btn" data-pk="nein">Behalten</button></div></div>';
+
+    // Kopf: nächste Klausur + Bereitschaft
+    h += '<div class="card ink"><p class="eyebrow">Klausur-Training</p><h2>🎯 Probeklausuren</h2>';
+    if (nf) { const d = diffDays(todayKey(), nf.date); h += '<p><b>' + esc(subj(nf.fach).kurz) + ': ' + esc(fmt(nf.date, {weekday:"short", day:"numeric", month:"numeric"})) + '</b> · ' + (d === 0 ? "heute!" : d === 1 ? "morgen" : "noch " + d + " Tage") + '<br><span class="small">' + esc(nf.text || "") + '</span></p>'; }
+    else h += '<p class="small">Für ' + esc(FACH_N[f] || f) + ' ist gerade keine Klausur eingetragen. Üben geht trotzdem.</p>';
+    h += b ? '<p class="pk-amp" style="--c:' + b[2] + '">' + b[0] + ' <b>' + esc(b[1]) + '</b> · bestes der letzten 3: ' + b[3] + ' %</p>' : '<p class="small">Noch keine Probeklausur in ' + esc(FACH_N[f] || f) + ' geschrieben. Tipp: erst den Blitz-Test, dann eine ganze Klausur.</p>';
+    if (sw.length && sw[0][1] < 81) h += '<p class="small">Schwächstes Thema: <b>' + esc(tagInfo(sw[0][0]).n) + '</b> (' + sw[0][1] + ' %)</p>';
+    h += '</div>';
+
+    // Fach wählen
+    h += '<div class="chips" role="group" aria-label="Fach wählen">' + FAECHER.map(([k, n]) => { const t = naechste(k); return '<button type="button" class="chipbtn" data-pk="fach:' + k + '" style="--c:' + FACH_C(k) + '" aria-pressed="' + (k === f) + '">' + esc(n) + (t ? ' 🔔' : '') + '</button>'; }).join("") + '</div>';
+
+    // Feste Probeklausuren (in der App lösen)
+    const ex = EX.filter(e => e.f === f);
+    if (ex.length) {
+      h += '<div class="card"><div class="card-h"><h3>📝 Probeklausuren zum Lösen</h3><span class="tag" style="--c:' + FACH_C(f) + '">' + esc(FACH_N[f]) + ' · LS 1.1 + 1.2</span></div><p class="small muted">Direkt in der App: ankreuzen, zuordnen, rechnen, schreiben. Uhr läuft, danach Punkte und Note sofort. Offene Antworten hakst du selbst am Erwartungshorizont ab – wie eine Lehrkraft.</p><ul class="list">'
+        + ex.map(e => { const pts = e.items.reduce((s, id) => s + item(id).p, 0), R = pk.res.filter(r => r.k === "fix:" + e.id), best = R.length ? R.reduce((a, r) => pct(r.p, r.max) > pct(a.p, a.max) ? r : a) : null, auto = e.items.every(id => ["mc", "zu", "zahl"].includes(item(id).typ));
+          return '<li><span class="dot" style="--c:' + FACH_C(e.f) + '"></span><span class="li-main"><b>' + esc(e.t) + '</b><small>' + e.min + ' Min. · ' + pts + ' Punkte · ' + e.items.length + ' Aufgaben' + (auto ? ' · alles automatisch' : '') + (best ? ' · bestes: ' + fmtP(best.p) + ' P. (Note ' + noteOf(best.p, best.max)[1] + ')' : R.length ? '' : ' · noch nicht geschrieben') + '</small></span><button class="btn sm' + (best ? '' : ' primary') + '" data-pk="fix:' + e.id + '">Start</button></li>'; }).join("") + '</ul></div>';
+    }
+
+    // Zufalls-Klausur
+    const TH = themen(f), at = aktiveTags(f);
+    if (TH.length) {
+      h += '<div class="card"><div class="card-h"><h3>🎲 Zufalls-Klausur</h3><span class="small muted">jedes Mal neu</span></div><p class="small muted">Wähl Länge und Themen – die App mischt dir eine neue Klausur. ' + (f === "itd" ? 'Themen mit ⚙️ bewertet die App, Vault-Fragen (📖) bewertest du selbst.' : 'Die Fragen kommen aus deinem Vault, du bewertest sie selbst mit der Lösung.') + '</p>'
+        + '<div class="seg" role="group" aria-label="Länge">' + LANG.map(([m, n]) => '<button type="button" data-pk="len:' + m + '" aria-pressed="' + (m === PK.zlen) + '">' + n + '</button>').join("") + '</div>'
+        + '<div class="chips pk-themen" role="group" aria-label="Themen">' + TH.map(t => '<button type="button" class="chipbtn" data-pk="tag:' + esc(t.k) + '" aria-pressed="' + at.includes(t.k) + '"><span>' + (t.app ? "⚙️" : "📖") + '</span>' + esc(t.ls + " " + t.n) + '</button>').join("") + '</div>'
+        + '<button class="btn primary block" data-pk="zufall">Zufalls-Klausur starten (' + PK.zlen + ' Min.)</button></div>';
+    }
+
+    // Fehlerheft
+    const FL = Object.keys(pk.fehler).filter(id => { const it = item(id); return it && fachVon(it) === f; });
+    h += '<div class="card"><div class="card-h"><h3>🔁 Fehlerheft</h3><span class="small muted">' + FL.length + ' Aufgaben</span></div>'
+      + (FL.length ? '<p class="small muted">Hier landet jede Aufgabe, bei der du Punkte verloren hast. Volle Punkte in der Fehler-Runde → raus.</p><ul class="list">' + FL.slice(0, 6).map(id => { const it = item(id); return '<li><span class="li-main"><b>' + esc(tagInfo(it.tag).n) + '</b><small>' + esc(String(it.q || it.md || "").replace(/[*#>\[\]]/g, "").slice(0, 90)) + '…' + (pk.fehler[id] > 1 ? ' · ' + pk.fehler[id] + '× falsch' : '') + '</small></span></li>'; }).join("") + '</ul>' + (FL.length > 6 ? '<p class="small muted">… und ' + (FL.length - 6) + ' weitere</p>' : '') + '<button class="btn primary block" data-pk="fehler">Fehler-Runde starten</button>'
+        : '<p class="small muted">Noch leer. Nach jeder Probeklausur kommen hier die Aufgaben rein, bei denen du Punkte verloren hast.</p>') + '</div>';
+
+    // Probearbeiten aus dem Vault (auf Papier) + MC-Test + alte IHK
+    const sims = SCHUL.sims.map((s, i) => [s, i]).filter(([s]) => s.f === f);
+    if (sims.length || f === "evp" || f === "ihk") {
+      h += '<div class="card"><div class="card-h"><h3>📄 Aus deinem Vault (auf Papier)</h3></div><p class="small muted">Diese Probearbeiten schreibst du auf Papier, dann vergleichst du mit der Musterlösung und trägst Punkte ein.</p><ul class="list">'
+        + sims.map(([s, i]) => { const bb = bestRes(S.simRes[s.id]); return '<li><span class="dot" style="--c:' + FACH_C(s.f) + '"></span><span class="li-main"><b>' + esc(s.t) + '</b><small>' + s.min + ' Min. · ' + s.pkt + ' Punkte' + (bb ? ' · bestes: ' + fmtP(bb.p) + ' P.' : '') + '</small></span><button class="btn sm" data-act="u-simgo" data-v="' + i + '">Start</button></li>'; }).join("")
+        + (f === "evp" ? '<li><span class="dot" style="--c:' + FACH_C("evp") + '"></span><span class="li-main"><b>MC-Test LS 4.2</b><small>' + SCHUL.mc.q.length + ' Aufgaben · ' + SCHUL.mc.min + ' Min. · in der App</small></span><button class="btn sm" data-act="u-mcgo" data-v="0">Start</button></li>' : '')
+        + (f === "ihk" ? '<li><span class="dot" style="--c:var(--feiertag)"></span><span class="li-main"><b>Alte IHK-Prüfungen Teil 1</b><small>' + SCHUL.alt.length + ' Prüfungen · im Tab Üben</small></span><button class="btn sm" data-pk="ueben">Öffnen</button></li>' : '')
+        + '</ul></div>';
+    }
+
+    // Verlauf
+    const R = resFach(f).slice(-8).reverse();
+    if (R.length) {
+      h += '<div class="card"><div class="card-h"><h3>📈 Deine Ergebnisse</h3><span class="small muted">' + resFach(f).length + ' gesamt</span></div><div class="hbars" lang="de">'
+        + R.map(r => { const q = pct(r.p, r.max); return '<div class="hrow"><span class="hl">' + esc(r.t.replace(/^[^·]+· /, "")) + ' <small>' + esc(fmt(r.d, {day:"numeric", month:"numeric"})) + ' · Note ' + noteOf(r.p, r.max)[1] + '</small></span><span class="tr"><i style="width:' + q + '%;--c:' + (q >= 81 ? "var(--ok)" : q >= 50 ? "var(--privat)" : "var(--feiertag)") + '"></i></span><b class="tnum">' + q + '%</b></div>'; }).join("")
+        + '</div>' + (sw.length ? '<p class="lbl" style="margin-top:10px">Themen (letzte 5 Klausuren)</p><div class="hbars">' + sw.map(([k, q]) => '<div class="hrow"><span class="hl">' + esc(tagInfo(k).n) + '</span><span class="tr"><i style="width:' + q + '%;--c:' + (q >= 81 ? "var(--ok)" : q >= 50 ? "var(--privat)" : "var(--feiertag)") + '"></i></span><b class="tnum">' + q + '%</b></div>').join("") + '</div>' : '') + '</div>';
+    }
+
+    // Tipps
+    h += '<div class="card"><h3>💡 So holst du die Punkte</h3><div class="tbl-wrap"><table class="pk-op"><tbody>'
+      + [["Nennen", "nur Stichworte, keine Erklärung"], ["Erläutern / Erklären", "mit eigenen Worten + Beispiel"], ["Unterscheiden / Vergleichen", "beide Seiten zum selben Merkmal"], ["Beurteilen / Stellung nehmen", "Argumente + eigene begründete Meinung"], ["Begründen / Empfehlen", "Entscheidung + warum (z. B. Haftung, Kapital)"]].map(r => '<tr><td><b>' + r[0] + '</b></td><td>' + r[1] + '</td></tr>').join("")
+      + '</tbody></table></div><p class="tip"><b>Prüfungstipp:</b> Punktzahl = Anzahl der erwarteten Gesichtspunkte. Plan etwa 1 Minute pro Punkt. Erst alles lesen, mit dem Leichtesten anfangen. <span class="tag ihk">IHK</span> Rechtsformen, Vollmachten (ppa./i. V./i. A.) und SWOT stehen auch in der Themenliste der Abschlussprüfung.</p>'
+      + '<p class="small muted">Noten nach IHK-Schlüssel (92/81/67/50/30 %). Deine Lehrkraft kann anders rechnen. Aufgaben von Claude, geprüft gegen deine Lernzettel – keine echten Klausuren der Schule.</p></div>';
+    return h;
+  }
+
+  /* ---------- 9. Ansicht: Klausur schreiben + Auswertung ---------- */
+  const OPS = [["Nennen", "Stichworte reichen"], ["Erläutern", "mit eigenen Worten + Beispiel"], ["Erklären", "mit eigenen Worten, verständlich"], ["Beurteilen", "bewerten + begründen"], ["Begründen", "immer „weil …“"], ["Unterscheiden", "beide Seiten zum selben Punkt"], ["Vergleichen", "Gemeinsamkeit/Unterschied pro Merkmal"], ["Nehmen Sie Stellung", "Argumente + eigene Meinung"], ["Empfehlen", "Entscheidung + Gründe"], ["Formulieren", "konkret: wer macht was?"]];
+  function opTipp(q) { const o = OPS.find(([w]) => String(q).replace(/^[^A-Za-zÄÖÜ]+/, "").startsWith(w) || String(q).includes(" " + w.toLowerCase() + " ")); return o ? '<p class="small muted">✍️ <b>' + o[0] + '</b> = ' + o[1] + '</p>' : ""; }
+
+  function frageHtml(it, n, run) {
+    const done = run.phase === "done", a = run.ans[it.id], r = done ? score(it, run) : null, ti = tagInfo(it.tag);
+    const cls = !done ? "" : r.offen ? " pk-open" : r.p >= r.max ? " ok" : " bad";
+    let h = '<div class="mcq pk-q' + cls + '" id="pkq-' + esc(it.id) + '"><div class="pk-qh"><span class="eyebrow">Aufgabe ' + n + ' · ' + esc(ti.n) + '</span><span class="pk-pts">' + (done ? (r.offen ? "? / " + fmtP(r.max) : fmtP(r.p) + " / " + fmtP(r.max)) : fmtP(it.p)) + ' P.</span></div>';
+    h += it.typ === "self" ? '<div class="md" lang="de">' + md(it.md) + '</div>' : '<p><b>' + fx(it.q) + '</b></p>';
+    const dis = done ? " disabled" : "";
+    if (it.typ === "mc") {
+      if (!done) h += '<p class="small muted">' + (it.k.length === 1 ? "Eine Antwort ist richtig." : "Kreuze alle richtigen an.") + '</p>';
+      h += it.o.map((o, j) => { const on = (a || []).includes(j), c = done ? (it.k.includes(j) ? " right" : on ? " wrong" : "") : ""; return '<label class="mco' + c + '"><input type="' + (it.k.length === 1 ? "radio" : "checkbox") + '" name="pkmc-' + esc(it.id) + '" data-pkmc="' + esc(it.id) + '" value="' + j + '"' + (on ? " checked" : "") + dis + '><span>' + fx(o) + '</span></label>'; }).join("");
+    } else if (it.typ === "zu") {
+      h += '<div class="pk-zu">' + it.rows.map((row, i) => { const v = a && a[i] != null && a[i] !== "" ? +a[i] : null, ok = done && v === row[1];
+        return '<div class="pk-zr' + (done ? (ok ? " ok" : " bad") : "") + '"><label for="pkz-' + esc(it.id) + '-' + i + '">' + fx(row[0]) + '</label><select id="pkz-' + esc(it.id) + '-' + i + '" class="inp" data-pkzu="' + esc(it.id) + '|' + i + '"' + dis + '><option value="">– wählen –</option>' + it.opts.map((o, j) => '<option value="' + j + '"' + (v === j ? " selected" : "") + '>' + esc(o) + '</option>').join("") + '</select>' + (done && !ok ? '<small class="pk-rk">richtig: <b>' + esc(it.opts[row[1]]) + '</b></small>' : '') + '</div>'; }).join("") + '</div>';
+    } else if (it.typ === "zahl") {
+      h += '<div class="pk-zahl">' + it.f.map((f, i) => { const v = a ? a[i] : "", pv = zahlParse(v), ok = done && pv != null && Math.abs(pv - f[1]) <= Math.max(0.01, Math.abs(f[1]) * 0.001);
+        return '<div class="pk-zr' + (done ? (ok ? " ok" : " bad") : "") + '"><label for="pkn-' + esc(it.id) + '-' + i + '">' + esc(f[0]) + ' <small class="muted">(' + f[3] + ' P.)</small></label><span class="pk-in"><input id="pkn-' + esc(it.id) + '-' + i + '" class="inp" inputmode="decimal" autocomplete="off" data-pkzahl="' + esc(it.id) + '|' + i + '" value="' + esc(v || "") + '"' + dis + '><span>' + esc(f[2]) + '</span></span>' + (done && !ok ? '<small class="pk-rk">richtig: <b>' + fmtP(f[1]) + ' ' + esc(f[2]) + '</b></small>' : '') + '</div>'; }).join("") + '</div>';
+    } else {
+      if (!done) h += opTipp(it.q || it.md) + '<textarea class="inp pk-ta" rows="4" data-pkoff="' + esc(it.id) + '" placeholder="Antwort hier tippen – oder auf Papier schreiben">' + esc(a || "") + '</textarea>';
+      else if (String(a || "").trim()) h += '<div class="pk-ans"><span class="lbl">Deine Antwort</span><p>' + esc(a).replace(/\n/g, "<br>") + '</p></div>';
+    }
+    // Auswertung pro Aufgabe
+    if (done) {
+      if (it.typ === "offen") {
+        const s = run.self[it.id];
+        h += '<p class="lbl">✅ Erwartungshorizont – hak ab, was du hattest</p>' + it.ew.map((e, j) => '<label class="mco' + (Array.isArray(s) && s[j] ? " right" : "") + '"><input type="checkbox" data-pkew="' + esc(it.id) + '|' + j + '"' + (Array.isArray(s) && s[j] ? " checked" : "") + '><span>' + esc(e[0]) + ' <b class="muted">(' + fmtP(e[1]) + ' P.)</b></span></label>').join("")
+          + (Array.isArray(s) ? '' : '<button class="btn sm" data-pk="ew0:' + esc(it.id) + '">Nichts davon – 0 Punkte</button>')
+          + '<details class="qa"><summary>Musterlösung</summary><p>' + fx(it.bsp) + '</p></details>';
+      } else if (it.typ === "self") {
+        const s = run.self[it.id];
+        h += '<details class="qa" open><summary>Lösung</summary><div class="md" lang="de">' + md(it.a) + '</div></details><p class="lbl">Wie war deine Antwort?</p><div class="seg" role="group">' + [["voll", "✓ Voll"], ["halb", "½ Halb"], ["nein", "✗ Falsch"]].map(([k, n]) => '<button type="button" data-pk="self:' + esc(it.id) + '|' + k + '" aria-pressed="' + (s === k) + '">' + n + '</button>').join("") + '</div>';
+      } else if (it.w) h += '<p class="small"><span class="muted">' + fx(it.w) + '</span></p>';
+    }
+    return h + '</div>';
+  }
+
+  function laufHtml() {
+    const run = S.pk.run, done = run.phase === "done", its = run.items.map(item).filter(Boolean);
+    let h = '<div class="clockbar"><button class="mini" data-pk="zurueck" aria-label="Zurück zur Übersicht">←</button><span class="ct">' + esc(run.t) + '</span>' + (done ? '<b class="tnum">' + fmtP(gesamt(run).p) + '</b>' : '<b class="tnum" id="pkClock">' + clockTxt(run.end) + '</b>') + '</div>';
+    if (PK.confirm === "zurueck") h += '<div class="card note"><p><b>Zur Übersicht?</b> Die Klausur bleibt gespeichert, die Uhr läuft weiter. Du kannst später über „Weiter“ zurück.</p><div class="btn-row"><button class="btn primary" data-pk="zurueck-ja">Ja, zur Übersicht</button><button class="btn" data-pk="nein">Weiterschreiben</button></div></div>';
+    if (done) {
+      const g = gesamt(run), n = noteOf(g.p, g.max), q = pct(g.p, g.max);
+      h += '<div class="card ' + (g.offen ? "" : q >= 50 ? "ok-card" : "bad-card") + '" id="pkTop"><div class="big-row"><span class="bignum">' + fmtP(g.p) + '</span><span style="padding-bottom:8px"><b>von ' + fmtP(g.max) + ' Punkten · Note ' + n[1] + ' (' + n[2] + ')</b><br>' + q + ' % · Zeit: ' + run.used + ' von ' + run.min + ' Min.</span></div>'
+        + (g.offen ? '<p class="tip">✍️ Noch <b>' + g.offen + '</b> offene ' + (g.offen === 1 ? "Antwort" : "Antworten") + ' selbst bewerten (unten abhaken). Bis dahin zählen sie mit 0 Punkten.</p>' : '')
+        + '<div class="btn-row"><button class="btn primary" data-pk="speichern">💾 Speichern & fertig</button>' + (its.some(it => { const r = score(it, run); return !r.offen && r.p < r.max; }) ? '<button class="btn" data-pk="nochmal-fehler">🔁 Fehler gleich nochmal</button>' : '') + '<button class="btn" data-pk="verwerfen">Verwerfen</button></div></div>';
+      // Themen-Auswertung
+      const T = Object.keys(g.tags).map(k => [k, pct(g.tags[k][0], g.tags[k][1])]).sort((a, b) => a[1] - b[1]);
+      h += '<div class="card"><h3>📊 Nach Thema</h3><div class="hbars">' + T.map(([k, p]) => '<div class="hrow"><span class="hl">' + esc(tagInfo(k).n) + '</span><span class="tr"><i style="width:' + p + '%;--c:' + (p >= 81 ? "var(--ok)" : p >= 50 ? "var(--privat)" : "var(--feiertag)") + '"></i></span><b class="tnum">' + p + '%</b></div>').join("") + '</div>'
+        + (T.length && T[0][1] < 81 ? '<p class="small" style="margin-top:8px">Nochmal lernen: <b>' + esc(tagInfo(T[0][0]).n) + '</b></p><div class="btn-row">' + lernBtns(T[0][0]) + '</div>' : '<p class="small" style="margin-top:8px">Alle Themen ab 81 % – stark! 💪</p>') + '</div>';
+    } else {
+      const fertig = its.filter(it => beantwortet(it, run)).length;
+      h += '<div class="card"><p class="small"><b>' + its.length + ' Aufgaben · ' + fmtP(its.reduce((s, it) => s + it.p, 0)) + ' Punkte · ' + run.min + ' Minuten.</b> Handy auf lautlos, Lernzettel weg. Antworten werden automatisch gemerkt – auch wenn die App zugeht.</p>' + (run.sit ? '<p class="pk-sit">' + fx(run.sit) + '</p>' : '') + '</div>';
+      h += '<p class="small muted" id="pkProg">' + fertig + ' von ' + its.length + ' beantwortet</p>';
+    }
+    h += its.map((it, i) => frageHtml(it, i + 1, run)).join("");
+    if (!done) {
+      h += PK.confirm === "abgabe" ? '<div class="card note"><p><b>Noch ' + its.filter(it => !beantwortet(it, run)).length + ' Aufgaben ohne Antwort.</b> Trotzdem abgeben?</p><div class="btn-row"><button class="btn primary" data-pk="abgabe-ja">Ja, abgeben</button><button class="btn" data-pk="nein">Weiterschreiben</button></div></div>'
+        : '<button class="btn primary block" data-pk="abgabe">Abgeben & auswerten</button>';
+    } else h += '<button class="btn primary block" data-pk="speichern">💾 Speichern & fertig</button>';
+    return h;
+  }
+
+  function klausurHtml() {
+    const pk = ensure();
+    if (pk.run && PK.ansicht === "lauf") { if (pk.run.phase === "run") setTimeout(() => { if (!PK_T) uhr(true); }, 0); return laufHtml(); }
+    return listeHtml();
+  }
+
+  /* ---------- 10. Aktionen ---------- */
+  function abgeben() {
+    const run = S.pk.run; run.phase = "done"; run.used = Math.max(1, Math.round((Date.now() - run.t0) / 60000)); PK.confirm = null; uhr(false); save(); rerender(); window.scrollTo(0, 0);
+    const g = gesamt(run); toast(g.offen ? "Automatisch bewertet – jetzt die " + g.offen + " offenen Antworten abhaken" : fmtP(g.p) + " von " + fmtP(g.max) + " Punkten", 3500);
+  }
+  function speichern(danach) {
+    const pk = ensure(), run = pk.run; if (!run) return;
+    const g = gesamt(run), falsch = [];
+    run.items.forEach(id => { const it = item(id); if (!it) return; const r = score(it, run); if (r.offen) return;
+      if (r.p < r.max) { pk.fehler[id] = (pk.fehler[id] || 0) + 1; falsch.push(id); } else delete pk.fehler[id]; });
+    if (run.k !== "fehler") pk.res.push({k:run.k, f:run.f, t:run.t, d:todayKey(), p:g.p, max:g.max, min:run.used, tags:g.tags, offen:g.offen});
+    if (pk.res.length > 80) pk.res.splice(0, pk.res.length - 80);
+    pk.run = null; PK.ansicht = "liste"; PK.confirm = null; merkTab(false); save();
+    toast(run.k === "fehler" ? "Fehlerheft aktualisiert ✓" : "Gespeichert: " + fmtP(g.p) + " von " + fmtP(g.max) + " Punkten ✓", 3000);
+    if (danach === "fehler" && falsch.length) { PK.ansicht = "lauf"; startFehler(run.f, falsch); if (!S.pk.run) { PK.ansicht = "liste"; rerender(); } return; }
+    rerender(); window.scrollTo(0, 0);
+  }
+
+  document.addEventListener("click", e => {
+    const b = e.target.closest ? e.target.closest("[data-pk]") : null; if (!b) return;
+    const v = b.dataset.pk, i = v.indexOf(":"), cmd = i < 0 ? v : v.slice(0, i), arg = i < 0 ? "" : v.slice(i + 1), pk = ensure();
+    switch (cmd) {
+      case "fach": PK.fach = arg; rerender(); break;
+      case "len": PK.zlen = +arg; rerender(); break;
+      case "tag": { const L = aktiveTags(PK.fach), k = L.indexOf(arg); if (k >= 0) L.splice(k, 1); else L.push(arg); rerender(); break; }
+      case "fix": if (pk.run) { PK.ansicht = "liste"; toast("Erst die laufende Klausur beenden oder verwerfen", 3000); window.scrollTo(0, 0); rerender(); break; } PK.ansicht = "lauf"; startFix(arg); break;
+      case "zufall": if (pk.run) { toast("Erst die laufende Klausur beenden oder verwerfen", 3000); window.scrollTo(0, 0); break; } PK.ansicht = "lauf"; startZufall(PK.fach); if (!S.pk.run) PK.ansicht = "liste"; break;
+      case "fehler": if (pk.run) { toast("Erst die laufende Klausur beenden oder verwerfen", 3000); window.scrollTo(0, 0); break; } PK.ansicht = "lauf"; startFehler(PK.fach); if (!S.pk.run) PK.ansicht = "liste"; break;
+      case "weiter": PK.ansicht = "lauf"; PK.confirm = null; SCH_TAB = "klausur"; if (pk.run && pk.run.f) PK.fach = pk.run.f; closeSheet(); if (currentView() === "schule") { rerender(); window.scrollTo(0, 0); } else go("schule"); break;
+      case "verwerfen": PK.confirm = "verwerfen"; PK.ansicht = "liste"; rerender(); window.scrollTo(0, 0); break;
+      case "verwerfen-ja": merkTab(false); pk.run = null; PK.confirm = null; PK.ansicht = "liste"; uhr(false); save(); rerender(); toast("Verworfen"); break;
+      case "nein": PK.confirm = null; rerender(); break;
+      case "zurueck": if (pk.run && pk.run.phase === "run") { PK.confirm = "zurueck"; rerender(); window.scrollTo(0, 0); break; } PK.ansicht = "liste"; PK.confirm = null; rerender(); window.scrollTo(0, 0); break;
+      case "zurueck-ja": merkTab(false); PK.ansicht = "liste"; PK.confirm = null; rerender(); window.scrollTo(0, 0); break;
+      case "abgabe": { const run = pk.run, offen = run.items.map(item).filter(it => it && !beantwortet(it, run)).length; if (offen) { PK.confirm = "abgabe"; rerender(); setTimeout(() => { const n = document.querySelector("#main .card.note"); if (n) n.scrollIntoView({block:"center"}); }, 30); break; } abgeben(); break; }
+      case "abgabe-ja": abgeben(); break;
+      case "self": { const j = arg.lastIndexOf("|"), id = arg.slice(0, j), k = arg.slice(j + 1); if (!pk.run || !["voll", "halb", "nein"].includes(k)) break; pk.run.self[id] = k; save(); rerender(); break; }
+      case "ew0": { const it = item(arg); if (it) { pk.run.self[arg] = it.ew.map(() => false); save(); rerender(); } break; }
+      case "speichern": speichern(); break;
+      case "nochmal-fehler": speichern("fehler"); break;
+      case "ueben": SCH_TAB = "ueben"; UEB = {mode:"list"}; rerender(); window.scrollTo(0, 0); break;
+      case "go": PK.fach = arg || PK.fach; SCH_TAB = "klausur"; PK.ansicht = S.pk && S.pk.run ? PK.ansicht : "liste"; closeSheet(); if (currentView() === "schule") { rerender(); window.scrollTo(0, 0); } else go("schule"); break;
+    }
+  });
+  // Antworten merken, ohne neu zu zeichnen (sonst springt die Tastatur weg)
+  let pkSaveT = null;
+  const merken = () => { clearTimeout(pkSaveT); pkSaveT = setTimeout(save, 400); const run = S.pk && S.pk.run, el = document.getElementById("pkProg"); if (run && el) { const its = run.items.map(item).filter(Boolean); el.textContent = its.filter(it => beantwortet(it, run)).length + " von " + its.length + " beantwortet"; } };
+  function eingabe(e) {
+    const t = e.target, run = S.pk && S.pk.run; if (!t || !t.dataset || !run) return;
+    if (t.dataset.pkmc != null && run.phase === "run") { const id = t.dataset.pkmc, it = item(id); run.ans[id] = Array.from(document.querySelectorAll('[data-pkmc="' + id + '"]')).filter(x => x.checked).map(x => +x.value); if (it && it.k.length === 1) run.ans[id] = run.ans[id].slice(-1); merken(); }
+    else if (t.dataset.pkzu != null && run.phase === "run") { const [id, r] = t.dataset.pkzu.split("|"), it = item(id); const a = run.ans[id] = Array.isArray(run.ans[id]) ? run.ans[id] : it.rows.map(() => ""); a[+r] = t.value; merken(); }
+    else if (t.dataset.pkzahl != null && run.phase === "run") { const [id, r] = t.dataset.pkzahl.split("|"), it = item(id); const a = run.ans[id] = Array.isArray(run.ans[id]) ? run.ans[id] : it.f.map(() => ""); a[+r] = t.value; merken(); }
+    else if (t.dataset.pkoff != null && run.phase === "run") { run.ans[t.dataset.pkoff] = t.value; merken(); }
+    else if (t.dataset.pkew != null && run.phase === "done" && e.type === "change") { const [id, j] = t.dataset.pkew.split("|"), it = item(id); const s = run.self[id] = Array.isArray(run.self[id]) ? run.self[id] : it.ew.map(() => false); s[+j] = t.checked; save(); const y = window.scrollY; rerender(); window.scrollTo(0, y); }
+  }
+  document.addEventListener("input", eingabe);
+  document.addEventListener("change", eingabe);
+
+  /* ---------- 11. In die App einhängen (umhüllen, nichts ersetzen) ---------- */
+  if (!SCH_TABS.some(t => t[0] === "klausur")) {
+    const i = SCH_TABS.findIndex(t => t[0] === "uebersicht");
+    SCH_TABS.splice(i >= 0 ? i + 1 : 0, 0, ["klausur", '<span class="tic" aria-hidden="true">🎯</span>Klausur']);
+  }
+  const _su = schUebersicht;
+  schUebersicht = function () {
+    if (SCH_TAB === "klausur") return klausurHtml();
+    let h = _su.apply(this, arguments);
+    // Hinweis, wenn eine Klausur in den nächsten 21 Tagen ansteht
+    const run = S.pk && S.pk.run;
+    if (run) return '<div class="banner" style="--c:var(--schule)"><span class="ic">' + (run.phase === "run" ? "⏳" : "📋") + '</span><div><b>' + esc(run.t) + '</b> ' + (run.phase === "run" ? "läuft noch" : "– Auswertung offen") + '<br><button class="btn sm primary" data-pk="weiter">Weiter</button></div></div>' + h;
+    const nt = naechste();
+    if (nt && FAECHER.some(x => x[0] === nt.fach)) { const d = diffDays(todayKey(), nt.date); if (d <= 21) h = '<div class="banner" style="--c:var(--schule)"><span class="ic">🎯</span><div><b>' + esc(subj(nt.fach).kurz) + '-Klausur ' + (d === 0 ? "heute" : d === 1 ? "morgen" : "in " + d + " Tagen") + '</b><br><button class="btn sm primary" data-pk="go:' + esc(nt.fach) + '">Probeklausur schreiben</button></div></div>' + h; }
+    return h;
+  };
+  if (typeof schUeben === "function") {
+    const _sue = schUeben;
+    schUeben = function () {
+      const h = _sue.apply(this, arguments);
+      return UEB && UEB.mode === "list" ? '<div class="banner" style="--c:var(--schule)"><span class="ic">🎯</span><div><b>Probeklausuren zum Lösen in der App</b> – mit Uhr, Punkten, Note und Fehlerheft.<br><button class="btn sm primary" data-pk="go:">Zum Tab „Klausur“</button></div></div>' + h : h;
+    };
+  }
+  // Globale Suche: Probeklausuren
+  if (typeof searchAll === "function") {
+    const _sa = searchAll;
+    searchAll = function (q) {
+      const r = _sa.apply(this, arguments) || [], s = String(q || "").trim().toLowerCase();
+      if (s.length < 2 || !Array.isArray(r)) return r;
+      const W = "probeklausur klausur test probe prüfung zufall fehlerheft blitz";
+      EX.forEach(e => { const txt = (FACH_N[e.f] + " " + e.t + " " + W + " " + e.items.map(id => TAGS[item(id).tag] ? TAGS[item(id).tag].n : "").join(" ")).toLowerCase();
+        if (txt.includes(s)) r.push({cat:"Probeklausur", title:"🎯 " + FACH_N[e.f] + ": " + e.t, text:e.min + " Min. · Schule → Klausur", go:() => { PK.fach = e.f; PK.ansicht = S.pk && S.pk.run ? PK.ansicht : "liste"; SCH_TAB = "klausur"; closeSheet(); go("schule"); }, s:1}); });
+      return r;
+    };
+  }
+
+  ensure();
+  try { if (S.pk.run && sessionStorage.getItem("wk.pk.lauf") === "1") { SCH_TAB = "klausur"; PK.ansicht = "lauf"; PK.fach = S.pk.run.f; } } catch (e) {}
+  window.__v47 = {P, EX, TAGS, BY, PK, item, score, gesamt, zahlParse, zufallsItems, themen, startFix, startZufall, startFehler, speichern, abgeben, klausurHtml};
+  try { if (typeof currentView === "function" && currentView() === "schule") rerender(); } catch (e) {}
+})();
+</script>
+
+
 <script>
 /* Service Worker: App startet auch mit schlechtem Netz */
 if ("serviceWorker" in navigator) addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));
