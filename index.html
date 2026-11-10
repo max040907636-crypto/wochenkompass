@@ -8497,6 +8497,349 @@ html[data-d43-motion="0"] *,html[data-d43-motion="0"] *::before,html[data-d43-mo
 })();
 </script>
 
+<!-- ERWEITERUNG v44 (10.11.2026): Arbeit → neuer Tab „🧭 Praxis“ im Baum-Stil.
+     Wunsch von Max: kleine Übersicht, welche Tätigkeiten er bisher gemacht hat, wie oft und was er daraus lernen soll,
+     dazu Abläufe für jede Art von Ticket – alles aufklappbar wie ein Baum, nicht vollgestopft.
+     Ohne persönliche Werte – darf auch in die GitHub-Pages-Version.
+     - Die Zahlen werden beim Öffnen aus dem gespeicherten Berichtsheft (S.work.bh, nur Betriebstage) gezählt.
+       Im Code steht kein einziger Berichtsheft-Eintrag. Ohne Daten erscheint „Berichtsheft-Paket laden“.
+     - Nichts wird gespeichert außer dem Auf-/Zuklappen (nur im Arbeitsspeicher).
+     - Zurück: diesen Block löschen. -->
+<style>
+.pr-flow{display:flex;flex-wrap:wrap;gap:4px;align-items:center;font-size:13px;font-weight:700}
+.pr-flow span{padding:4px 8px;border-radius:999px;background:color-mix(in srgb,var(--arbeit) 14%,var(--surface));border:1px solid color-mix(in srgb,var(--arbeit) 35%,var(--line))}
+.pr-flow i{font-style:normal;color:var(--muted)}
+.pr-bar{height:8px;border-radius:999px;background:var(--soft);overflow:hidden;margin-top:6px}
+.pr-bar b{display:block;height:100%;border-radius:999px;background:var(--arbeit)}
+.pr-top{display:flex;flex-direction:column;gap:8px}
+.pr-top .r{display:flex;align-items:center;gap:8px;min-width:0}
+.pr-top .r span{flex:1;min-width:0;overflow-wrap:anywhere}
+.pr-top .r b{flex:none;font-variant-numeric:tabular-nums}
+.tr-row .nr{flex:none;width:26px;height:26px;border-radius:50%;display:grid;place-items:center;font-size:13px;font-weight:800;background:var(--arbeit);color:#fff;margin-top:1px}
+.tr-row.pr-warn{border-color:color-mix(in srgb,var(--warn) 60%,var(--line));background:color-mix(in srgb,var(--warn) 10%,var(--bg))}
+.tr-row.pr-ihk{border-color:color-mix(in srgb,var(--ok) 55%,var(--line))}
+.tr-row ul.pr-ul{margin:0;padding-left:18px}
+.tr-row ul.pr-ul li{margin:2px 0}
+.pr-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;text-align:center}
+.pr-stats div{padding:8px 4px;border-radius:12px;background:var(--soft);min-width:0}
+.pr-stats b{display:block;font-family:var(--f-display);font-size:24px;line-height:1.1}
+.pr-stats small{font-size:12px;color:var(--muted)}
+#prTree summary .cnt{white-space:nowrap;padding-left:6px}
+</style>
+<script>
+(function () {
+  "use strict";
+  if (typeof S !== "object" || !S || typeof ARB_TABS === "undefined" || typeof arbHeute !== "function") return;
+
+  /* ---------- 1. Tätigkeiten erkennen ---------- */
+  // Reihenfolge zählt: Der erste Treffer gewinnt (z. B. „Armbanddrucker“ → Spezialgeräte, nicht Drucker).
+  const KAT = [
+    {k:"team",   ic:"👥", t:"Meetings, Einführungen & Schulungen",
+     re:/meeting|besprechung|schulung|präsentation zum thema|einführung|rundführung|vorstellung|planung der aufgaben|urlaubsübergabe|gespräch mit|projekt geplant|op-planung/},
+    {k:"spezial", ic:"🪪", t:"Kartenleser, Konnektoren & Spezialgeräte",
+     re:/kartenlese|konnektor|etikett|armband/},
+    {k:"druck",  ic:"🖨️", t:"Drucker, Toner & Scanner",
+     re:/drucker|toner|patrone|papierstau|scanner/},
+    {k:"mail",   ic:"📧", t:"E-Mail & Outlook",
+     re:/e-mail|outlook|signatur/},
+    {k:"hotline", ic:"☎️", t:"Hotline & Tickets",
+     re:/hotline|ticket/},
+    {k:"konto",  ic:"👤", t:"Onboarding & Zugänge",
+     re:/onboarding|account|zugang|passwort|kennwort/},
+    {k:"soft",   ic:"🔄", t:"Updates & Software",
+     re:/update|aktualisier|softwarestand|software|citrix/},
+    {k:"netz",   ic:"🌐", t:"Netzwerk & Serverraum",
+     re:/^(?!.*(monitor|aufgeräumt)).*(netzwerk|switch|patch|serverraum|server\b|internet|steckdosenleiste)/},
+    {k:"pc",     ic:"💻", t:"PCs & Laptops einrichten",
+     re:/aufgesetzt|aufsetzen|rechner|laptop|notebook|virtuelle maschine|\bvm\b|windows-version|programmen|(pc|pcs|systems?)\b.*(eingerichtet|aufgebaut|konfiguriert)|einrichtung (eines neuen systems|neuer pcs)/},
+    {k:"hw",     ic:"🖱️", t:"Hardware tauschen & reparieren",
+     re:/austausch|ausgetauscht|getauscht|gewechselt|nachgerüstet|lüfter|\bssd\b|\bram\b|maus|tastatur|monitor|demontiert|repariert|defekt|überprüfung von hardware|kabel/},
+    {k:"lager",  ic:"📦", t:"Lager, Pakete & Ordnung",
+     re:/lager|paket|warenannahme|entsorg|elektroschrott|aufgeräumt|reinigung|versand/},
+    {k:"platz",  ic:"🏢", t:"Umzüge & Arbeitsplätze",
+     re:/umz|büro|arbeitsplatz|arbeitsplätze|abteilung|sekretariat|aufgebaut|aufbau|abbau|ausgestattet/}
+  ];
+  const SONST = {k:"sonst", ic:"🧩", t:"Sonstiges"};
+  const katOf = txt => { const s = String(txt).toLowerCase(); return (KAT.find(c => c.re.test(s)) || SONST).k; };
+
+  // Was du daraus lernen solltest (kurz) + IHK-Bezug + passender Ablauf
+  const LERN = {
+    team:   {l:["Gut zuhören und mitschreiben – wer macht was bis wann?", "Fragen stellen, wenn du etwas nicht verstehst. Das ist kein Fehler."], ihk:"Gute Kommunikation brauchst du auch für die Präsentation deiner Projektarbeit in Teil 2.", ab:""},
+    spezial:{l:["Krankenhaus-IT ist mehr als PCs: Kartenleser hängen über einen Konnektor an der Telematikinfrastruktur (TI).", "Fällt so ein Gerät aus, kann die Station nicht richtig arbeiten. Deshalb schnell und ruhig handeln."], ihk:"Verfügbarkeit (CIA-Triade) und Schutzbedarf – typische Prüfungsfragen.", ab:"spezial"},
+    druck:  {l:["Netzwerkdrucker, Druckwarteschlange und Treiber verstehen.", "Verbrauchsmaterial planen: Welcher Toner passt? Ist noch genug im Lager?"], ihk:"Typische Rechenaufgabe: Angebote vergleichen (Anschaffung + Verbrauchskosten).", ab:"druck"},
+    mail:   {l:["Outlook-Grundlagen: Postfach, Profil, Signatur, Abwesenheit.", "Phishing erkennen und richtig melden."], ihk:"IT-Sicherheit: Phishing und Social Engineering.", ab:"mail"},
+    hotline:{l:["Freundlich und klar mit Nutzern reden, ohne Fachchinesisch.", "Erst verstehen, dann lösen – und alles im Ticket festhalten."], ihk:"IT-Service: 1st/2nd/3rd Level, Incident, Priorität, SLA.", ab:"hotline"},
+    konto:  {l:["Benutzer bekommen nur die Rechte, die sie brauchen (Need-to-know).", "Zugänge nur mit Auftrag und nach Hausregel herausgeben."], ihk:"Datenschutz (DSGVO) und Zugriffsschutz – kommt fast immer dran.", ab:"konto"},
+    soft:   {l:["Updates schließen Sicherheitslücken – aber Neustart mit dem Nutzer abstimmen.", "Nur freigegebene Software installieren (Lizenz!)."], ihk:"Lizenzarten und Patch-Management.", ab:"soft"},
+    netz:   {l:["Wie Netzwerkdose → Patchfeld → Switch zusammenhängen.", "Fehler eingrenzen mit ipconfig und ping."], ihk:"Netzwerk-Grundlagen (IP, Subnetz, DHCP, DNS, Switch) – sehr prüfungsrelevant.", ab:"netz"},
+    pc:     {l:["Installation, Treiber, Updates und Standard-Software sicher beherrschen.", "Ein Arbeitsplatz ist erst fertig, wenn der Nutzer damit arbeiten kann."], ihk:"Abschlussprüfung Teil 1: „Einrichten eines IT-gestützten Arbeitsplatzes“.", ab:"pc"},
+    hw:     {l:["Bauteile und Anschlüsse erkennen (USB, HDMI, DisplayPort, SSD, RAM).", "Eingrenzen: Liegt es am Gerät, am Kabel oder an der Software?"], ihk:"Hardware-Komponenten und Schnittstellen kommen in Teil 1 dran.", ab:"hw"},
+    lager:  {l:["Lieferungen prüfen und Geräte ins Inventar eintragen.", "Alte Datenträger nie einfach wegwerfen – Daten müssen sicher gelöscht oder vernichtet werden."], ihk:"Datenschutz bei der Entsorgung, Nachhaltigkeit (Elektroschrott).", ab:"lager"},
+    platz:  {l:["Planen, absprechen, umsetzen, prüfen – Projektarbeit im Kleinen.", "Kabel beschriften und Standort im Inventar ändern."], ihk:"Arbeitsplatz einrichten ist Thema in Teil 1. Projektplanung brauchst du für die Projektarbeit in Teil 2.", ab:"platz"},
+    sonst:  {l:["Diese Einträge passen in keine Gruppe. Kein Problem – lies sie einfach noch einmal durch."], ihk:"", ab:"grund"}
+  };
+
+  /* ---------- 2. Ticket-Abläufe ---------- */
+  // s = Schritte (HTML erlaubt, nur eigener Text). w = Warnung (Datenverlust o. Ä.). ihk = Prüfungstipp. p = passender Problem-Assistent (Arbeit → Wissen).
+  const AB = [
+    {k:"grund", ic:"⭐", t:"Jedes Ticket – der Grundablauf", s:[
+      "<b>Annehmen:</b> Ticket lesen oder Anruf annehmen. Gibt es noch kein Ticket, ein neues anlegen.",
+      "<b>Verstehen:</b> Wer? Wo? Was genau? Seit wann? Nur ein Gerät oder mehrere? Fehlermeldung genau notieren.",
+      "<b>Einordnen:</b> Kategorie und Priorität festlegen. Ist die Patientenversorgung betroffen, hat das Vorrang.",
+      "<b>Lösen oder weitergeben:</b> Bekannte Lösung anwenden. Fehlen dir Rechte oder Wissen, mit allen Infos an den 2nd Level geben.",
+      "<b>Testen:</b> Mit dem Nutzer prüfen, ob es wirklich wieder läuft.",
+      "<b>Dokumentieren:</b> Ursache, Lösung und was du gemacht hast ins Ticket. Keine Patientendaten, keine Passwörter.",
+      "<b>Schließen:</b> Ticket schließen und dem Nutzer kurz Bescheid geben."],
+      ihk:"Priorität = Dringlichkeit × Auswirkung. Incident (Störung) ≠ Service Request (Anfrage, z. B. neue Maus)."},
+    {k:"hotline", ic:"☎️", t:"Anruf an der Hotline", s:[
+      "Freundlich melden: Abteilung und dein Name.",
+      "Ticket direkt beim Telefonieren mitschreiben.",
+      "Gezielt nachfragen (siehe Grundablauf, Schritt 2). Ruhig bleiben, auch wenn der Anrufer gestresst ist.",
+      "Einfach erklären, keine Fachbegriffe. Fernwartung nur mit Zustimmung des Nutzers.",
+      "Geht es nicht am Telefon: sagen, wie es weitergeht (z. B. „Ein Kollege kommt vorbei“).",
+      "Ticket fertig ausfüllen und weiterleiten oder schließen."],
+      ihk:"Kommunikationsmodelle (z. B. Sender-Empfänger, 4-Ohren) und kundenorientiertes Verhalten."},
+    {k:"hw", ic:"🖱️", t:"Hardware tauschen (Maus, Tastatur, Monitor, PC)", s:[
+      "Passendes Ersatzgerät aus dem Lager holen und die Ausgabe notieren.",
+      "Termin mit der Station oder Abteilung absprechen – nicht mitten in der Visite oder im Notfall.",
+      "Vor Ort: Altgerät abstecken, neues anschließen, testen.",
+      "Beim PC-Tausch zusätzlich: Drucker, Netzlaufwerke und Spezial-Software wieder einrichten. Mit dem Nutzer testen.",
+      "Altgerät beschriften (Fehler, Datum) und zurück ins Lager oder zur Fehleranalyse.",
+      "Inventar und Ticket aktualisieren (Gerätenummer, Standort)."],
+      w:"Beim PC-Tausch: Vorher prüfen, ob Daten nur lokal auf dem alten PC liegen (z. B. Desktop). Erst sichern, dann tauschen.",
+      ihk:"Schnittstellen und Komponenten erklären können (z. B. Unterschied HDD/SSD, HDMI/DisplayPort).", p:"dock"},
+    {k:"pc", ic:"💻", t:"PC neu aufsetzen oder neu einrichten", s:[
+      "Klären: Welches Gerät, für wen, welcher Standort, welche Software?",
+      "Installations-Stick oder Image nach Hausvorgabe nehmen (z. B. Ventoy).",
+      "Windows installieren, Gerätename nach Namensschema, Aufnahme in die Domäne (macht oft der 2nd Level).",
+      "Treiber, Updates, Standard-Software und Abteilungs-Software installieren.",
+      "Drucker und Netzlaufwerke einrichten, Test-Anmeldung machen.",
+      "Checkliste abhaken, Inventar und Ticket aktualisieren."],
+      w:"Beim Neu-Aufsetzen wird die Festplatte gelöscht. Vorher prüfen, dass keine Daten mehr drauf sind, und beim Installieren das richtige Laufwerk auswählen.",
+      ihk:"Teil 1 „Einrichten eines IT-gestützten Arbeitsplatzes“: Betriebssystem, Installation, Benutzer, Rechte.", p:"start"},
+    {k:"druck", ic:"🖨️", t:"Drucker: Toner, Störung, neuer Drucker", s:[
+      "<b>Toner leer:</b> Modell am Drucker ablesen, passenden Toner aus dem Lager holen, tauschen, Testseite drucken.",
+      "Leere Toner zur Entsorgung bringen. Wird der Vorrat knapp, Bescheid geben.",
+      "<b>Störung:</b> Anzeige am Drucker lesen, Papierstau vorsichtig entfernen, Gerät neu starten.",
+      "Druckt nur ein PC nicht? Druckwarteschlange am PC prüfen (Problem-Assistent „Drucker“).",
+      "<b>Neuer Drucker:</b> aufstellen, ans Netzwerk anschließen, nach Vorgabe ins System einbinden, Testdruck.",
+      "Nutzer informieren, altes Gerät abmelden und Ticket schließen."],
+      ihk:"Drucker vergleichen: Anschaffung + Kosten pro Seite (Rechenaufgabe).", p:"druck"},
+    {k:"netz", ic:"🌐", t:"Netzwerk: kein Netz, Patchen, Switch", s:[
+      "Eingrenzen: Nur ein Gerät oder viele? Viele → sofort ans Team melden.",
+      "Kabel und Netzwerkdose prüfen. Leuchtet die LED?",
+      "<b>Patchen:</b> Nummer der Dose am Patchfeld finden, mit passendem Kabel auf den richtigen Switch-Port stecken (laut Plan).",
+      "Am PC testen mit <code>ipconfig</code> und <code>ping</code>.",
+      "Switch nur nach Absprache tauschen oder ändern.",
+      "Patchplan oder Doku aktualisieren, Ticket schließen."],
+      ihk:"IP-Adresse, Subnetzmaske, Gateway, DHCP, DNS, OSI-Modell – kommt sehr oft dran.", p:"netz"},
+    {k:"spezial", ic:"🪪", t:"Kartenleser, Konnektor & Spezialgeräte", s:[
+      "Kartenleser hängen über einen Konnektor an der Telematikinfrastruktur (TI). Klären: Nur ein Leser betroffen oder alle?",
+      "Nur einer betroffen: Kabel und Strom prüfen, Gerät neu starten.",
+      "Alle betroffen: Konnektor nur nach Hausanweisung neu starten und die Station vorher informieren.",
+      "Etiketten- oder Armbanddrucker: richtiges Material einlegen, Vorlage prüfen, Testdruck mit Testdaten statt echten Patientendaten.",
+      "Ist das Gerät defekt? Dann Ticket an Hersteller oder Service geben und Ersatz klären."],
+      ihk:"Verfügbarkeit als Schutzziel: Was passiert, wenn ein System im Krankenhaus ausfällt?"},
+    {k:"platz", ic:"🏢", t:"Umzug, neues Büro, neuer Arbeitsplatz", s:[
+      "Vorher planen: Wer zieht wohin? Welche Geräte? Gibt es genug Netzwerkdosen und Strom?",
+      "Termin mit der Abteilung absprechen.",
+      "Abbau: Kabel beschriften, Geräte mit Zubehör zusammenlassen.",
+      "Aufbau: anschließen, Dosen patchen, Kabel ordentlich verlegen.",
+      "Testen: Anmeldung, Drucker, Telefon, Netzlaufwerke.",
+      "Standort im Inventar ändern, mit dem Nutzer abnehmen."],
+      ihk:"Projektplanung: Ziele, Ablaufplan, Ressourcen. Arbeitsplatz ergonomisch einrichten."},
+    {k:"mail", ic:"📧", t:"Outlook & E-Mail", s:[
+      "Problem nachstellen: Was genau geht nicht? Fehlermeldung?",
+      "Outlook neu starten, Verbindung prüfen (online/offline), Postfach voll?",
+      "Signatur oder Abwesenheitsnotiz nach Vorlage einrichten.",
+      "Profil nur nach Absprache neu anlegen.",
+      "Phishing-Verdacht: nichts anklicken, Mail nach Hausregel melden."],
+      ihk:"Phishing erkennen, Merkmale nennen können.", p:"crash"},
+    {k:"konto", ic:"👤", t:"Neuer Mitarbeiter, Zugang, Passwort", s:[
+      "Nur mit Auftrag oder Antrag arbeiten. Kein Auftrag → nichts herausgeben.",
+      "<b>Neuer Mitarbeiter:</b> Arbeitsplatz vorbereiten. Konto und Rechte legt meist der Admin an. Kurz einweisen.",
+      "<b>Passwort zurücksetzen:</b> Identität nach Hausregel prüfen (z. B. Rückruf). Passwort nie per E-Mail schicken.",
+      "Einmal-Passwort vergeben – der Nutzer muss es bei der ersten Anmeldung ändern.",
+      "<b>Notfall-Accounts:</b> nur nach Hausregel übergeben, Übergabe dokumentieren, sicher aufbewahren."],
+      ihk:"Need-to-know-Prinzip, sichere Passwörter, Zugangs- und Zugriffskontrolle.", p:"login"},
+    {k:"soft", ic:"🔄", t:"Updates & Software installieren", s:[
+      "Ist die Software freigegeben und gibt es eine Lizenz?",
+      "Zeitpunkt mit dem Nutzer absprechen – Updates brauchen oft einen Neustart.",
+      "Installieren oder aktualisieren, danach testen.",
+      "Fehler? Dann hilft der Problem-Assistent „Programm stürzt ab“.",
+      "Im Ticket festhalten: Was wurde installiert, welche Version."],
+      ihk:"Lizenzarten (z. B. Einzelplatz, Volumen, Open Source) und warum Updates wichtig sind.", p:"crash"},
+    {k:"lager", ic:"📦", t:"Warenannahme, Lager & Entsorgung", s:[
+      "Lieferung mit dem Lieferschein vergleichen. Schäden sofort melden.",
+      "Neue Geräte ins Inventar eintragen und ordentlich lagern.",
+      "Alte Geräte aus dem Inventar austragen.",
+      "Elektroschrott und Toner getrennt entsorgen."],
+      w:"Festplatten und SSDs nie einfach entsorgen: Erst sicher löschen oder vernichten lassen (Datenschutz, Patientendaten!).",
+      ihk:"Datenschutz bei der Entsorgung, Nachhaltigkeit und Elektroschrott."}
+  ];
+
+  /* ---------- 3. Zählen aus dem Berichtsheft (nur Betriebstage) ---------- */
+  function zaehlen() {
+    const bh = (S.work && S.work.bh) || {}, R = {}, tage = new Set();
+    let n = 0, von = "", bis = "";
+    Object.keys(bh).sort().forEach(mon => {
+      const W = bh[mon];
+      ((W && W.betrieb) || []).forEach(p => {
+        const txt = String((p && p.text) || "").trim(); if (!txt) return;
+        const d = p.day || mon, k = katOf(txt);
+        const r = R[k] || (R[k] = {n:0, tage:new Set(), zuletzt:"", bsp:{}});
+        r.n++; r.tage.add(d); if (d > r.zuletzt) r.zuletzt = d;
+        const nk = txt.replace(/\busw\.|\betc\./g, "etc.").toLowerCase(); const b = r.bsp[nk] || (r.bsp[nk] = {t:txt, m:0}); b.m++;
+        n++; tage.add(d); if (!von || d < von) von = d; if (d > bis) bis = d;
+      });
+    });
+    return {R, n, tage:tage.size, von, bis};
+  }
+
+  /* ---------- 4. Anzeige ---------- */
+  let PR_Q = "";
+  const PR_OPEN = {};
+  const plain = h => String(h).replace(/<[^>]+>/g, "").toLowerCase();
+  const ast = (key, title, inner, cnt) => '<details class="tr-ast" data-k="' + key + '"' + (PR_OPEN[key] ? " open" : "") + '><summary>' + title + (cnt != null ? '<span class="cnt">' + cnt + '</span>' : '') + '</summary><div class="tr-in">' + inner + '</div></details>';
+  const box = (k, v, cls) => '<div class="tr-row box' + (cls ? " " + cls : "") + '" data-s="' + esc(plain(k + " " + v)) + '"><span class="k">' + k + '</span><span class="v">' + v + '</span></div>';
+  const ABK = Object.fromEntries(AB.map(a => [a.k, a]));
+
+  function paketKarte() {
+    return '<div class="card note"><h3>📥 Noch keine Berichtsheft-Daten</h3>'
+      + '<p class="small">Die Übersicht zählt deine Einträge aus dem Berichtsheft. Lade dafür einmal das Berichtsheft-Paket (die Datei <b>berichtsheft-paket-ihk.json</b>, die du von Claude bekommen hast).</p>'
+      + '<div class="field"><label for="prpFile">Datei (.json)</label><input id="prpFile" type="file" accept=".json,application/json,text/plain" class="inp"></div>'
+      + '<div class="field"><label for="prpText">… oder Text einfügen</label><textarea id="prpText" rows="3" placeholder="{&quot;app&quot;:&quot;Wochenkompass-Berichtsheft-Paket&quot;, …}"></textarea></div>'
+      + '<button class="btn primary" data-prp="1">Text laden</button><p class="small muted">Die Ticket-Abläufe unten funktionieren auch ohne Daten.</p></div>';
+  }
+
+  function taetigkeitenAst(Z) {
+    const liste = KAT.concat([SONST]).filter(c => Z.R[c.k]).sort((a, b) => Z.R[b.k].n - Z.R[a.k].n);
+    const max = liste.length ? Z.R[liste[0].k].n : 1;
+    let inner = '';
+    liste.forEach(c => {
+      const r = Z.R[c.k], L = LERN[c.k], ab = ABK[L.ab];
+      const bsp = Object.values(r.bsp).sort((a, b) => b.m - a.m || a.t.localeCompare(b.t, "de")).slice(0, 3).map(b => [b.t, b.m]);
+      let x = box("Wie oft", '<b>' + r.n + '×</b> an ' + r.tage.size + (r.tage.size === 1 ? ' Tag' : ' Tagen') + ' · zuletzt ' + esc(fmt(r.zuletzt, {weekday:"short", day:"2-digit", month:"2-digit"})) + '<div class="pr-bar" aria-hidden="true"><b style="width:' + Math.max(4, Math.round(r.n / max * 100)) + '%"></b></div>');
+      x += box("Beispiele aus deinem Berichtsheft", '<ul class="pr-ul">' + bsp.map(([t, m]) => '<li>' + esc(t) + (m > 1 ? ' <small class="muted">(' + m + '×)</small>' : '') + '</li>').join("") + '</ul>');
+      x += box("💡 Das lernst du daraus", '<ul class="pr-ul">' + L.l.map(t => '<li>' + esc(t) + '</li>').join("") + '</ul>');
+      if (L.ihk) x += box("🎓 IHK-Prüfung", esc(L.ihk), "pr-ihk");
+      if (ab) x += '<button class="btn sm" data-prgo="ab-' + ab.k + '">' + ab.ic + ' Zum Ablauf →</button>';
+      inner += ast("t-" + c.k, c.ic + ' ' + esc(c.t), x, r.n + "×");
+    });
+    // Selten gemacht → beim Ausbilder ansprechen
+    const selten = KAT.filter(c => c.k !== "team" && (!Z.R[c.k] || Z.R[c.k].n <= 3));
+    if (selten.length) inner += box("🌱 Kam bisher selten vor", '<p class="small">Frag deinen Ausbilder, ob du das öfter machen darfst – so lernst du mehr für die Prüfung:</p><ul class="pr-ul">' + selten.map(c => '<li>' + c.ic + ' ' + esc(c.t) + ' <small class="muted">(' + (Z.R[c.k] ? Z.R[c.k].n : 0) + '×)</small></li>').join("") + '</ul>');
+    return ast("taet", "📊 Meine Tätigkeiten", inner, liste.length + " Arten");
+  }
+
+  function ablaeufeAst() {
+    let inner = '<div class="tr-row box" data-s="grundablauf schritte"><span class="k">So läuft jedes Ticket</span><span class="v"><div class="pr-flow">'
+      + ["📥 Annehmen", "❓ Verstehen", "🏷️ Einordnen", "🔧 Lösen", "✅ Testen", "📝 Dokumentieren", "🔒 Schließen"].map(t => '<span>' + t + '</span>').join('<i aria-hidden="true">→</i>')
+      + '</div></span></div>';
+    AB.forEach(a => {
+      let x = a.s.map((s, i) => '<div class="tr-row" data-s="' + esc(plain(a.t + " " + s)) + '"><span class="nr" aria-hidden="true">' + (i + 1) + '</span><span class="v">' + s + '</span></div>').join("");
+      if (a.w) x += box("⚠️ Achtung", esc(a.w), "pr-warn");
+      if (a.ihk) x += box("🎓 IHK-Prüfung", esc(a.ihk), "pr-ihk");
+      if (a.p) x += '<button class="btn sm" data-prprob="' + a.p + '">🧭 Zur Fehlersuche →</button>';
+      inner += ast("ab-" + a.k, a.ic + ' ' + esc(a.t), x, a.s.length + " Schritte");
+    });
+    inner += '<p class="small muted">Allgemeine Abläufe als Lernhilfe. Die Regeln deiner IT-Abteilung gehen immer vor.</p>';
+    return ast("abl", "🎫 Ticket-Abläufe", inner, AB.length);
+  }
+
+  function praxisHtml() {
+    const Z = zaehlen();
+    let h = '';
+    if (Z.n) {
+      const top = KAT.concat([SONST]).filter(c => Z.R[c.k]).sort((a, b) => Z.R[b.k].n - Z.R[a.k].n).slice(0, 3);
+      h += '<div class="card"><div class="card-h"><h3>🧭 Deine Praxis bisher</h3><span class="small muted">KW ' + isoWeek(Z.von) + '–' + isoWeek(Z.bis) + '</span></div>'
+        + '<div class="pr-stats"><div><b>' + Z.n + '</b><small>Einträge</small></div><div><b>' + Z.tage + '</b><small>Betriebstage</small></div><div><b>' + Object.keys(Z.R).length + '</b><small>Arten</small></div></div>'
+        + '<p class="lbl" style="margin-top:10px">Am häufigsten</p><div class="pr-top">'
+        + top.map(c => '<div class="r"><span>' + c.ic + ' ' + esc(c.t) + '</span><b>' + Z.R[c.k].n + '×</b></div>').join("")
+        + '</div><p class="small muted" style="margin-top:8px">Gezählt aus deinem Berichtsheft (nur Betriebstage). Tippe unten auf einen Ast zum Aufklappen.</p></div>';
+    } else h += paketKarte();
+    h += '<input id="prQ" class="inp" type="search" placeholder="Suchen, z. B. Drucker, Switch …" value="' + esc(PR_Q) + '" aria-label="Im Praxis-Baum suchen">';
+    h += '<div class="tree" id="prTree">' + (Z.n ? taetigkeitenAst(Z) : '') + ablaeufeAst() + '</div>';
+    if (PR_Q) setTimeout(() => filterPr(PR_Q), 0);
+    return h;
+  }
+
+  // Suche im Baum (wie im Ich-Baum)
+  function filterPr(q) {
+    const tree = document.getElementById("prTree"); if (!tree) return;
+    q = String(q || "").trim().toLowerCase();
+    tree.querySelectorAll(".tr-hit").forEach(el => el.classList.remove("tr-hit"));
+    tree.querySelectorAll("[data-s]").forEach(el => { el.hidden = !!q && !el.dataset.s.includes(q) && !el.textContent.toLowerCase().includes(q); if (q && !el.hidden) el.classList.add("tr-hit"); });
+    tree.querySelectorAll(".tr-in > .btn").forEach(b => { b.hidden = !!q; });
+    // von innen nach außen: Äste ohne Treffer ausblenden
+    Array.from(tree.querySelectorAll("details")).reverse().forEach(d => {
+      if (!q) { d.hidden = false; return; }
+      const hit = !!d.querySelector("[data-s]:not([hidden])") || d.querySelector("summary").textContent.toLowerCase().includes(q);
+      d.hidden = !hit; if (hit) d.open = true;
+      if (hit && d.querySelector("summary").textContent.toLowerCase().includes(q)) d.querySelectorAll("[data-s]").forEach(el => { el.hidden = false; });
+    });
+  }
+
+  /* ---------- 5. In die App einhängen ---------- */
+  if (!ARB_TABS.some(t => t[0] === "praxis")) ARB_TABS.splice(1, 0, ["praxis", '<span class="tic" aria-hidden="true">🧭</span>Praxis']);
+  const _ah = arbHeute;
+  arbHeute = function () { return ARB_TAB === "praxis" ? praxisHtml() : _ah.apply(this, arguments); };
+
+  // Auf-/Zuklappen merken (nur solange die App offen ist)
+  document.addEventListener("toggle", e => { const d = e.target; if (d && d.closest && d.closest("#prTree") && d.dataset && d.dataset.k) PR_OPEN[d.dataset.k] = d.open; }, true);
+
+  document.addEventListener("input", e => { if (e.target && e.target.id === "prQ") { PR_Q = e.target.value; filterPr(PR_Q); } });
+
+  document.addEventListener("click", e => {
+    const t = e.target.closest ? e.target : null; if (!t) return;
+    // Sprung von einer Tätigkeit zum passenden Ablauf
+    const g = t.closest("[data-prgo]");
+    if (g) {
+      const k = g.dataset.prgo;
+      PR_OPEN.abl = true; PR_OPEN[k] = true;
+      const d = document.querySelector('#prTree details[data-k="' + k + '"]'), p = document.querySelector('#prTree details[data-k="abl"]');
+      if (p) p.open = true;
+      if (d) { d.open = true; setTimeout(() => d.scrollIntoView({block:"start", behavior:"smooth"}), 30); }
+      return;
+    }
+    // Sprung zum Problem-Assistenten (Arbeit → Wissen)
+    const pb = t.closest("[data-prprob]");
+    if (pb) { if (typeof A_PROB !== "undefined") A_PROB = pb.dataset.prprob; ARB_TAB = "wissen"; rerender(); window.scrollTo(0, 0); return; }
+    // Berichtsheft-Paket per Text
+    if (t.closest("[data-prp]")) {
+      const ta = document.getElementById("prpText"), txt = ta ? ta.value.trim() : "";
+      if (!txt) { toast("Bitte erst den Paket-Text einfügen.", 3000); return; }
+      if (typeof window.bhPaketLaden !== "function") { toast("Das Laden von Paketen fehlt in dieser Version.", 3500); return; }
+      try { if (window.bhPaketLaden(JSON.parse(txt)) && ta) ta.value = ""; } catch (x) { toast("Der Text ist kein gültiges Paket.", 3500); }
+    }
+  });
+  document.addEventListener("change", e => {
+    const el = e.target; if (!el || el.id !== "prpFile") return;
+    const f = el.files && el.files[0]; if (!f) return;
+    const r = new FileReader();
+    r.onload = () => { try { if (typeof window.bhPaketLaden === "function") window.bhPaketLaden(JSON.parse(r.result)); } catch (x) { toast("Datei konnte nicht gelesen werden.", 3500); } };
+    r.readAsText(f); el.value = "";
+  });
+
+  // Globale Suche findet die Abläufe
+  if (typeof searchAll === "function") {
+    const _sa = searchAll;
+    searchAll = function (q) {
+      const r = _sa.apply(this, arguments) || [], s = String(q || "").trim().toLowerCase();
+      if (s.length < 2 || !Array.isArray(r)) return r;
+      AB.forEach(a => {
+        const txt = plain(a.t + " " + a.s.join(" ") + " " + (a.w || "") + " " + (a.ihk || ""));
+        if (txt.includes(s)) r.push({cat:"Ablauf", title:a.ic + " " + a.t, text:a.s.length + " Schritte · Arbeit → Praxis", go:() => { closeSheet(); ARB_TAB = "praxis"; PR_Q = q; PR_OPEN.abl = true; go("arbeit"); }, s:1});
+      });
+      return r;
+    };
+  }
+
+  window.__v44 = {KAT, katOf, AB, zaehlen, filterPr};
+  if (typeof currentView === "function" && currentView() === "arbeit" && typeof rerender === "function") rerender();
+})();
+</script>
+
 <script>
 /* Service Worker: App startet auch mit schlechtem Netz */
 if ("serviceWorker" in navigator) addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));
