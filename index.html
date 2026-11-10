@@ -8840,6 +8840,341 @@ html[data-d43-motion="0"] *,html[data-d43-motion="0"] *::before,html[data-d43-mo
 })();
 </script>
 
+<!-- ERWEITERUNG v45 (10.11.2026): Arbeit → neuer Tab „🧰 Tools“ im Baum-Stil.
+     Wunsch von Max: Alle Programme vom Arbeits-Desktop und alle Browser-Favoriten erklärt –
+     was ist das, was kann ich damit machen, worauf achten, plus Lernvideos mit Link.
+     Ohne persönliche Werte, ohne interne Adressen – darf auch in die GitHub-Pages-Version.
+     - Alle Video-Links am 10.11.2026 per Websuche geprüft (Titel passt). Videos können später gelöscht werden,
+       deshalb gibt es bei jedem Tool zusätzlich „🔎 Mehr Videos“ (YouTube-Suche, geht immer).
+     - Wo etwas nicht sicher ist (z. B. was genau hinter einem Lesezeichen steckt), steht „❓ Nicht sicher“.
+     - Nichts wird gespeichert außer dem Auf-/Zuklappen (nur im Arbeitsspeicher).
+     - Zurück: diesen Block löschen. -->
+<style>
+.tl-links{display:flex;flex-direction:column;gap:6px}
+.tl-links a{display:flex;align-items:flex-start;gap:8px;padding:8px 10px;border-radius:10px;border:1px solid var(--line);background:var(--surface);color:inherit;text-decoration:none;min-height:44px;min-width:0}
+.tl-links a span{flex:1;min-width:0;overflow-wrap:anywhere}
+.tl-links a small{flex:none;font-size:11px;font-weight:800;color:var(--muted);padding-top:2px}
+.tl-links a:hover,.tl-links a:focus-visible{border-color:var(--arbeit)}
+.tl-unsicher{border-color:color-mix(in srgb,var(--privat) 55%,var(--line))!important}
+.tl-tab{width:100%;border-collapse:collapse;font-size:13px}
+.tl-tab th,.tl-tab td{text-align:left;vertical-align:top;padding:6px 4px;border-bottom:1px solid var(--line);overflow-wrap:anywhere}
+.tl-tab th{color:var(--muted);font-size:12px}
+#tlTree summary .cnt{white-space:nowrap;padding-left:6px}
+</style>
+<script>
+(function () {
+  "use strict";
+  if (typeof S !== "object" || !S || typeof ARB_TABS === "undefined" || typeof arbHeute !== "function") return;
+
+  /* ---------- 1. Daten: Programme und Favoriten ----------
+     Felder: k = Schlüssel, g = Gruppe (desk/fav/schule), ic = Emoji, t = Name, lz = so heißt es bei dir,
+     was = kurze Erklärung, tun = was du damit machst, w = Achtung, ihk = Prüfungsbezug,
+     un = nicht sicher (Hinweis), vid = [Titel, URL, Sprache], hilfe = [Titel, URL], q = YouTube-Suche */
+  const YT = id => "https://www.youtube.com/watch?v=" + id;
+  const T = [
+    /* ===== Programme auf dem Desktop ===== */
+    {k:"orbis", g:"desk", ic:"🏥", t:"ORBIS (KIS)", lz:"ORBIS-KHV lokal",
+     was:"ORBIS ist ein Krankenhaus-Informationssystem (KIS) von Dedalus. Darin stehen Patienten, Aufnahmen, Befunde, Briefe und Abrechnung – das wichtigste Programm im Haus.",
+     tun:["Prüfen, ob ORBIS auf einem PC startet und sich der Nutzer anmelden kann.", "Fehlermeldungen genau aufschreiben und ans ORBIS-Team (2nd Level) geben.", "Drucker und Etiketten-Drucker testen, die aus ORBIS drucken."],
+     w:"Nur mit Auftrag öffnen. Patientendaten nicht ansehen, abschreiben oder fotografieren (Datenschutz, Schweigepflicht).",
+     un:"„KHV“ und „lokal“: Was das bei euch genau heißt, frag kurz nach. Auch das gelbe Warn-Symbol als Icon ist ungewöhnlich – frag, ob das z. B. ein Test- oder Notfallzugang ist.",
+     ihk:"Schutzziele Vertraulichkeit und Verfügbarkeit (CIA) – im Krankenhaus besonders wichtig.",
+     vid:[["ORBIS Impfdokumentation – LEAP-Schulungsvideo (zeigt die Oberfläche)", YT("n_yQUAFgaNw"), "DE"], ["Dedalus ORBIS U – Überblick", YT("YRJRIsxK9LU"), "EN"]],
+     q:"Dedalus ORBIS Schulung"},
+    {k:"citrix", g:"desk", ic:"🌀", t:"Citrix Workspace", lz:"Citrix Workspace",
+     was:"Die Citrix Workspace-App öffnet Programme und Desktops, die nicht auf dem PC selbst laufen, sondern auf Servern im Rechenzentrum.",
+     tun:["Veröffentlichte Programme starten (z. B. Klinik-Software).", "Bei „Programm startet nicht“: abmelden, App neu starten, erneut anmelden.", "Prüfen, ob es nur bei einem Nutzer oder bei allen hakt."],
+     w:"Hängt es bei vielen Nutzern gleichzeitig, sofort dem Team melden – dann liegt es meist am Server, nicht am PC.",
+     ihk:"Virtualisierung und Thin Client vs. Fat Client – kommt in Prüfungen vor.",
+     vid:[["Citrix Workspace – der Arbeitsplatz für moderne Mitarbeiter", YT("eBndrSI4O7E"), "DE"], ["Citrix Workspace App – Installation (PC)", YT("7dnB1OazCHU"), "EN"]],
+     hilfe:[["Citrix-Doku: Workspace-App für Windows", "https://docs.citrix.com/de-de/citrix-workspace-app-for-windows.html"]],
+     q:"Citrix Workspace App Anleitung deutsch"},
+    {k:"baramundi", g:"desk", ic:"📦", t:"baramundi Management Center", lz:"baramundi Management Center",
+     was:"Das Management Center ist die Steuerzentrale der baramundi Management Suite. Damit verwaltet die IT viele PCs auf einmal.",
+     tun:["Software auf PCs verteilen und installieren.", "Inventar ansehen: Welche Hardware und Software hat ein PC?", "Updates und Windows-Installationen anstoßen (je nach Rechten)."],
+     w:"Ein Job kann auf hunderte PCs gleichzeitig gehen. Nur nach Absprache etwas starten – und vorher prüfen, welche Geräte ausgewählt sind.",
+     ihk:"Softwareverteilung, Inventarisierung und Patch-Management.",
+     vid:[["Baramundi Management Suite – Teil 3: Management Center", YT("ktKMvCH43dw"), "DE"], ["Betriebssysteminstallation mit der baramundi Management Suite", YT("zsuh7zRgMzQ"), "DE"]],
+     hilfe:[["baramundi Support", "https://www.baramundi.com/de-de/support/"]],
+     q:"baramundi Management Suite Tutorial"},
+    {k:"keepass", g:"desk", ic:"🔑", t:"KeePassXC", lz:"KeePassXC.exe",
+     was:"KeePassXC ist ein Passwort-Manager. Alle Zugangsdaten liegen verschlüsselt in einer Datenbank-Datei (.kdbx), die mit einem Master-Passwort geöffnet wird.",
+     tun:["Zugangsdaten suchen und kopieren, ohne sie abzutippen.", "Sichere Passwörter mit dem Generator erzeugen.", "Datenbank sperren, wenn du den Platz verlässt (Strg + L)."],
+     w:"Master-Passwort nie weitergeben oder aufschreiben. Nur die Einträge nutzen, für die du freigegeben bist. Passwörter nie in Tickets oder E-Mails kopieren.",
+     ihk:"Sichere Passwörter, Verschlüsselung und Zugriffsschutz.",
+     vid:[["KeePassXC: Gut geschützte Passwortdatenbank erstellen", YT("vLxjao0GvxA"), "DE"], ["Passwortverwaltung mit KeePassXC", YT("xBLMHQ6KLPw"), "DE"]],
+     hilfe:[["KeePassXC: Getting Started Guide", "https://keepassxc.org/docs/KeePassXC_GettingStarted"]],
+     q:"KeePassXC Tutorial deutsch"},
+    {k:"anydesk", g:"desk", ic:"🖥️", t:"AnyDesk", lz:"AnyDesk.exe",
+     was:"AnyDesk ist ein Fernwartungs-Programm. Du siehst den Bildschirm eines anderen PCs und kannst Maus und Tastatur steuern.",
+     tun:["Nutzern aus der Ferne helfen, ohne hinzulaufen.", "Dateien übertragen (falls erlaubt).", "Mit Herstellern Fernwartung machen (nach Hausregel)."],
+     w:"Nur mit Zustimmung des Nutzers verbinden. Nie eine fremde AnyDesk-Anfrage annehmen – falsche „Support-Anrufe“ sind eine bekannte Betrugsmasche.",
+     ihk:"Fernwartung und Datenschutz: Zustimmung, Protokoll, nur nötige Rechte.",
+     vid:[["Anleitung: AnyDesk auf Windows nutzen", YT("PUEp-RDwT9U"), "DE"], ["Mit AnyDesk auf einen anderen Computer zugreifen", YT("L-foiheNNyY"), "DE"]],
+     hilfe:[["AnyDesk Help Center", "https://support.anydesk.com/"]],
+     q:"AnyDesk Anleitung deutsch"},
+    {k:"dameware", g:"desk", ic:"🛰️", t:"Dameware Mini Remote Control", lz:"Dameware Mini Remote Control",
+     was:"Dameware Mini Remote Control (von SolarWinds) ist ein Fernwartungs-Tool für PCs im eigenen Netz.",
+     tun:["Den Bildschirm eines Nutzers übernehmen und das Problem zeigen oder lösen.", "Per PC-Name verbinden, ohne dass der Nutzer eine ID durchgeben muss."],
+     w:"Den Nutzer immer vorher fragen und Bescheid sagen. Nie bei offenen Patientendaten zuschauen, wenn es nicht nötig ist.",
+     ihk:"Unterschied Fernwartung (Nutzer sieht mit) und Remotedesktop (eigene Sitzung).",
+     vid:[["Dameware Mini Remote Control Demo", YT("0jHDWodIDxM"), "EN"], ["Remoting In: Dameware (Schritt für Schritt)", YT("rG9NTXNCLZg"), "EN"]],
+     q:"Dameware Mini Remote Control Tutorial"},
+    {k:"rdp", g:"desk", ic:"🗂️", t:"RDP-Manager", lz:"RDP-Manager + RdpManager_setup",
+     was:"Ein RDP-Manager speichert viele Remotedesktop-Verbindungen (RDP) an einem Ort, damit du Server und PCs schnell öffnen kannst. „RdpManager_setup“ ist die Installationsdatei dafür.",
+     tun:["Eine eigene Sitzung auf einem Server oder PC öffnen.", "Verbindungen in Ordnern sortieren (z. B. nach Standort)."],
+     w:"Bei RDP wird ein angemeldeter Nutzer am PC gesperrt oder abgemeldet – vorher Bescheid sagen. Die Setup-Datei nur nach Rückfrage vom Desktop löschen.",
+     un:"Es gibt mehrere Programme mit dem Namen „RDP-Manager“. Welches ihr nutzt, steht unter Hilfe → Info im Programm.",
+     ihk:"RDP nutzt standardmäßig Port 3389 (TCP).",
+     vid:[["Windows Remote Desktop Verbindung einrichten und verwenden", YT("cm_Uoy3Lf-c"), "DE"]],
+     hilfe:[["Microsoft: Verwendung von Remotedesktop", "https://support.microsoft.com/de-de/windows/experience/connectivity-networking/how-to-use-remote-desktop"]],
+     q:"Remotedesktopverbindung Windows Tutorial deutsch"},
+    {k:"forti", g:"desk", ic:"🛡️", t:"FortiClient VPN", lz:"FortiClient VPN",
+     was:"FortiClient VPN baut einen verschlüsselten Tunnel ins Firmennetz auf. So kommt ein PC von außen sicher an interne Systeme.",
+     tun:["VPN-Verbindung herstellen und trennen.", "Bei Fehlern: Internet da? Richtiges Profil? Benutzername und Passwort richtig?"],
+     w:"VPN-Zugänge nie weitergeben. Nicht verbunden lassen, wenn du es nicht brauchst.",
+     ihk:"VPN, Tunnel und Verschlüsselung (z. B. IPsec, SSL/TLS) – typische Prüfungsfrage.",
+     vid:[["Wie funktioniert ein VPN? Sichere Verbindung ins Firmennetz", YT("01Wieg6mYuo"), "DE"], ["How to use FortiClient VPN Remote Access", YT("R3hKWTkFr8o"), "EN"]],
+     q:"FortiClient VPN Anleitung"},
+    {k:"xphone", g:"desk", ic:"☎️", t:"XPhone Connect", lz:"XPhone Connect",
+     was:"XPhone Connect (von C4B) verbindet Telefon und PC: telefonieren, Kontakte suchen, Status anzeigen.",
+     tun:["Anrufe am PC annehmen und wählen.", "Präsenzstatus setzen (verfügbar, besetzt, abwesend).", "Bei Problemen: Verbindung zum Telefon und angemeldetes Gerät prüfen."],
+     ihk:"Unified Communications (UC) und VoIP.",
+     vid:[["XPhone Connect in 20 Minuten kennenlernen", YT("sFNJj_jtxZ4"), "DE"], ["XPhone Connect – Präsenzstatus ändern", YT("OqWegHjd8-4"), "DE"], ["XPhone Connect – Bildschirm teilen", YT("MDpIkJfl2l4"), "DE"]],
+     q:"XPhone Connect Tutorial"},
+    {k:"firefox", g:"desk", ic:"🦊", t:"Firefox", lz:"Firefox",
+     was:"Webbrowser von Mozilla – zum Öffnen von Web-Oberflächen und internen Seiten.",
+     tun:["Web-Oberflächen von Geräten öffnen (z. B. Drucker, Konnektoren).", "Cache leeren, wenn eine Seite falsch lädt (Strg + Umschalt + Entf)."],
+     ihk:"Client-Server-Prinzip und HTTP/HTTPS.",
+     vid:[["Firefox Tipps und Tricks", YT("7o_q47GCNxc"), "DE"]],
+     hilfe:[["Firefox-Hilfe", "https://support.mozilla.org/de/"]],
+     q:"Firefox Tipps deutsch"},
+    {k:"edge", g:"desk", ic:"🌊", t:"Microsoft Edge", lz:"Microsoft Edge",
+     was:"Webbrowser von Microsoft, auf Windows dabei. Deine Favoriten unten sind wahrscheinlich hier gespeichert.",
+     tun:["Favoriten ordnen und Ordner anlegen.", "Seite im InPrivate-Fenster testen, wenn sie spinnt."],
+     vid:[["Microsoft Edge – Tipps und Tricks", YT("C0KfSLHeIek"), "DE"]],
+     q:"Microsoft Edge Tipps deutsch"},
+    {k:"papierkorb", g:"desk", ic:"🗑️", t:"Papierkorb", lz:"Papierkorb",
+     was:"Gelöschte Dateien landen erst hier und lassen sich wiederherstellen (Rechtsklick → Wiederherstellen).",
+     tun:["Aus Versehen gelöschte Dateien zurückholen."],
+     w:"„Papierkorb leeren“ und Umschalt + Entf löschen endgültig. Dateien auf Netzlaufwerken landen meist gar nicht im Papierkorb."},
+
+    /* ===== Favoriten: Archiv (Arbeit) ===== */
+    {k:"sosafe", g:"fav", ic:"🎣", t:"SoSafe", lz:"Sosafe",
+     was:"SoSafe ist eine Lernplattform für IT-Sicherheit (Security Awareness): kurze Lernmodule und Phishing-Simulationen.",
+     tun:["Deine Pflicht-Module machen.", "Phishing-Merkmale lernen und an Nutzer weitergeben."],
+     ihk:"Phishing und Social Engineering erkennen – kommt fast immer dran.",
+     vid:[["SoSafe – Vorstellung", YT("SdwUBt8ijKo"), "DE"], ["So erkennst du gefährliche Phishing-Mails", YT("hcNgWModwFI"), "DE"]],
+     q:"Phishing erkennen Erklärvideo"},
+    {k:"rabatte", g:"fav", ic:"🏷️", t:"Rabatte", lz:"Rabatte",
+     was:"Wahrscheinlich ein Portal mit Rabatten für Mitarbeitende. Das ist kein IT-Werkzeug, sondern für dich privat.",
+     un:"Nicht sicher – einfach öffnen und schauen, was es ist."},
+    {k:"timeoffice", g:"fav", ic:"⏱️", t:"TIMEOFFICE", lz:"Timeoffice",
+     was:"TIMEOFFICE (Firma Pradtke) ist ein Dienstplan-System. Darin stehen Dienstplan, Zeitkonten und Urlaubsanspruch.",
+     tun:["Deinen Dienstplan und deine Zeitkonten ansehen.", "Urlaub prüfen (was freigeschaltet ist, entscheidet dein Betrieb).", "Es gibt auch die App „TIMEOFFICE mobile“."],
+     vid:[["TIMEOFFICE mobile: Dienstplan, Zeitkonten, Urlaub", YT("jHXt_z5YkNU"), "DE"]],
+     q:"TIMEOFFICE Pradtke"},
+    {k:"usb", g:"fav", ic:"🔌", t:"USB Port", lz:"USB Port",
+     was:"Vermutlich die Web-Oberfläche eines USB-Servers. So ein Gerät macht USB-Geräte (z. B. Lizenz-Dongles oder Lesegeräte) über das Netzwerk für andere PCs nutzbar.",
+     tun:["Prüfen, ob ein USB-Gerät verbunden und frei ist.", "Gerät einem PC zuweisen oder freigeben (nach Anweisung)."],
+     un:"Nicht sicher – schau auf das Gerät oder frag einen Kollegen, welcher Hersteller es ist.",
+     ihk:"Netzwerk-Grundlagen: Gerät mit eigener IP und Web-Oberfläche.",
+     vid:[["USB und Seriell über LAN (USB-Deviceserver)", YT("WU17anAXj3Y"), "DE"]],
+     q:"USB Deviceserver erklärt"},
+    {k:"barweb", g:"fav", ic:"📦", t:"Baramundi (Lesezeichen)", lz:"Baramundi",
+     was:"Ein Lesezeichen zu baramundi im Browser – wahrscheinlich die Web-Oberfläche derselben Verwaltungs-Software wie das Management Center oben.",
+     un:"Nicht sicher, welcher Teil von baramundi das ist. Im Zweifel nachfragen.",
+     vid:[["Baramundi Management Suite – Teil 3: Management Center", YT("ktKMvCH43dw"), "DE"]],
+     hilfe:[["baramundi Support", "https://www.baramundi.com/de-de/support/"]],
+     q:"baramundi Tutorial"},
+    {k:"konnektor", g:"fav", ic:"🔗", t:"Konnektoren", lz:"Konektoren",
+     was:"Web-Oberfläche der TI-Konnektoren. Ein Konnektor verbindet das Krankenhaus sicher (per VPN) mit der Telematikinfrastruktur (TI) und steuert die Kartenterminals.",
+     tun:["Status ansehen: Ist der Konnektor mit der TI verbunden?", "Prüfen, welche Kartenterminals verbunden sind.", "Fehler ablesen und ans Team melden."],
+     w:"Einstellungen nur nach Hausanweisung ändern. Ein Neustart trennt alle Kartenleser – vorher die Stationen informieren.",
+     ihk:"Verfügbarkeit, VPN und Schutzbedarf – Praxisbeispiel aus dem Krankenhaus.",
+     vid:[["Was ist der e-Health-Konnektor?", YT("_3Y1NVZKG40"), "DE"], ["Telematikinfrastruktur einfach erklärt", YT("6TeaOK4UL_I"), "DE"]],
+     hilfe:[["gematik Fachportal: Konnektor", "https://fachportal.gematik.de/telematikinfrastruktur/komponenten-dienste/konnektor"]],
+     q:"TI Konnektor erklärt"},
+    {k:"kartenleser", g:"fav", ic:"🪪", t:"Kartenlesegerät", lz:"Kartenlesegerät",
+     was:"Web-Oberfläche der eHealth-Kartenterminals. Damit werden Gesundheitskarten (eGK) und Ausweise (HBA, SMC-B) gelesen. Sie hängen über das Netzwerk am Konnektor.",
+     tun:["Status und Netzwerk-Einstellungen eines Terminals prüfen.", "Bei Ausfall: Strom, Netzwerkkabel, Anzeige am Gerät prüfen."],
+     w:"Ein Terminal muss mit dem Konnektor „gepairt“ (gekoppelt) sein. Pairing nur nach Anweisung neu machen.",
+     un:"Welches Modell ihr habt, steht auf dem Gerät. Die Videos zeigen zwei verbreitete Modelle.",
+     vid:[["Inbetriebnahme eHealth-Kartenterminal Cherry ST-1506", YT("plEvNhGgYa8"), "DE"], ["Inbetriebnahme eHealth-Kartenterminal Ingenico Orga 6141", YT("U2tbR85J1OI"), "DE"]],
+     hilfe:[["gematik Fachportal: TI-Zugang", "https://fachportal.gematik.de/telematikinfrastruktur/ti-zugang"]],
+     q:"eHealth Kartenterminal einrichten"},
+    {k:"simplifyu", g:"fav", ic:"📋", t:"SimplifyU", lz:"SimplifyU",
+     was:"SimplifyU ist eine Software für Qualitätsmanagement (QM) im Gesundheitswesen: Dokumente, Formulare & Meldungen, Audits.",
+     tun:["Hausregeln und Verfahrensanweisungen nachlesen.", "Formulare und Meldungen ausfüllen (falls freigeschaltet)."],
+     ihk:"Qualitätsmanagement (z. B. PDCA-Zyklus, ISO 9001).",
+     vid:[["SimplifyU in 3 Minuten", YT("4mX5viCw_bg"), "DE"]],
+     q:"SimplifyU"},
+    {k:"defender", g:"fav", ic:"🦠", t:"Microsoft Defender – Quarantäne", lz:"Unter Quarantäne stellen – Microsoft Defender",
+     was:"Der Virenschutz Microsoft Defender schiebt verdächtige Dateien in die Quarantäne. Dort können sie nichts mehr anrichten.",
+     tun:["Nachsehen, was gefunden wurde (Schutzverlauf).", "Fund melden und dokumentieren."],
+     w:"Dateien nie selbst aus der Quarantäne holen. Das entscheidet die IT-Sicherheit.",
+     ihk:"Schadsoftware (Viren, Würmer, Trojaner) und Schutzmaßnahmen.",
+     vid:[["Windows 10 – Dateien aus der Quarantäne wiederherstellen", YT("V7X0J-4oZaI"), "DE"]],
+     q:"Microsoft Defender Quarantäne"},
+    {k:"google", g:"fav", ic:"🔍", t:"Google", lz:"Google",
+     was:"Suchmaschine – im Support nützlich, um Fehlermeldungen nachzuschlagen.",
+     tun:["Fehlermeldung in „Anführungszeichen“ suchen.", "Mit site: nur auf einer Seite suchen, z. B. site:support.microsoft.com"],
+     w:"Nie Patientendaten, Namen oder interne Infos in eine Suche eintippen.",
+     vid:[["3 Google Tricks in 3 Minuten (Suchoperatoren)", YT("nV9xVYoEzHE"), "DE"]],
+     q:"Google Suchoperatoren deutsch"},
+    {k:"netscaler", g:"fav", ic:"🚪", t:"NetScaler AAA", lz:"NetScaler AAA",
+     was:"Anmeldeseite des NetScaler (früher Citrix ADC/Gateway). AAA heißt Authentifizierung, Autorisierung, Auditing. Darüber melden sich Nutzer an, z. B. für Citrix von außen.",
+     tun:["Anmeldung testen, wenn ein Nutzer nicht in Citrix kommt.", "Prüfen: richtige Seite, Benutzername, Passwort, ggf. zweiter Faktor."],
+     w:"Nur über das Lesezeichen öffnen. Gefälschte Login-Seiten sind ein typischer Phishing-Trick.",
+     ihk:"Authentifizierung vs. Autorisierung, Zwei-Faktor-Anmeldung.",
+     hilfe:[["NetScaler-Doku: AAA (für Admins)", "https://docs.netscaler.com/de-de/citrix-adc/current-release/aaa-tm.html"]],
+     q:"Citrix Gateway Anmeldung"},
+    {k:"ixserv", g:"fav", ic:"🧪", t:"ixserv", lz:"ixserv.4",
+     was:"ixserv ist ein Laborauftrags-System (Order Entry): Stationen legen damit Laboraufträge an, drucken Etiketten für Proben und sehen Befunde.",
+     tun:["Helfen, wenn Etiketten nicht drucken (Etikettendrucker, Treiber).", "Prüfen, ob die Anmeldung geht – Rechte vergibt das Labor oder der Admin."],
+     w:"Fällt ixserv aus, können Stationen keine Aufträge anlegen. Schnell melden.",
+     un:"Hersteller und Version bei euch nicht geprüft.",
+     q:"Laborauftrag Order Entry Krankenhaus"},
+
+    /* ===== Favoriten: Schule ===== */
+    {k:"ihk", g:"schule", ic:"🎓", t:"IHK Köln", lz:"IHK Köln",
+     was:"Deine Kammer: Ausbildungsvertrag, Berichtsheft-Portal, Prüfungstermine und Anmeldung.",
+     tun:["Berichtsheft-Einträge ins IHK-Portal übertragen.", "Termine für Teil 1 der Abschlussprüfung nachlesen."],
+     ihk:"Teil 1 für alle IT-Berufe: „Einrichten eines IT-gestützten Arbeitsplatzes“.",
+     vid:[["AP Teil 1: Alles, was du wissen musst", YT("2nEeLPe-sW4"), "DE"], ["Themen der IHK-Prüfungen AP1 der IT-Berufe", YT("f-EpVwYWX1I"), "DE"]],
+     q:"AP1 IT-Berufe Prüfungsvorbereitung"},
+    {k:"egb", g:"schule", ic:"📅", t:"Kalender – EGB Kalender", lz:"Kalender – EGB Kalender",
+     was:"Ein Outlook-Kalender der Schule im Browser.",
+     tun:["Termine der Schule ansehen.", "Erinnerungen für Klassenarbeiten setzen."],
+     vid:[["Kalender im neuen Outlook – erster Überblick", YT("n-QjTqyCCok"), "DE"]],
+     q:"Outlook Kalender Tutorial deutsch"},
+    {k:"schulmanager", g:"schule", ic:"🏫", t:"Schulmanager Online", lz:"Stundenplan - Schulmanager Online",
+     was:"Schul-Plattform mit Stundenplan, Vertretungen, Klassenarbeiten und Nachrichten.",
+     tun:["Stundenplan und Ausfälle ansehen.", "Klassenarbeiten nachschauen und dann in den Wochenkompass eintragen lassen."],
+     vid:[["Schulmanager-Online Erstanmeldung Schüler (iOS)", YT("LplfR8ZcXkc"), "DE"], ["YouTube-Kanal von Schulmanager Online", "https://www.youtube.com/@schulmanageronline", "DE"]],
+     q:"Schulmanager Online Schüler"},
+    {k:"outlook", g:"schule", ic:"📧", t:"Outlook", lz:"Outlook",
+     was:"E-Mail und Kalender von Microsoft im Browser – hier für die Schule.",
+     tun:["Mails der Lehrer lesen und beantworten.", "Phishing-Mails erkennen und nicht anklicken."],
+     ihk:"E-Mails nach DIN 5008 schreiben – kommt im Fach Deutsch/EVP dran.",
+     vid:[["Kalender im neuen Outlook – erster Überblick", YT("n-QjTqyCCok"), "DE"], ["So erkennst du gefährliche Phishing-Mails", YT("hcNgWModwFI"), "DE"]],
+     q:"Outlook Tutorial deutsch"}
+  ];
+  const GRP = [["desk", "🖥️", "Programme auf dem Desktop"], ["fav", "⭐", "Favoriten – Arbeit (Archiv)"], ["schule", "🎓", "Favoriten – Schule"]];
+
+  /* ---------- 2. Anzeige-Helfer ---------- */
+  let TL_Q = "";
+  const TL_OPEN = {};
+  const plain = h => String(h).replace(/<[^>]+>/g, "").toLowerCase();
+  const ast = (key, title, inner, cnt) => '<details class="tr-ast" data-k="' + key + '"' + (TL_OPEN[key] ? " open" : "") + '><summary>' + title + (cnt != null ? '<span class="cnt">' + cnt + '</span>' : '') + '</summary><div class="tr-in">' + inner + '</div></details>';
+  const box = (k, v, cls, s) => '<div class="tr-row box' + (cls ? " " + cls : "") + '" data-s="' + esc(plain(s || (k + " " + v))) + '"><span class="k">' + k + '</span><span class="v">' + v + '</span></div>';
+  const ul = arr => '<ul class="pr-ul">' + arr.map(t => '<li>' + esc(t) + '</li>').join("") + '</ul>';
+  const link = (titel, url, tag) => '<a href="' + esc(url) + '" target="_blank" rel="noopener noreferrer"><span>' + esc(titel) + '</span><small>' + esc(tag || "") + ' ↗</small></a>';
+  const ytSuche = q => "https://www.youtube.com/results?search_query=" + encodeURIComponent(q);
+  const anzVid = T.reduce((n, x) => n + (x.vid ? x.vid.length : 0), 0);
+
+  // Ein Tool als aufklappbarer Ast
+  function toolAst(x) {
+    let h = box("Was ist das?", esc(x.was) + (x.lz && x.lz !== x.t ? '<br><small class="muted">Bei dir heißt es: „' + esc(x.lz) + '“</small>' : ''), "", x.t + " " + x.lz + " " + x.was);
+    if (x.tun) h += box("🔧 Damit machst du", ul(x.tun), "", x.tun.join(" "));
+    if (x.w) h += box("⚠️ Achtung", esc(x.w), "pr-warn");
+    if (x.un) h += box("❓ Nicht sicher", esc(x.un), "tl-unsicher");
+    if (x.ihk) h += box("🎓 IHK-Prüfung", esc(x.ihk), "pr-ihk");
+    const L = [];
+    (x.vid || []).forEach(v => L.push(link("📺 " + v[0], v[1], v[2])));
+    (x.hilfe || []).forEach(v => L.push(link("📖 " + v[0], v[1], "Hilfe")));
+    if (x.q) L.push(link("🔎 Mehr Videos: „" + x.q + "“", ytSuche(x.q), "Suche"));
+    if (L.length) h += box("📺 Lernen", '<div class="tl-links">' + L.join("") + '</div>', "", "video lernen " + (x.vid || []).map(v => v[0]).join(" "));
+    const n = (x.vid || []).length;
+    return ast("t-" + x.k, x.ic + ' ' + esc(x.t), h, n ? n + " 📺" : "");
+  }
+
+  // Kleine Übersicht: Welches Tool wann? (für die Praxis und die Prüfung)
+  function wannAst() {
+    const R = [
+      ["Nutzer ruft an, du willst seinen Bildschirm sehen", "Dameware oder AnyDesk – nur mit Zustimmung"],
+      ["Du arbeitest selbst auf einem Server oder PC", "RDP-Manager / Remotedesktop"],
+      ["Klinik-Programm aus dem Rechenzentrum starten", "Citrix Workspace"],
+      ["Von außen sicher ins Klinik-Netz", "VPN (FortiClient), Anmeldung z. B. über NetScaler"],
+      ["Software auf viele PCs verteilen, Inventar ansehen", "baramundi"],
+      ["Zugangsdaten nachschlagen", "KeePassXC"],
+      ["Kartenleser oder TI geht nicht", "Kartenlesegerät- und Konnektor-Oberfläche"]
+    ];
+    const t = '<table class="tl-tab"><thead><tr><th>Situation</th><th>Tool</th></tr></thead><tbody>' + R.map(r => '<tr><td>' + esc(r[0]) + '</td><td>' + esc(r[1]) + '</td></tr>').join("") + '</tbody></table>';
+    let h = box("Wann nehme ich was?", t, "", R.flat().join(" "));
+    h += box("🎓 IHK: Fernwartung oder Remotedesktop?", "Bei <b>Fernwartung</b> (AnyDesk, Dameware) siehst du die Sitzung des Nutzers – er schaut zu. Bei <b>Remotedesktop</b> (RDP) bekommst du eine eigene Sitzung; der Nutzer am Windows-PC wird dabei gesperrt.", "pr-ihk");
+    return ast("wann", "🧭 Welches Tool wann?", h, R.length);
+  }
+
+  // Desktop-Ordner kurz erklärt
+  function ordnerAst() {
+    const O = [["Anleitungen", "eigene Anleitungen und Spickzettel"], ["Berichtheft", "Vorlagen und Notizen fürs Berichtsheft"], ["Schule", "Unterlagen für die Berufsschule"], ["TI-Unterlagen", "Infos zur Telematikinfrastruktur (Konnektor, Kartenleser)"], ["Drucker", "Treiber und Infos zu Druckern"], ["Wichtiges", "alles, was schnell griffbereit sein muss"]];
+    let h = box("So hast du sie benannt", ul(O.map(o => "📁 " + o[0] + " – " + o[1])), "", O.flat().join(" "));
+    h += box("💡 Tipp", "Der Desktop wird oft nicht gesichert. Wichtiges lieber auf dein Netzlaufwerk oder ins Team-Laufwerk legen. Keine Patientendaten auf dem Desktop speichern.", "pr-warn");
+    return ast("ordner", "📁 Deine Desktop-Ordner", h, O.length);
+  }
+
+  /* ---------- 3. Seite „Tools“ ---------- */
+  function toolsHtml() {
+    let h = '<div class="card"><div class="card-h"><h3>🧰 Deine Arbeits-Tools</h3></div>'
+      + '<div class="pr-stats"><div><b>' + T.filter(x => x.g === "desk").length + '</b><small>Programme</small></div><div><b>' + T.filter(x => x.g !== "desk").length + '</b><small>Favoriten</small></div><div><b>' + anzVid + '</b><small>Videos</small></div></div>'
+      + '<p class="small muted" style="margin-top:8px">Tippe auf einen Ast. Links öffnen sich in einem neuen Fenster. Videos geprüft am 10.11.2026 – ist eins weg, hilft „🔎 Mehr Videos“. Die Regeln deiner IT-Abteilung gehen immer vor.</p></div>';
+    h += '<input id="tlQ" class="inp" type="search" placeholder="Suchen, z. B. VPN, Passwort, Drucker …" value="' + esc(TL_Q) + '" aria-label="In den Tools suchen">';
+    h += '<div class="tree" id="tlTree">' + wannAst();
+    GRP.forEach(g => { const L = T.filter(x => x.g === g[0]); h += ast("g-" + g[0], g[1] + ' ' + esc(g[2]), L.map(toolAst).join(""), L.length); });
+    h += ordnerAst() + '</div>';
+    if (TL_Q) setTimeout(() => filterTl(TL_Q), 0);
+    return h;
+  }
+
+  // Suche im Baum (wie im Praxis-Baum v44)
+  function filterTl(q) {
+    const tree = document.getElementById("tlTree"); if (!tree) return;
+    q = String(q || "").trim().toLowerCase();
+    tree.querySelectorAll(".tr-hit").forEach(el => el.classList.remove("tr-hit"));
+    tree.querySelectorAll("[data-s]").forEach(el => { el.hidden = !!q && !el.dataset.s.includes(q) && !el.textContent.toLowerCase().includes(q); if (q && !el.hidden) el.classList.add("tr-hit"); });
+    Array.from(tree.querySelectorAll("details")).reverse().forEach(d => {
+      if (!q) { d.hidden = false; return; }
+      const sum = d.querySelector("summary").textContent.toLowerCase().includes(q);
+      const hit = sum || !!d.querySelector("[data-s]:not([hidden])");
+      d.hidden = !hit; if (hit) d.open = true;
+      // Trifft der Name des Tools, alles darin zeigen
+      if (sum) d.querySelectorAll("[data-s]").forEach(el => { el.hidden = false; });
+    });
+  }
+
+  /* ---------- 4. In die App einhängen (umhüllen, nichts ersetzen) ---------- */
+  if (!ARB_TABS.some(t => t[0] === "tools")) {
+    const i = ARB_TABS.findIndex(t => t[0] === "praxis");
+    ARB_TABS.splice(i >= 0 ? i + 1 : 1, 0, ["tools", '<span class="tic" aria-hidden="true">🧰</span>Tools']);
+  }
+  const _ah = arbHeute;
+  arbHeute = function () { return ARB_TAB === "tools" ? toolsHtml() : _ah.apply(this, arguments); };
+
+  // Auf-/Zuklappen merken (nur solange die App offen ist)
+  document.addEventListener("toggle", e => { const d = e.target; if (d && d.closest && d.closest("#tlTree") && d.dataset && d.dataset.k) TL_OPEN[d.dataset.k] = d.open; }, true);
+  document.addEventListener("input", e => { if (e.target && e.target.id === "tlQ") { TL_Q = e.target.value; filterTl(TL_Q); } });
+
+  // Globale Suche findet die Tools
+  if (typeof searchAll === "function") {
+    const _sa = searchAll;
+    searchAll = function (q) {
+      const r = _sa.apply(this, arguments) || [], s = String(q || "").trim().toLowerCase();
+      if (s.length < 2 || !Array.isArray(r)) return r;
+      T.forEach(x => {
+        const txt = (x.t + " " + (x.lz || "") + " " + x.was + " " + (x.tun || []).join(" ")).toLowerCase();
+        if (txt.includes(s)) r.push({cat:"Tool", title:x.ic + " " + x.t, text:"Arbeit → Tools", go:() => { closeSheet(); ARB_TAB = "tools"; TL_Q = ""; TL_OPEN["g-" + x.g] = true; TL_OPEN["t-" + x.k] = true; go("arbeit"); }, s:1});
+      });
+      return r;
+    };
+  }
+
+  window.__v45 = {T, GRP, filterTl};
+  if (typeof currentView === "function" && currentView() === "arbeit" && typeof rerender === "function") rerender();
+})();
+</script>
+
+
 <script>
 /* Service Worker: App startet auch mit schlechtem Netz */
 if ("serviceWorker" in navigator) addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));
