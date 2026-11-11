@@ -1915,6 +1915,162 @@ loadLocal(); migrate(); setSync("local"); render(); initCloud();
   if (typeof render === "function") render();
 })();
 </script>
+<!-- ERWEITERUNG v48 Gym (12.11.2026): Scheiben-Rechner, Aufwärmsätze, Gesamt-kg und Serien-Joker im Hantelbuch -->
+<style>
+.g48-row{gap:8px}
+.g48-row .btn{flex:1 1 120px}
+.g48-row .btn[aria-pressed="true"]{background:var(--fg);color:var(--inv)}
+.g48 .chips button.chip{background:var(--surface);color:var(--fg);min-height:38px;padding:4px 12px;font:inherit;font-weight:700;font-size:14px}
+.g48 .chips button.chip.solid{background:var(--fg);color:var(--inv)}
+.g48-pl{display:flex;align-items:flex-end;gap:4px;flex-wrap:wrap}
+.g48-p{display:flex;align-items:center;justify-content:center;width:34px;height:var(--h);border-radius:6px;background:var(--fg);color:var(--inv);font-size:11px;font-weight:800}
+.g48-big{font-family:var(--f-display);font-size:44px;line-height:1;font-weight:700;font-variant-numeric:tabular-nums;margin:0}
+.g48-auf{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}
+.g48-auf li{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:9px 0;border-top:1px solid var(--line)}
+.g48-auf li:first-child{border-top:0}
+</style>
+<script>
+/* =====================================================================
+   ERWEITERUNG v48 Gym (12.11.2026)
+   - 🔩 Scheiben-Rechner: welche Scheiben auf die Stange (Langhantel, SZ, T-Bar)
+   - 🔥 Aufwärmsätze: 1–3 leichtere Sätze vor dem ersten Arbeitssatz
+   - Gesamt-kg: heute (Zusammenfassung) und diese Woche (Start)
+   - Serien-Joker: 1 verpasster Trainingstag pro Woche bricht die Serie nicht
+     (an/aus kommt aus dem Wochenkompass → Einstellungen → Extras)
+   ===================================================================== */
+(function () {
+  "use strict";
+  if (typeof VIEWS !== "object" || typeof EX !== "object" || typeof S === "undefined") return;
+  const PLATTEN = [25, 20, 15, 10, 5, 2.5, 1.25];
+  const G = {id:null, auf:false, sch:false};
+  const fmtKg = v => fmtNum(Math.round(v * 100) / 100);
+
+  // Gewählte Stange je Übung (eigener Speicher – die Hantelbuch-Daten bleiben unverändert)
+  const BAR_KEY = "hantelbuch.w48";
+  const barLesen = () => { try { return JSON.parse(localStorage.getItem(BAR_KEY) || "{}") || {}; } catch (e) { return {}; } };
+  const barSchreiben = o => { try { localStorage.setItem(BAR_KEY, JSON.stringify(o)); } catch (e) {} };
+
+  // Welche Stange passt zur Übung? T-Bar: Scheiben nur an einem Ende
+  function stangeVon(id) {
+    const a = String((EX[id] && EX[id].art) || "");
+    if (/T-Bar|Landmine/.test(a)) return {bar:0, seiten:1};
+    if (/SZ/.test(a)) return {bar:10, seiten:2};
+    if (/Langhantel/.test(a)) return {bar:20, seiten:2};
+    return null;
+  }
+  const stangeKg = id => { const s = stangeVon(id), o = barLesen(); return s ? (o[id] != null && isFinite(+o[id]) ? +o[id] : s.bar) : 0; };
+
+  // Scheiben pro Seite (gierig: immer die größte passende Scheibe)
+  function scheiben(ziel, bar, seiten) {
+    let rest = Math.max(0, (ziel - bar) / seiten); const out = [];
+    for (const p of PLATTEN) while (rest >= p - 1e-9) { out.push(p); rest = Math.round((rest - p) * 1000) / 1000; }
+    return {out, rest};
+  }
+  function scheibenHtml(id, t) {
+    const s = stangeVon(id); if (!s) return "";
+    const bar = stangeKg(id), kg = curKg(id, t), r = scheiben(kg, bar, s.seiten);
+    let h = '<div class="card g48"><div class="area-h"><h3>🔩 Scheiben-Rechner</h3><span class="small muted">' + fmtKg(kg) + ' kg gesamt</span></div>';
+    if (kg < bar) h += '<p class="hint">Dein Gewicht (' + fmtKg(kg) + ' kg) ist leichter als die Stange (' + fmtKg(bar) + ' kg). Stell unten eine leichtere Stange ein.</p>';
+    else h += '<p class="small muted">' + (s.seiten === 2 ? "Auf <b>jede Seite</b>:" : "Auf die Stange:") + '</p><div class="g48-pl">'
+      + (r.out.length ? r.out.map(p => '<span class="g48-p" style="--h:' + Math.round(18 + p * 1.9) + 'px">' + fmtKg(p) + '</span>').join("") : '<span class="small">Keine Scheiben – nur die Stange.</span>') + '</div>'
+      + (r.rest > 0 ? '<p class="hint">Rest ' + fmtKg(r.rest) + ' kg pro Seite geht mit normalen Scheiben nicht genau. Nimm ' + fmtKg(kg - r.rest * s.seiten) + ' kg.</p>' : '');
+    h += '<p class="small muted">Deine Stange wiegt:</p><div class="chips">' + [20, 15, 10, 0].map(b => '<button type="button" class="chip' + (b === bar ? " solid" : "") + '" data-act="g48-bar" data-v="' + b + '" aria-pressed="' + (b === bar) + '">' + (b ? b + " kg" : "zählt nicht") + '</button>').join("") + '</div>';
+    return h + '<p class="small muted">Scheiben 25 / 20 / 15 / 10 / 5 / 2,5 / 1,25 kg. Verschlüsse nicht mitgezählt.</p></div>';
+  }
+
+  // Aufwärmsätze: je schwerer, desto mehr Stufen; gerundet auf die Steigerung der Übung
+  function aufwaermHtml(id, t) {
+    const ex = EX[id], kg = curKg(id, t), inc = ex.inc > 0 ? ex.inc : 2.5, s = stangeVon(id), min = s ? Math.max(stangeKg(id), inc) : inc;
+    const plan = kg < 20 ? [[0.5, "10–12"]] : kg < 50 ? [[0.5, "8–10"], [0.75, "4–5"]] : [[0.4, "10"], [0.6, "5"], [0.8, "2–3"]];
+    const wie = ex.start && ex.start.wie ? ex.start.wie : "";
+    const zeilen = plan.map(([p, w]) => { const g = Math.max(min, Math.round(kg * p / inc) * inc); return '<li><span><b>' + fmtKg(g) + ' kg</b>' + esc(wie) + (s && g === stangeKg(id) && g > 0 ? ' (leere Stange)' : '') + '</span><span class="num">× ' + w + '</span></li>'; }).join("");
+    return '<div class="card g48"><div class="area-h"><h3>🔥 Aufwärmen</h3><span class="small muted">vor dem 1. Satz</span></div><ul class="g48-auf">' + zeilen + '</ul>'
+      + '<p class="small muted">Locker und sauber, nicht bis zur Erschöpfung. Ca. 1 Min. Pause dazwischen. Aufwärmsätze nicht abhaken – sie zählen nicht zum Training.</p></div>';
+  }
+
+  // Gesamt-kg: Gewicht × Wiederholungen aller abgehakten Sätze (Kurzhanteln „je Hand“ doppelt)
+  function volumen(w) {
+    let v = 0; if (!w || !w.ex) return 0;
+    for (const id in w.ex) {
+      const ex = EX[id]; if (!ex || noKg(ex)) continue;
+      const f = /je Hand/.test((ex.start && ex.start.wie) || "") ? 2 : 1;
+      okSets(w, id).forEach(s => { const kg = num(s.kg), r = num(s.r); if (kg > 0 && r > 0) v += kg * r * f; });
+    }
+    return Math.round(v);
+  }
+  const wochenVol = (mon, tage) => { let v = 0; for (let i = 0; i < tage; i++) v += volumen(S.workouts[addDays(mon, i)]); return v; };
+
+  // Training: Knöpfe „Aufwärmen“ / „Scheiben“ unter dem Gewicht, Gesamt-kg in der Zusammenfassung
+  const _tr = VIEWS.training;
+  if (typeof _tr === "function") VIEWS.training = function () {
+    let h = _tr.apply(this, arguments);
+    try {
+      const t = todayKey(), p = todayPlan(); if (!p) return h;
+      const list = planEx(p), w = S.workouts[t];
+      if (UI.step != null && UI.step >= list.length) {
+        const v = volumen(w), m = '<div class="card"><h3>Wie war';
+        if (v > 0 && h.indexOf(m) >= 0) h = h.replace(m, '<div class="card g48"><p class="eyebrow">Heute bewegt</p><p class="g48-big">' + fmtKg(v) + ' kg</p><p class="small muted">Gewicht × Wiederholungen aller abgehakten Sätze (Kurzhanteln je Hand doppelt).</p></div>' + m);
+        return h;
+      }
+      const id = list[UI.step]; if (!id || !EX[id] || noKg(EX[id])) return h;
+      if (G.id !== id) { G.id = id; G.auf = false; G.sch = false; }
+      const anker = 'data-act="wtsheet">ändern</button></div>', i = h.indexOf(anker); if (i < 0) return h;
+      const knoepfe = '<div class="btn-row g48-row"><button type="button" class="btn small-btn" data-act="g48-auf" aria-pressed="' + G.auf + '">🔥 Aufwärmen</button>'
+        + (stangeVon(id) ? '<button type="button" class="btn small-btn" data-act="g48-sch" aria-pressed="' + G.sch + '">🔩 Scheiben</button>' : '') + '</div>';
+      const e = i + anker.length;
+      h = h.slice(0, e) + knoepfe + (G.auf ? aufwaermHtml(id, t) : "") + (G.sch && stangeVon(id) ? scheibenHtml(id, t) : "") + h.slice(e);
+    } catch (e) {}
+    return h;
+  };
+
+  // Start: Gesamt-kg dieser Woche (fairer Vergleich: letzte Woche bis zum gleichen Wochentag)
+  const _st0 = VIEWS.start;
+  if (typeof _st0 === "function") VIEWS.start = function () {
+    let h = _st0.apply(this, arguments);
+    try {
+      const t = todayKey(), mon = mondayOf(t), n = diffDays(mon, t) + 1, a = wochenVol(mon, n), b = wochenVol(addDays(mon, -7), n);
+      if (a > 0 || b > 0) {
+        const wt = ["So", "Mo", "Di", "Mi", "Do", "Fr", "Sa"][parseKey(t).getDay()];
+        const karte = '<div class="card g48"><div class="area-h"><h3>🏋️ Gesamt-kg</h3><span class="small muted">diese Woche</span></div><p class="g48-big">' + fmtKg(a) + ' kg</p>'
+          + '<p class="small muted">Letzte Woche bis ' + wt + ': ' + fmtKg(b) + ' kg' + (a > 0 && b > 0 ? ' · ' + (a >= b ? "+" : "−") + Math.abs(Math.round((a - b) / b * 100)) + ' %' : '') + '</p></div>';
+        h = /<\/div>\s*$/.test(h) ? h.replace(/<\/div>\s*$/, karte + "</div>") : h + karte;
+      }
+    } catch (e) {}
+    return h;
+  };
+
+  // Serien-Joker: pro Woche (Mo–So) darf ein geplanter Tag fehlen
+  const jokerAn = () => { try { return localStorage.getItem("wochenkompass.joker") !== "0"; } catch (e) { return true; } };
+  function serieMitJoker() {
+    const t = todayKey(); let n = 0; const used = {};
+    for (let k = t; k >= start(); k = addDays(k, -1)) {
+      if (!isPlanned(k)) continue;
+      const st = dayStatus(k);
+      if (k === t && st !== "done") continue;
+      if (st === "done") n++;
+      else if (st === "excused") continue;
+      else { const w = mondayOf(k); if (!used[w]) { used[w] = 1; continue; } break; }
+    }
+    return n;
+  }
+  if (typeof stats === "function") {
+    const _stats = stats;
+    stats = function () { const r = _stats.apply(this, arguments); try { if (r && jokerAn()) r.streak = serieMitJoker(); } catch (e) {} return r; };
+  }
+
+  // Klicks
+  document.addEventListener("click", ev => {
+    const b = ev.target.closest && ev.target.closest("[data-act]"); if (!b) return;
+    const a = b.dataset.act; if (!a || a.indexOf("g48-") !== 0) return;
+    if (a === "g48-auf") G.auf = !G.auf;
+    else if (a === "g48-sch") G.sch = !G.sch;
+    else if (a === "g48-bar") { const o = barLesen(), v = +b.dataset.v; if (G.id && isFinite(v)) { o[G.id] = v; barSchreiben(o); } }
+    render();
+  });
+  if (typeof render === "function") try { render(); } catch (e) {}
+})();
+</script>
+
 </template>
 
 <script>
@@ -10012,6 +10168,857 @@ html[data-d43-motion="0"] *,html[data-d43-motion="0"] *::before,html[data-d43-mo
   try { if (S.pk.run && sessionStorage.getItem("wk.pk.lauf") === "1") { SCH_TAB = "klausur"; PK.ansicht = "lauf"; PK.fach = S.pk.run.f; } } catch (e) {}
   window.__v47 = {P, EX, TAGS, BY, PK, item, score, gesamt, zahlParse, zufallsItems, themen, startFix, startZufall, startFehler, speichern, abgeben, klausurHtml};
   try { if (typeof currentView === "function" && currentView() === "schule") rerender(); } catch (e) {}
+})();
+</script>
+
+
+<!-- ERWEITERUNG v48 (12.11.2026): „Top 20“ aus den Ideen Part 2 + Fix für halbe Pfeile und Markieren beim schnellen Tippen.
+     Haupt-App: Mein Tag, To-dos mitnehmen, Gnadenzeit bis 3 Uhr, Serien-Joker, Leitner-Lernkarten, „Heute fällig“,
+     Lern-Heatmap, Soll-Ist Rahmenplan, Jahr in Pixeln, Zusammenhänge, Schlafrechner, Tagesbudget, Geld verliehen,
+     Packlisten, Update-Hinweis, Zahl am App-Symbol, Backup-Erinnerung.
+     Gym-Teile (Scheiben-Rechner, Aufwärmsätze, Gesamt-kg, Joker) stehen im Hantelbuch-Template („ERWEITERUNG v48 Gym“).
+     Keine persönlichen Daten in diesem Block. -->
+<style>
+/* ---------- Fix: Pfeile in Wochen-/Monats-Navigation immer ganz sichtbar ---------- */
+.wk-nav{min-width:0;max-width:100%}
+.wk-nav>.icon-btn{flex:0 0 auto;position:relative;z-index:2;padding:0;display:flex;align-items:center;justify-content:center;-webkit-appearance:none;appearance:none;overflow:visible;line-height:1}
+.wk-nav>.icon-btn svg{display:block;flex:none;width:22px;height:22px;min-width:22px;overflow:visible}
+.daypick,.daypick>button{min-width:0}
+.daypick>button{padding:2px 0;line-height:1.15}
+@media (max-width:380px){.wk-nav{gap:5px}.daypick{gap:3px}}
+/* Bedienelemente lassen sich nicht markieren (Eingabefelder darin schon) */
+:is(.wk-nav,.daypick,.card-h,.tabs-seg,.gtabs,.counters,.tiles,.quick,.seg,.w48-nm){-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+:is(.wk-nav,.daypick,.card-h,.tabs-seg,.gtabs,.counters,.tiles,.quick,.seg,.w48-nm) :is(input,textarea,select,[contenteditable]){-webkit-user-select:text;user-select:text}
+
+/* ---------- Allgemein ---------- */
+.w48n{display:inline-block;min-width:20px;padding:0 6px;border-radius:10px;background:var(--fg);color:var(--bg);font-size:11px;line-height:18px;font-weight:800;margin-left:2px}
+.w48-due{display:block;width:100%;text-align:left;border:0;color:var(--fg);font:inherit;font-size:14px;cursor:pointer}
+.w48-tag .list>li{padding:8px 0}
+.w48-row{display:flex;gap:8px;align-items:stretch}
+.w48-row .inp{flex:1;min-width:0}
+.w48-row .btn{flex:none;min-height:50px}
+.w48-star{min-width:44px;height:44px;font-size:20px}
+.w48-star[aria-pressed="true"]{background:var(--fg);color:var(--inv);border-color:var(--fg)}
+.w48-tb{margin-top:4px;font-weight:700}
+.w48-eur .counter b{font-size:clamp(24px,8vw,34px);white-space:nowrap}
+
+/* ---------- Leitner + Heatmap ---------- */
+.w48-boxen{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px}
+.w48-boxen div{border:1px solid var(--line);border-radius:10px;padding:6px 4px;text-align:center;font-size:12px;color:var(--muted);font-weight:700}
+.w48-boxen b{display:block;font-size:18px;color:var(--fg)}
+.w48-heat{display:grid;grid-template-rows:repeat(7,1fr);grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);gap:3px}
+.w48-heat i{display:block;aspect-ratio:1;border-radius:3px;background:var(--soft)}
+.w48-heat i.l1{background:color-mix(in srgb,var(--schule) 30%,var(--soft))}
+.w48-heat i.l2{background:color-mix(in srgb,var(--schule) 55%,var(--soft))}
+.w48-heat i.l3{background:color-mix(in srgb,var(--schule) 80%,var(--soft))}
+.w48-heat i.l4{background:var(--schule)}
+.w48-heat i.zu{background:transparent;border:1px dashed var(--line)}
+.w48-heat i.heute{box-shadow:0 0 0 2px var(--fg)}
+.w48-leg{display:flex;align-items:center;gap:4px;font-size:12px;color:var(--muted)}
+.w48-leg i{width:12px;height:12px;border-radius:3px;display:inline-block}
+
+/* ---------- Soll-Ist ---------- */
+.w48-si li{align-items:flex-start}
+.w48-si .st{flex:none;width:26px;height:26px;border-radius:8px;border:1px solid var(--line);display:grid;place-items:center;font-weight:800;font-size:13px}
+.w48-si .n{flex:none;font-weight:800;font-variant-numeric:tabular-nums;min-width:34px;text-align:right}
+.w48-luecke{display:inline-block;font-size:11px;font-weight:800;padding:1px 7px;border-radius:999px;background:color-mix(in srgb,var(--warn) 22%,var(--surface));margin-left:4px}
+
+/* ---------- Gesundheit: Jahr in Pixeln ---------- */
+.w48-jahr{display:grid;grid-template-columns:22px repeat(12,minmax(0,1fr));gap:2px;font-size:10px;color:var(--muted);font-weight:700}
+.w48-jahr span{text-align:center;line-height:14px}
+.w48-jahr i{display:block;height:9px;border-radius:2px;background:var(--soft)}
+.w48-jahr i.x{background:transparent}
+.w48-jahr i.zu{background:transparent;outline:1px dashed color-mix(in srgb,var(--line) 70%,transparent);outline-offset:-1px}
+.w48-jahr i.m1{background:#e03131}.w48-jahr i.m2{background:#f08c00}.w48-jahr i.m3{background:#fab005}.w48-jahr i.m4{background:#74b816}.w48-jahr i.m5{background:#2f9e44}
+.w48-mleg{display:flex;flex-wrap:wrap;gap:8px;font-size:12px;color:var(--muted)}
+.w48-mleg i{width:12px;height:12px;border-radius:3px;display:inline-block;vertical-align:-2px;margin-right:3px}
+.w48-zus li{display:block!important}
+.w48-zbar{display:grid;grid-template-columns:auto 1fr auto;gap:4px 8px;align-items:center;font-size:13px;margin-top:6px}
+.w48-zbar .b{height:10px;border-radius:5px;background:var(--soft);overflow:hidden}
+.w48-zbar .b i{display:block;height:100%;border-radius:5px;background:var(--c,var(--fg))}
+.w48-schlaf .zeiten{display:flex;flex-direction:column;gap:6px}
+.w48-schlaf .z{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--line);border-radius:12px}
+.w48-schlaf .z b{font-family:var(--f-display);font-size:24px;font-variant-numeric:tabular-nums}
+.w48-schlaf .z.gut{border:2px solid var(--ok)}
+
+/* ---------- Packlisten / Leihen ---------- */
+.w48-pl{display:flex;flex-direction:column;gap:8px}
+.w48-pl button.row{display:flex;justify-content:space-between;align-items:center;gap:10px;width:100%;text-align:left;padding:12px;border:1px solid var(--line);border-radius:14px;background:var(--surface);color:var(--fg);font:inherit}
+.w48-pl button.row b{display:block}
+.w48-pl button.row small{color:var(--muted)}
+.w48-leih .bet{font-weight:800;font-variant-numeric:tabular-nums;white-space:nowrap}
+.w48-leih .alt{color:var(--feiertag);font-weight:700}
+
+/* ---------- Update-Hinweis ---------- */
+.w48-upd{width:max-content;position:fixed;z-index:60;left:50%;transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom,0px) + 86px);display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:16px;background:var(--fg);color:var(--inv);box-shadow:0 8px 24px rgba(0,0,0,.25);max-width:calc(100vw - 24px);font-size:15px}
+.w48-upd>span{white-space:nowrap}
+.w48-upd .btn{border-color:var(--inv);background:var(--inv);color:var(--fg);min-height:40px;white-space:nowrap;padding:6px 14px}
+.w48-upd .mini{background:transparent;color:var(--inv);border-color:color-mix(in srgb,var(--inv) 40%,transparent)}
+</style>
+<script>
+(function () {
+  "use strict";
+  if (typeof S === "undefined" || typeof VIEWS !== "object" || typeof save !== "function") return;
+
+  /* =====================================================================
+     0) HELFER
+     ===================================================================== */
+  // Eigene Daten anlegen (immer wieder aufrufen: nach einem Import ist S ein neues Objekt)
+  function E48() {
+    if (!S.settings) S.settings = {};
+    const st = S.settings.v48 && typeof S.settings.v48 === "object" ? S.settings.v48 : (S.settings.v48 = {});
+    if (st.roll == null) st.roll = true;      // To-dos mitnehmen
+    if (st.joker == null) st.joker = true;    // Serien-Joker
+    if (st.backup == null) st.backup = true;  // Backup-Erinnerung
+    if (st.badge == null) st.badge = false;   // Zahl am App-Symbol
+    if (!st.seit) st.seit = todayKey();
+    if (!S.lk || typeof S.lk !== "object") S.lk = {};
+    ["c", "n", "r"].forEach(k => { if (!S.lk[k] || typeof S.lk[k] !== "object") S.lk[k] = {}; });   // c: Karte → [Box, fällig], n: neue pro Tag, r: Wiederholungen pro Tag
+    if (!S.meinTag || typeof S.meinTag !== "object") S.meinTag = {d:"", top:[]};
+    if (!Array.isArray(S.meinTag.top)) S.meinTag.top = [];
+    if (!S.packen || !Array.isArray(S.packen.l)) S.packen = {l:[]};
+    if (!Array.isArray(S.leihen)) S.leihen = [];
+    if (!S.cards || typeof S.cards !== "object") S.cards = {day:"", n:0, known:{}};
+    if (!S.cards.known) S.cards.known = {};
+    if (!S.study || typeof S.study !== "object") S.study = {};
+    return st;
+  }
+  const nid = () => "w" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+  // Zahl aus Text („12,50 €“, „1.250“) lesen
+  const zahl = v => { const s = String(v == null ? "" : v).replace(/[\s€]/g, "").replace(/−/g, "-").replace(/\.(?=\d{3}(?:\D|$))/g, "").replace(",", "."); const n = parseFloat(s); return isFinite(n) ? n : null; };
+  const eur = v => (Math.round(v * 100) / 100).toLocaleString("de-DE", {minimumFractionDigits:2, maximumFractionDigits:2}) + " €";
+  const kopf = t => '<div class="sheet-top"><h2>' + t + '</h2><button class="icon-btn" data-act="close" aria-label="Schließen">' + ICON.x + '</button></div>';
+  const kurz = k => fmt(k, {day:"numeric", month:"numeric"});   // z. B. „6.11.“
+  // Ende des <div>, das an Stelle i beginnt (Divs zählen)
+  function divEnde(h, i) { const re = /<div\b|<\/div>/g; re.lastIndex = i; let d = 0, m; while ((m = re.exec(h))) { if (m[0] === "</div>") { if (--d === 0) return m.index + 6; } else d++; } return -1; }
+  // Neues HTML hinter die Karte setzen, in der „marker“ steht
+  // Start einer echten Karte (<div class="card" oder <div class="card …">, nicht „card-h“) vor bzw. ab Stelle i
+  function kartenStart(h, i, rueckwaerts) {
+    let p = i;
+    while (true) {
+      p = rueckwaerts ? h.lastIndexOf('<div class="card', p) : h.indexOf('<div class="card', p);
+      if (p < 0) return -1;
+      const c = h.charAt(p + 16); if (c === '"' || c === " ") return p;
+      p = rueckwaerts ? p - 1 : p + 1; if (p < 0) return -1;
+    }
+  }
+  function nachKarte(h, marker, neu) { const i = h.indexOf(marker); if (i < 0) return null; const s = kartenStart(h, i, true); if (s < 0) return null; const e = divEnde(h, s); return e < 0 ? null : h.slice(0, e) + neu + h.slice(e); }
+  const mischen = a => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+
+  /* =====================================================================
+     1) GNADENZEIT: bis 3 Uhr nachts zählt alles noch zum Vortag
+     ===================================================================== */
+  const lernTag = () => new Date().getHours() < 3 ? addDays(todayKey(), -1) : todayKey();
+  // Lernminuten, die nach Mitternacht eingetragen wurden, gehören zum Vortag
+  function gnade() {
+    if (new Date().getHours() >= 3 || !S.study) return;
+    const t = todayKey(), m = +S.study[t] || 0; if (!m) return;
+    const g = addDays(t, -1); S.study[g] = (+S.study[g] || 0) + m; delete S.study[t];
+  }
+
+  /* =====================================================================
+     2) OFFENE TO-DOS MITNEHMEN (auf heute schieben)
+     ===================================================================== */
+  function mitnehmen() {
+    // Überfällig = älter als der „Lern-Tag“ (bis 3 Uhr ist noch gestern); Ziel ist immer das heutige Datum
+    const st = E48(), t = lernTag(), heute = todayKey(); if (!st.roll || st.rollT === t) return 0;
+    let n = 0;
+    (S.items || []).forEach(x => { if (x && x.kind === "todo" && !x.done && x.date && x.date < t) { if (!x.seit) x.seit = x.date; x.date = heute; n++; } });
+    st.rollT = t; st.rollN = n;
+    return n;
+  }
+  // „offen seit …“ an die To-dos auf der Startseite hängen
+  const _ot = openTodos;
+  openTodos = function () {
+    const r = _ot.apply(this, arguments);
+    try { const t = todayKey(); r.forEach(x => { if (x.type !== "item") return; const it = S.items.find(i => i.id === x.id); if (it && it.seit && it.date && it.date <= t && it.seit < it.date) x.sub += " · offen seit " + kurz(it.seit); }); } catch (e) {}
+    return r;
+  };
+
+  /* =====================================================================
+     3) MEIN TAG: die 3 wichtigsten Sachen für heute
+     ===================================================================== */
+  function meinTag() {
+    E48(); const M = S.meinTag, t = lernTag();
+    if (M.d !== t) { M.top = M.top.filter(id => { const x = S.items.find(i => i.id === id); return x && !x.done; }); M.d = t; }   // Neuer Tag: Unerledigtes bleibt
+    M.top = M.top.filter(id => S.items.some(i => i.id === id)).slice(0, 3);
+    return M;
+  }
+  function meinTagKarte() {
+    const M = meinTag(), st = E48(), t = lernTag(), its = M.top.map(id => S.items.find(i => i.id === id)).filter(Boolean), fertig = its.filter(x => x.done).length;
+    let h = '<div class="card w48-tag"><div class="card-h"><h3>⭐ Mein Tag</h3><span class="small muted">' + (its.length ? fertig + ' / ' + its.length + ' erledigt' : 'max. 3 Sachen') + '</span></div>';
+    if (its.length) h += '<ul class="list">' + its.map(x => '<li>' + chk("itemdone", x.id, !!x.done, "Erledigt: " + x.text) + '<span class="li-main' + (x.done ? " done" : "") + '">' + esc(x.text) + (x.seit && x.seit < t && !x.done ? '<small>offen seit ' + esc(kurz(x.seit)) + '</small>' : '') + '</span></li>').join("") + '</ul>';
+    else h += '<p class="small muted">Was sind heute deine 3 wichtigsten Sachen? Lieber wenig fest vornehmen und das wirklich schaffen.</p>';
+    if (its.length && fertig === its.length) h += '<p class="tip">🎉 Alles Wichtige für heute geschafft!</p>';
+    h += '<button type="button" class="btn sm" data-act="w48-top">' + (its.length ? "★ Ändern" : "★ Auswählen") + '</button>';
+    if (st.roll && st.rollN && st.rollT === t) h += '<p class="small muted">↪ ' + st.rollN + (st.rollN === 1 ? " offenes To-do" : " offene To-dos") + ' von früher auf heute geschoben.</p>';
+    const f = lkFaellig();
+    if (f.gesamt) h += '<button type="button" class="tip w48-due" data-act="w48-lk">🧠 <b>' + f.gesamt + ' Lernkarten</b> heute dran (' + f.due.length + ' fällig, ' + f.neu.length + ' neu) – ca. ' + Math.max(1, Math.round(f.gesamt / 3)) + ' Min. →</button>';
+    return h + '</div>';
+  }
+  function topSheet() {
+    const M = meinTag(), t = todayKey();
+    const offen = S.items.filter(x => x.kind === "todo" && !x.done).sort((a, b) => (a.date || "9999") < (b.date || "9999") ? -1 : (a.date || "9999") > (b.date || "9999") ? 1 : 0);
+    let h = kopf("⭐ Mein Tag") + '<p class="small muted">Tipp auf ★, um bis zu 3 To-dos für heute auszuwählen. Erledigt hakst du sie auf der Startseite ab.</p>'
+      + '<div class="w48-row"><input id="w48neu" class="inp" maxlength="120" placeholder="Neues To-do für heute …" aria-label="Neues To-do für heute"><button type="button" class="btn" data-act="w48-neu">＋</button></div>';
+    h += offen.length ? '<ul class="list">' + offen.map(x => { const on = M.top.includes(x.id); return '<li><button type="button" class="mini w48-star" data-act="w48-star" data-id="' + esc(x.id) + '" aria-pressed="' + on + '" aria-label="' + (on ? "Aus Mein Tag nehmen: " : "Zu Mein Tag: ") + esc(x.text) + '">' + (on ? "★" : "☆") + '</button><span class="dot" style="--c:' + (AREA_C[x.area] || "var(--fg)") + '"></span><span class="li-main">' + esc(x.text) + '<small>' + esc(((AREAS[x.area] || {}).n || "") + (x.date ? " · " + (x.date < t ? "überfällig · " : "") + fmt(x.date) : " · ohne Datum")) + '</small></span></li>'; }).join("") + '</ul>' : '<p class="empty">Keine offenen To-dos. Leg oben eins an.</p>';
+    return h;
+  }
+
+  /* =====================================================================
+     4) LEITNER-LERNKARTEN + „HEUTE FÄLLIG“ + HEATMAP + SERIEN-JOKER
+     ===================================================================== */
+  const LK_INT = [0, 1, 2, 4, 8, 16];   // Tage bis zur nächsten Wiederholung je Box
+  const LK_NEU = 10;                     // neue Karten pro Tag
+  let LK = null;                         // laufende Runde {q:[{i, wdh}], p, show, n}
+  const hatKarten = () => typeof LERN === "object" && LERN && Array.isArray(LERN.k) && LERN.k.length > 0;
+  function lkIds() { const d = typeof CARD === "object" && CARD ? CARD.deck : -1; return LERN.k.map((c, i) => i).filter(i => d < 0 || LERN.k[i][0] === d); }
+  function lkFaellig() {
+    if (!hatKarten()) return {due:[], neu:[], gesamt:0};
+    E48(); const t = lernTag(), C = S.lk.c, N = LERN.k.length;
+    const due = Object.keys(C).filter(i => +i < N && Array.isArray(C[i]) && C[i][1] <= t).map(Number);
+    const frei = Math.max(0, LK_NEU - (+S.lk.n[t] || 0));
+    const neu = frei ? lkIds().filter(i => !C[i]).slice(0, frei) : [];
+    return {due, neu, gesamt:due.length + neu.length};
+  }
+  function lkStart() {
+    const f = lkFaellig(); if (!f.gesamt) { toast("Für heute ist alles wiederholt 🎉"); return; }
+    LK = {q:mischen(f.due.slice()).concat(f.neu).map(i => ({i, wdh:false})), p:0, show:false, n:0};
+  }
+  // Antwort werten: richtig → eine Box weiter, falsch → Box 1 (morgen) und heute einmal nochmal
+  function lkAntwort(ok) {
+    const t = lernTag(), e = LK.q[LK.p], C = S.lk.c, alt = C[e.i];
+    if (!e.wdh) {
+      if (!alt) S.lk.n[t] = (+S.lk.n[t] || 0) + 1;
+      const box = ok ? (alt ? Math.min(5, alt[0] + 1) : (S.cards.known[e.i] ? 3 : 2)) : 1;
+      C[e.i] = [box, addDays(t, LK_INT[box])];
+      if (ok) S.cards.known[e.i] = true; else delete S.cards.known[e.i];
+      if (!ok) LK.q.push({i:e.i, wdh:true});
+    }
+    S.lk.r[t] = (+S.lk.r[t] || 0) + 1; LK.n++;
+    const tk = todayKey(); if (S.cards.day !== tk) { S.cards.day = tk; S.cards.n = 0; } S.cards.n++;   // zählt auch bei „Heute: x / 20“ mit
+    LK.p++; LK.show = false; save();
+  }
+  function lkKarte() {
+    if (!hatKarten()) return "";
+    const f = lkFaellig(), C = S.lk.c, b = [0, 0, 0, 0, 0, 0];
+    Object.keys(C).forEach(i => { if (+i < LERN.k.length && Array.isArray(C[i])) b[C[i][0]] = (b[C[i][0]] || 0) + 1; });
+    let h = '<div class="card" id="w48lk"><div class="card-h"><h3>🧠 Wiederholen nach Plan</h3><span class="small muted">Leitner-System</span></div>';
+    if (LK && LK.p < LK.q.length) {
+      const e = LK.q[LK.p], c = LERN.k[e.i];
+      h += '<div class="card-h"><span class="small">Karte <b>' + (LK.p + 1) + ' von ' + LK.q.length + '</b> · ' + (e.wdh ? "nochmal" : C[e.i] ? "Box " + C[e.i][0] : "neu") + '</span><button type="button" class="link small" data-act="w48-lkstop">Pause</button></div>'
+        + '<div class="flashcard"><p class="eyebrow">' + esc((FACH_N[LERN.g && LERN.g[c[0]]] || "") + (LERN.secs ? " · " + LERN.secs[c[0]] : "")) + '</p><p class="fq">' + esc(c[1]) + '</p>'
+        + (LK.show ? '<p class="fa">' + esc(c[2]) + '</p><div class="btn-row"><button class="btn" data-act="w48-lkno">↻ Wusste ich nicht</button><button class="btn primary" data-act="w48-lkok">✓ Wusste ich</button></div>' : '<button class="btn primary block" data-act="w48-lkshow">Antwort zeigen</button>') + '</div>';
+    } else {
+      if (LK && LK.n) h += '<p class="tip">🎉 <b>Runde geschafft!</b> ' + LK.n + ' Karten wiederholt. Was du nicht wusstest, kommt morgen wieder.</p>';
+      h += '<div class="counters"><div class="counter"><b>' + f.due.length + '</b><span>fällig heute</span></div><div class="counter"><b>' + f.neu.length + '</b><span>neue Karten (max. ' + LK_NEU + ' pro Tag)</span></div></div>'
+        + '<div class="w48-boxen" aria-label="Karten pro Box">' + [1, 2, 3, 4, 5].map(i => '<div><b>' + b[i] + '</b>Box ' + i + '</div>').join("") + '</div>'
+        + (f.gesamt ? '<button class="btn primary block" data-act="w48-lkgo">▶ ' + f.gesamt + ' Karten jetzt wiederholen</button>' : '<p class="tip">✓ Für heute ist alles wiederholt. Morgen geht’s weiter.</p>');
+    }
+    return h + '<p class="small muted">Richtig → die Karte kommt später wieder (nach 2, 4, 8, 16 Tagen). Falsch → morgen nochmal. Neue Karten kommen aus dem Thema, das unten bei 🃏 Lernkarten gewählt ist. Bis 3 Uhr nachts zählt alles noch zum Vortag.</p></div>';
+  }
+  // Heatmap: die letzten 20 Wochen (Lernminuten + Karten)
+  function heatKarte() {
+    const t = lernTag(), start = addDays(mondayOf(t), -7 * 19); let cells = "", tage = 0;
+    for (let i = 0; i < 140; i++) {
+      const k = addDays(start, i);
+      if (k > t) { cells += '<i class="zu"></i>'; continue; }
+      const v = (+S.study[k] || 0) + (+S.lk.r[k] || 0) * 0.5, l = v <= 0 ? 0 : v < 15 ? 1 : v < 30 ? 2 : v < 60 ? 3 : 4;
+      if (v > 0) tage++;
+      cells += '<i class="' + (l ? "l" + l : "") + (k === t ? " heute" : "") + '" title="' + esc(fmt(k)) + ': ' + Math.round(+S.study[k] || 0) + ' Min. · ' + (+S.lk.r[k] || 0) + ' Karten"></i>';
+    }
+    return '<div class="card"><div class="card-h"><h3>🟩 Lern-Kalender</h3><span class="small muted">20 Wochen</span></div><div class="w48-heat" role="img" aria-label="An ' + tage + ' von 140 Tagen gelernt">' + cells + '</div>'
+      + '<div class="card-h"><span class="small muted">An <b>' + tage + '</b> Tagen gelernt</span><span class="w48-leg">weniger <i style="background:var(--soft)"></i><i style="background:color-mix(in srgb,var(--schule) 30%,var(--soft))"></i><i style="background:color-mix(in srgb,var(--schule) 55%,var(--soft))"></i><i style="background:color-mix(in srgb,var(--schule) 80%,var(--soft))"></i><i style="background:var(--schule)"></i> mehr</span></div>'
+      + '<p class="small muted">Jede Spalte ist eine Woche (Mo oben). Zählt Lernminuten und wiederholte Karten.</p></div>';
+  }
+  // Lern-Serie mit Joker: 1 fehlender Tag pro Woche (Mo–So) unterbricht die Serie nicht
+  function lernSerieJ() {
+    const st = E48(); let k = lernTag(), n = 0, j = 0; const used = {};
+    if (!(S.study[k] > 0)) k = addDays(k, -1);
+    for (let z = 0; z < 3000; z++) {
+      if (S.study[k] > 0) { n++; k = addDays(k, -1); continue; }
+      const w = mondayOf(k);
+      if (st.joker && !used[w] && S.study[addDays(k, -1)] > 0) { used[w] = 1; j++; k = addDays(k, -1); continue; }
+      break;
+    }
+    return {n, j};
+  }
+  const _sl = schLernen;
+  schLernen = function () {
+    let h = _sl.apply(this, arguments);
+    try {
+      E48();
+      const r = lernSerieJ();
+      h = h.replace(/<b>\d+<\/b><span>Tage Lern-Serie(?: 🔥)?/, '<b>' + r.n + '</b><span>' + (r.n === 1 ? "Tag" : "Tage") + ' Lern-Serie' + (r.n >= 3 ? " 🔥" : "") + (r.j ? " · 🧊 " + r.j + " Joker" : ""));
+      const heat = heatKarte(), mit = nachKarte(h, "<h3>📈 Lern-Statistik</h3>", heat);
+      h = mit || h.replace('<div class="card" id="cardsCard">', heat + '<div class="card" id="cardsCard">');
+      const lk = lkKarte();
+      h = h.indexOf('<div class="card" id="cardsCard">') >= 0 ? h.replace('<div class="card" id="cardsCard">', lk + '<div class="card" id="cardsCard">') : lk + h;
+    } catch (e) {}
+    return h;
+  };
+  // Gym-Serie (Startseite) mit Joker: 1 verpasster Trainingstag pro Woche wird verziehen
+  const _gs = gymStreak;
+  gymStreak = function (H) {
+    const st = E48(); if (!st.joker) return _gs.apply(this, arguments);
+    try {
+      const t = todayKey(), start = (H.settings && H.settings.startDate) || HB_START; let n = 0; const used = {};
+      for (let k = t; k >= start; k = addDays(k, -1)) {
+        if (!GYM_PLAN[wdOf(k)] && !H.workouts[k]) continue;
+        const s = gymStatus(k, H);
+        if (k === t && s !== "done") continue;
+        if (s === "done") n++;
+        else if (s === "excused" || s === "") continue;
+        else { const w = mondayOf(k); if (!used[w]) { used[w] = 1; continue; } break; }
+      }
+      return n;
+    } catch (e) { return _gs.apply(this, arguments); }
+  };
+
+  /* =====================================================================
+     5) SOLL-IST: Rahmenplan ↔ Praxis (Berichtsheft-Einträge)
+     ===================================================================== */
+  // Gleiche Stichwörter wie im Tab „🧭 Praxis“ (v44)
+  const PKAT = [
+    ["team", /meeting|besprechung|schulung|präsentation zum thema|einführung|rundführung|vorstellung|planung der aufgaben|urlaubsübergabe|gespräch mit|projekt geplant|op-planung/],
+    ["spezial", /kartenlese|konnektor|etikett|armband/],
+    ["druck", /drucker|toner|patrone|papierstau|scanner/],
+    ["mail", /e-mail|outlook|signatur/],
+    ["hotline", /hotline|ticket/],
+    ["konto", /onboarding|account|zugang|passwort|kennwort/],
+    ["soft", /update|aktualisier|softwarestand|software|citrix/],
+    ["netz", /^(?!.*(monitor|aufgeräumt)).*(netzwerk|switch|patch|serverraum|server\b|internet|steckdosenleiste)/],
+    ["pc", /aufgesetzt|aufsetzen|rechner|laptop|notebook|virtuelle maschine|\bvm\b|windows-version|programmen|(pc|pcs|systems?)\b.*(eingerichtet|aufgebaut|konfiguriert)|einrichtung (eines neuen systems|neuer pcs)/],
+    ["hw", /austausch|ausgetauscht|getauscht|gewechselt|nachgerüstet|lüfter|\bssd\b|\bram\b|maus|tastatur|monitor|demontiert|repariert|defekt|überprüfung von hardware|kabel/],
+    ["lager", /lager|paket|warenannahme|entsorg|elektroschrott|aufgeräumt|reinigung|versand/],
+    ["platz", /umz|büro|arbeitsplatz|arbeitsplätze|abteilung|sekretariat|aufgebaut|aufbau|abbau|ausgestattet/]
+  ];
+  const katVon = txt => { const s = String(txt).toLowerCase(); const f = PKAT.find(c => c[1].test(s)); return f ? f[0] : "sonst"; };
+  // Rahmenplan-Punkt → passende Praxis-Bereiche (geschätzt)
+  const SOLL = [
+    ["a1", "Arbeitsaufgaben planen und durchführen", ["team", "platz"]],
+    ["a2", "Kunden informieren und beraten", ["hotline", "konto", "team"]],
+    ["a3", "IT-Systeme beurteilen und auswählen", []],
+    ["a4", "IT-Lösungen einrichten und betreuen", ["pc", "hw", "druck", "netz", "spezial", "mail", "platz"]],
+    ["a5", "Qualität sichern: testen, prüfen, dokumentieren", ["soft", "hw"]],
+    ["a6", "IT-Sicherheit und Datenschutz umsetzen", ["konto", "soft"]],
+    ["a7", "Leistung erbringen und Auftrag abschließen", ["hotline", "platz", "pc"]],
+    ["c1", "Berufsbildung, Arbeits- und Tarifrecht", []],
+    ["c2", "Aufbau und Organisation des Betriebs", ["team"]],
+    ["c3", "Arbeitsschutz und Gesundheit", []],
+    ["c4", "Umweltschutz", ["lager"]],
+    ["c5", "Digital vernetzt zusammenarbeiten", ["hotline", "team", "mail"]]
+  ];
+  const KDM_MAP = {kdm12:["lager"], kdm14:["konto", "soft"], kdm15:["konto"]};
+  function sollIstKarte() {
+    const bh = (S.work && S.work.bh) || {}, R = {}; let ges = 0;
+    Object.keys(bh).forEach(mon => ((bh[mon] && bh[mon].betrieb) || []).forEach(p => { const txt = String((p && p.text) || "").trim(); if (!txt) return; const k = katVon(txt); R[k] = (R[k] || 0) + 1; ges++; }));
+    const zeilen = SOLL.map(r => ({id:r[0], t:r[1], g:r[2]})).concat((S.rahmenEigen || []).filter(e => e && /^kdm\d+$/.test(e.id)).map(e => ({id:e.id, t:e.t, g:KDM_MAP[e.id] || []})));
+    zeilen.forEach(z => { z.n = z.g.reduce((a, g) => a + (R[g] || 0), 0); z.s = +((S.rahmen || {})[z.id]) || 0; z.luecke = z.n === 0 && z.s < 2; });
+    const mit = zeilen.filter(z => z.n > 0).length, luecken = zeilen.filter(z => z.luecke);
+    let h = '<div class="card"><div class="card-h"><h3>🎯 Soll-Ist: Rahmenplan</h3><span class="small muted">' + mit + ' / ' + zeilen.length + ' mit Praxis</span></div>'
+      + '<div class="bar" style="--c:var(--arbeit)"><i style="width:' + (zeilen.length ? mit / zeilen.length * 100 : 0).toFixed(1) + '%"></i></div>';
+    if (!ges) h += '<p class="small muted">Noch keine Einträge im Berichtsheft (Bereich Betrieb). Sobald du welche hast, siehst du hier, welche Punkte vom Rahmenplan du schon geübt hast.</p>';
+    else if (luecken.length) h += '<p class="tip"><b>Lücken – frag deinen Ausbilder, wann du das üben kannst:</b><br>' + luecken.slice(0, 5).map(z => "• " + esc(z.t)).join("<br>") + (luecken.length > 5 ? "<br>… und " + (luecken.length - 5) + " weitere" : "") + '</p>';
+    else h += '<p class="tip">💪 Zu jedem Punkt gibt es schon Praxis. Weiter so!</p>';
+    h += '<details class="acc"><summary>Alle Punkte anzeigen</summary><div class="acc-in"><ul class="list w48-si">' + zeilen.map(z => '<li><span class="st" title="Dein Haken im Rahmenplan">' + ["–", "◐", "✓"][Math.max(0, Math.min(2, z.s))] + '</span><span class="li-main">' + esc(z.t) + (z.luecke ? '<span class="w48-luecke">Lücke</span>' : '') + '<small>' + (z.g.length ? z.n + (z.n === 1 ? " passender Eintrag" : " passende Einträge") : "kommt im Berichtsheft kaum vor – eher Schule oder Unterweisung") + '</small></span><span class="n">' + z.n + '</span></li>').join("") + '</ul></div></details>'
+      + '<p class="small muted">Geschätzt über Stichwörter in deinen Berichtsheft-Einträgen. Deine echten Haken setzt du unter Arbeit → Zukunft → Ausbildungsrahmenplan.</p></div>';
+    return h;
+  }
+  const _ah = arbHeute;
+  arbHeute = function () {
+    const h = _ah.apply(this, arguments);
+    try {
+      if (typeof ARB_TAB === "undefined" || ARB_TAB !== "praxis") return h;
+      const k = sollIstKarte(), s = kartenStart(h, 0, false), e = s < 0 ? -1 : divEnde(h, s);
+      return e < 0 ? k + h : h.slice(0, e) + k + h.slice(e);
+    } catch (e) { return h; }
+  };
+
+  /* =====================================================================
+     6) GESUNDHEIT: Jahr in Pixeln, Zusammenhänge, Schlafrechner
+     ===================================================================== */
+  const MOODS = ["😣", "😕", "😐", "🙂", "😄"];
+  function jahrKarte() {
+    const G = S.gesund || {}, M = G.mood || {}, t = todayKey(), y = +t.slice(0, 4); let h = '<span></span>', n = 0;
+    "JFMAMJJASOND".split("").forEach(c => { h += '<span>' + c + '</span>'; });
+    for (let d = 1; d <= 31; d++) {
+      h += '<span>' + (d % 5 === 0 || d === 1 ? d : "") + '</span>';
+      for (let m = 1; m <= 12; m++) {
+        const dt = new Date(y, m - 1, d);
+        if (dt.getMonth() !== m - 1) { h += '<i class="x"></i>'; continue; }
+        const k = y + "-" + String(m).padStart(2, "0") + "-" + String(d).padStart(2, "0"), s = (M[k] || {}).s;
+        if (s) n++;
+        h += '<i class="' + (k > t ? "zu" : s ? "m" + s : "") + '"' + (s ? ' title="' + esc(fmt(k)) + ': ' + MOODS[s - 1] + '"' : '') + '></i>';
+      }
+    }
+    return '<div class="card"><div class="card-h"><h3>🟨 Dein Jahr in Pixeln</h3><span class="small muted">' + y + ' · ' + n + ' Tage</span></div><div class="w48-jahr" role="img" aria-label="Stimmung pro Tag im Jahr ' + y + ', ' + n + ' Tage eingetragen">' + h + '</div>'
+      + '<div class="w48-mleg">' + ["#e03131", "#f08c00", "#fab005", "#74b816", "#2f9e44"].map((c, i) => '<span><i style="background:' + c + '"></i>' + MOODS[i] + '</span>').join("") + '</div><p class="small muted">Jeder Tag ein Kästchen in der Farbe deiner Stimmung. Trag oben täglich ein, dann füllt sich das Jahr.</p></div>';
+  }
+  function zusammenKarte() {
+    const G = S.gesund || {}, M = G.mood || {}, t = todayKey(); let H = null; try { H = readHB(); } catch (e) {}
+    const tage = []; for (let i = 0; i < 90; i++) tage.push(addDays(t, -i));
+    const avg = a => a.length ? a.reduce((x, y) => x + y, 0) / a.length : null;
+    const f1 = v => v == null ? "–" : v.toLocaleString("de-DE", {minimumFractionDigits:1, maximumFractionDigits:1});
+    function vergl(titel, feld, test, ja, nein) {
+      const A = [], B = [];
+      tage.forEach(k => { const m = M[k] || {}, v = +m[feld]; if (!(v >= 1)) return; const r = test(k); if (r === true) A.push(v); else if (r === false) B.push(v); });
+      if (A.length < 5 || B.length < 5) return '<li><b>' + titel + '</b><p class="small muted">Noch zu wenig Daten (' + A.length + ' / ' + B.length + ' Tage, je 5 nötig).</p></li>';
+      const a = avg(A), b = avg(B), d = a - b;
+      return '<li><b>' + titel + '</b><div class="w48-zbar"><span>' + ja + '</span><span class="b"><i style="width:' + (a / 5 * 100).toFixed(0) + '%;--c:var(--ok)"></i></span><b>' + f1(a) + '</b><span>' + nein + '</span><span class="b"><i style="width:' + (b / 5 * 100).toFixed(0) + '%;--c:var(--muted)"></i></span><b>' + f1(b) + '</b></div>'
+        + '<p class="small muted">' + (Math.abs(d) < 0.3 ? "Kaum Unterschied." : (d > 0 ? "Im Schnitt " + f1(d) + " Punkte besser" : "Im Schnitt " + f1(-d) + " Punkte schlechter") + " (" + A.length + " vs. " + B.length + " Tage).") + '</p></li>';
+    }
+    const schlaf = k => { const v = +(G.schlaf || {})[k]; return v > 0 ? v >= 7 : null; };
+    const gym = k => { if (!H) return null; try { return gymStatus(k, H) === "done"; } catch (e) { return null; } };
+    const wasser = k => { const v = +(G.wasser || {})[k]; return v > 0 ? v >= 8 : null; };
+    return '<div class="card"><div class="card-h"><h3>🔗 Was hängt zusammen?</h3><span class="small muted">90 Tage</span></div><ul class="list w48-zus">'
+      + vergl("😴 Schlaf und Stimmung", "s", schlaf, "≥ 7 Std.", "< 7 Std.")
+      + vergl("😴 Schlaf und Energie", "e", schlaf, "≥ 7 Std.", "< 7 Std.")
+      + vergl("🏋️ Gym und Stimmung", "s", gym, "Gym-Tag", "ohne Gym")
+      + vergl("💧 Wasser und Energie", "e", wasser, "≥ 8 Gläser", "weniger")
+      + '</ul><p class="small muted">Skala 1–5. Das zeigt nur, was oft zusammen vorkommt – nicht, was was auslöst.</p></div>';
+  }
+  // Schlafrechner: 90-Minuten-Zyklen + ca. 15 Min. zum Einschlafen
+  const hm = m => { m = ((Math.round(m) % 1440) + 1440) % 1440; return String(Math.floor(m / 60)).padStart(2, "0") + ":" + String(m % 60).padStart(2, "0"); };
+  function schlafZeiten(wach) {
+    const st = E48(), w = /^\d{1,2}:\d{2}$/.test(wach || "") ? wach : (st.wach || "06:30"), [hh, mm] = w.split(":").map(Number), wm = hh * 60 + mm;
+    return [6, 5, 4].map(n => ({n, bett:hm(wm - n * 90 - 15), std:n * 1.5}));
+  }
+  function schlafListe(wach) {
+    return schlafZeiten(wach).map(z => '<div class="z' + (z.n >= 5 ? " gut" : "") + '"><span>🛏️ <b>' + z.bett + '</b></span><span class="small">' + z.n + ' Zyklen · ' + z.std.toLocaleString("de-DE") + ' Std.' + (z.n === 5 ? " · ideal" : z.n === 4 ? " · knapp" : "") + '</span></div>').join("");
+  }
+  function jetztListe() {
+    const d = new Date(), nm = d.getHours() * 60 + d.getMinutes() + 15;
+    return [4, 5, 6].map(n => '<div class="z' + (n >= 5 ? " gut" : "") + '"><span>⏰ <b>' + hm(nm + n * 90) + '</b></span><span class="small">' + n + ' Zyklen · ' + (n * 1.5).toLocaleString("de-DE") + ' Std.</span></div>').join("");
+  }
+  function schlafHtml(titel) {
+    const st = E48(), w = st.wach || "06:30";
+    return '<div class="w48-schlaf stack" style="gap:10px">' + (titel ? '<div class="card-h"><h3>' + titel + '</h3><span class="small muted">Faustregel</span></div>' : '')
+      + '<div class="field"><label>Wann willst du aufstehen?</label><input type="time" class="inp w48-wach" value="' + esc(w) + '" aria-label="Aufstehzeit"></div>'
+      + '<p class="lbl">Dann ins Bett um …</p><div class="zeiten w48-out">' + schlafListe(w) + '</div>'
+      + '<details class="acc"><summary>Ich gehe jetzt ins Bett – wann aufstehen?</summary><div class="acc-in"><div class="zeiten">' + jetztListe() + '</div></div></details>'
+      + '<p class="small muted">Ein Schlafzyklus dauert ca. 90 Minuten, ist aber bei jedem etwas anders. Wichtiger: genug Schlaf (7–9 Std.) und jeden Tag ähnliche Zeiten.</p></div>';
+  }
+  const _vg = VIEWS.gesund;
+  if (typeof _vg === "function") VIEWS.gesund = function () {
+    let h = _vg.apply(this, arguments);
+    try {
+      E48();
+      const neu = jahrKarte() + zusammenKarte() + '<div class="card">' + schlafHtml("😴 Schlafrechner") + '</div>';
+      h = nachKarte(h, "<h3>📈 Letzte 14 Tage</h3>", neu) || h.replace(/<\/div>\s*$/, neu + "</div>");
+    } catch (e) {}
+    return h;
+  };
+
+  /* =====================================================================
+     7) GELD: Tagesbudget + Geld verliehen/geliehen
+     ===================================================================== */
+  function leihSumme() { E48(); let aus = 0, ein = 0; S.leihen.forEach(e => { if (e.ok) return; const b = +e.betrag || 0; if (e.r === "ein") ein += b; else aus += b; }); return {aus, ein, offen:S.leihen.filter(e => !e.ok).length}; }
+  function leihKarte() {
+    const L = leihSumme();
+    return '<div class="card"><div class="card-h"><h3>🤝 Verliehen & geliehen</h3><button type="button" class="link small" data-act="w48-go" data-v="leihen">Öffnen →</button></div>'
+      + (L.offen ? '<div class="counters w48-eur"><div class="counter"><b>' + eur(L.aus) + '</b><span>bekommst du zurück</span></div><div class="counter"><b>' + eur(L.ein) + '</b><span>gibst du zurück</span></div></div>' : '<p class="small muted">Nichts offen. Wenn du jemandem Geld leihst (oder dir was leihst), trag es kurz ein – dann vergisst es keiner.</p>') + '</div>';
+  }
+  const _ag = arbGeld;
+  arbGeld = function () {
+    let h = _ag.apply(this, arguments);
+    try {
+      if (!/data-v="ueberblick" aria-pressed="true"/.test(h)) return h;
+      const i = h.indexOf('class="gbig"'), j = i < 0 ? -1 : h.indexOf("</span>", i);
+      if (j > 0 && h.slice(Math.max(0, i - 600), i).indexOf("So viel bleibt") >= 0 && h.indexOf("Trag unter <b>📒 Budget</b>") < 0) {
+        const rest = zahl(h.slice(h.indexOf(">", i) + 1, j)), t = todayKey(), d = parseKey(t), ende = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate(), tage = ende - d.getDate() + 1;
+        if (rest != null) {
+          const zeile = rest > 0 ? '<p class="small w48-tb">≈ ' + eur(rest / tage) + ' pro Tag bis Monatsende (noch ' + tage + (tage === 1 ? " Tag" : " Tage") + ')</p>' : '<p class="small w48-tb">Für den Rest des Monats ist nichts mehr übrig – jetzt lieber sparen.</p>';
+          h = h.slice(0, j + 7) + zeile + h.slice(j + 7);
+        }
+      }
+      h += leihKarte();
+    } catch (e) {}
+    return h;
+  };
+
+  let LH_R = "aus", LH_DEL = null;
+  function viewLeihen() {
+    E48(); const t = todayKey(), L = leihSumme(), offen = S.leihen.filter(e => !e.ok).sort((a, b) => (a.bis || "9999") < (b.bis || "9999") ? -1 : 1), zu = S.leihen.filter(e => e.ok).sort((a, b) => a.ok < b.ok ? 1 : -1);
+    const zeile = e => {
+      const alt = !e.ok && e.bis && e.bis < t;
+      return '<li><span class="dot" style="--c:' + (e.r === "ein" ? "var(--warn)" : "var(--ok)") + '"></span><span class="li-main"><b>' + esc(e.wer) + '</b><small>' + (e.r === "ein" ? "Du hast dir geliehen" : "Du hast verliehen") + (e.fuer ? " · " + esc(e.fuer) : "") + ' · am ' + esc(kurz(e.d)) + (e.ok ? " · zurück am " + esc(kurz(e.ok)) : e.bis ? ' · <span class="' + (alt ? "alt" : "") + '">bis ' + esc(kurz(e.bis)) + (alt ? " (überfällig)" : "") + '</span>' : "") + '</small></span><span class="bet">' + eur(+e.betrag || 0) + '</span>'
+        + (e.ok ? '' : '<button type="button" class="mini" data-act="w48-lok" data-id="' + esc(e.id) + '" aria-label="Zurückgezahlt: ' + esc(e.wer) + '">✓</button>')
+        + (LH_DEL === e.id ? '<button type="button" class="mini" style="border-color:var(--feiertag);color:var(--feiertag)" data-act="w48-ldel" data-id="' + esc(e.id) + '">Löschen?</button>' : '<button type="button" class="mini" data-act="w48-ldel" data-id="' + esc(e.id) + '" aria-label="Eintrag löschen">✕</button>') + '</li>';
+    };
+    let h = '<div class="stack view"><div><p class="eyebrow">Wer schuldet wem was?</p><h1>🤝 Geld verliehen</h1></div>'
+      + '<div class="counters w48-eur"><div class="counter"><b class="tnum">' + eur(L.aus) + '</b><span>bekommst du zurück</span></div><div class="counter"><b class="tnum">' + eur(L.ein) + '</b><span>gibst du zurück</span></div></div>'
+      + '<div class="card"><h3>➕ Neuer Eintrag</h3><div class="seg w48-nm" role="group" aria-label="Richtung"><button type="button" data-act="w48-lr" data-v="aus" aria-pressed="' + (LH_R === "aus") + '">Ich habe verliehen</button><button type="button" data-act="w48-lr" data-v="ein" aria-pressed="' + (LH_R === "ein") + '">Ich habe mir geliehen</button></div>'
+      + '<div class="grid2"><div class="field"><label for="w48lw">' + (LH_R === "ein" ? "Von wem?" : "An wen?") + '</label><input id="w48lw" maxlength="40" autocomplete="off" placeholder="Spitzname oder Initialen"></div><div class="field"><label for="w48lb">Betrag (€)</label><input id="w48lb" inputmode="decimal" placeholder="z. B. 20"></div></div>'
+      + '<div class="grid2"><div class="field"><label for="w48lf">Wofür? (optional)</label><input id="w48lf" maxlength="80" placeholder="z. B. Kino, Pizza"></div><div class="field"><label for="w48ld">Zurück bis (optional)</label><input id="w48ld" type="date"></div></div>'
+      + '<button type="button" class="btn primary block" data-act="w48-ladd">Eintragen</button><p class="small muted">Nur Spitznamen oder Initialen eintragen, keine vollen Namen.</p></div>';
+    h += '<div class="card"><div class="card-h"><h3>Offen</h3><span class="small muted">' + offen.length + '</span></div>' + (offen.length ? '<ul class="list w48-leih">' + offen.map(zeile).join("") + '</ul>' : '<p class="empty">Nichts offen. 👍</p>') + '</div>';
+    if (zu.length) h += '<details class="acc"><summary>Erledigt (' + zu.length + ')</summary><div class="acc-in"><ul class="list w48-leih">' + zu.slice(0, 30).map(zeile).join("") + '</ul></div></details>';
+    return h + '<p class="tip">Tipp: Leihst du dir was, trag es sofort ein. Kleine Beträge vergisst man am schnellsten.</p></div>';
+  }
+
+  /* =====================================================================
+     8) PACKLISTEN
+     ===================================================================== */
+  const PK_KAT = ["Kleidung", "Hygiene", "Technik", "Dokumente & Geld", "Gesundheit", "Sport", "Sonstiges"];
+  // Vorlagen: [Kategorie, Name, Menge je nach Tagen (optional)]
+  const PK_VORL = {
+    nacht:{n:"🛏️ Übernachtung (1–2 Nächte)", tage:1, i:[["Kleidung", "Unterwäsche", n => n + 1], ["Kleidung", "Socken", n => n + 1], ["Kleidung", "T-Shirt", n => n], ["Kleidung", "Schlafsachen"], ["Hygiene", "Zahnbürste & Zahnpasta"], ["Hygiene", "Deo"], ["Hygiene", "Duschgel & Shampoo"], ["Technik", "Handy-Ladekabel"], ["Technik", "Powerbank"], ["Technik", "Kopfhörer"], ["Dokumente & Geld", "Ausweis"], ["Dokumente & Geld", "Geldbeutel / Karte"], ["Dokumente & Geld", "Schlüssel"], ["Gesundheit", "Eigene Medikamente (falls nötig)"]]},
+    warm:{n:"☀️ Urlaub (warm)", tage:7, i:[["Kleidung", "Unterwäsche", n => n + 1], ["Kleidung", "Socken", n => n], ["Kleidung", "T-Shirt", n => n], ["Kleidung", "Kurze Hose", n => Math.max(2, Math.ceil(n / 2))], ["Kleidung", "Lange Hose", () => 1], ["Kleidung", "Pulli oder Jacke für abends"], ["Kleidung", "Badehose"], ["Kleidung", "Badelatschen"], ["Kleidung", "Sonnenbrille"], ["Kleidung", "Kappe / Hut"], ["Hygiene", "Zahnbürste & Zahnpasta"], ["Hygiene", "Sonnencreme"], ["Hygiene", "After-Sun"], ["Hygiene", "Deo"], ["Hygiene", "Duschgel & Shampoo"], ["Hygiene", "Rasierer"], ["Technik", "Handy-Ladekabel"], ["Technik", "Powerbank"], ["Technik", "Kopfhörer"], ["Technik", "Reiseadapter (Ausland)"], ["Dokumente & Geld", "Personalausweis / Reisepass"], ["Dokumente & Geld", "Krankenversicherungskarte"], ["Dokumente & Geld", "Tickets / Buchung"], ["Dokumente & Geld", "Bargeld & Karte"], ["Gesundheit", "Reiseapotheke (Pflaster, Schmerzmittel)"], ["Gesundheit", "Eigene Medikamente (falls nötig)"]]},
+    kalt:{n:"❄️ Urlaub (kalt)", tage:5, i:[["Kleidung", "Unterwäsche", n => n + 1], ["Kleidung", "Warme Socken", n => n + 1], ["Kleidung", "Shirt / Longsleeve", n => n], ["Kleidung", "Pullover", n => Math.max(2, Math.ceil(n / 2))], ["Kleidung", "Lange Hose", n => Math.max(2, Math.ceil(n / 3))], ["Kleidung", "Thermo-Unterwäsche"], ["Kleidung", "Winterjacke"], ["Kleidung", "Mütze, Schal, Handschuhe"], ["Kleidung", "Feste Schuhe"], ["Hygiene", "Zahnbürste & Zahnpasta"], ["Hygiene", "Lippenpflege"], ["Hygiene", "Handcreme"], ["Hygiene", "Deo"], ["Hygiene", "Duschgel & Shampoo"], ["Technik", "Handy-Ladekabel"], ["Technik", "Powerbank (Kälte leert den Akku)"], ["Technik", "Kopfhörer"], ["Dokumente & Geld", "Personalausweis / Reisepass"], ["Dokumente & Geld", "Krankenversicherungskarte"], ["Dokumente & Geld", "Tickets / Buchung"], ["Dokumente & Geld", "Bargeld & Karte"], ["Gesundheit", "Reiseapotheke"], ["Gesundheit", "Eigene Medikamente (falls nötig)"]]},
+    gym:{n:"🏋️ Gym-Tasche", tage:0, i:[["Sport", "Sportshirt & Hose"], ["Sport", "Sportschuhe"], ["Sport", "Handtuch"], ["Sport", "Trinkflasche"], ["Sport", "Schloss für den Spind"], ["Sport", "Mitgliedskarte / App"], ["Technik", "Kopfhörer"], ["Hygiene", "Duschgel"], ["Hygiene", "Badelatschen"], ["Hygiene", "Deo"], ["Kleidung", "Frische Unterwäsche & Socken"], ["Sonstiges", "Snack nach dem Training"]]},
+    tag:{n:"🚆 Tagesausflug", tage:0, i:[["Technik", "Handy & Powerbank"], ["Technik", "Ladekabel"], ["Technik", "Kopfhörer"], ["Dokumente & Geld", "Geldbeutel / Karte"], ["Dokumente & Geld", "Ausweis"], ["Dokumente & Geld", "Ticket"], ["Sonstiges", "Trinkflasche"], ["Sonstiges", "Snacks"], ["Kleidung", "Jacke / Regenschirm"], ["Hygiene", "Sonnencreme (Sommer)"], ["Hygiene", "Taschentücher"]]},
+    leer:{n:"📝 Leere Liste", tage:0, i:[]}
+  };
+  let PK_ID = null, PK_DEL = false;
+  try { PK_ID = sessionStorage.getItem("wk.w48pk") || null; } catch (e) {}
+  const pkSet = id => { PK_ID = id; PK_DEL = false; try { if (id) sessionStorage.setItem("wk.w48pk", id); else sessionStorage.removeItem("wk.w48pk"); } catch (e) {} };
+  const pkListe = () => (S.packen.l || []).find(l => l.id === PK_ID) || null;
+  function pkText(L) { return "🧳 " + L.n + "\n" + PK_KAT.map(k => { const it = L.i.filter(x => (PK_KAT.includes(x.k) ? x.k : "Sonstiges") === k); return it.length ? "\n" + k + "\n" + it.map(x => (x.ok ? "☑ " : "☐ ") + x.t).join("\n") : ""; }).join("\n"); }
+  function viewPacken() {
+    E48(); const L = pkListe();
+    if (!L) {
+      const ls = S.packen.l;
+      let h = '<div class="stack view"><div><p class="eyebrow">Nichts mehr vergessen</p><h1>🧳 Packlisten</h1></div>';
+      if (ls.length) h += '<div class="card"><h3>Deine Listen</h3><div class="w48-pl">' + ls.map(l => { const d = l.i.filter(x => x.ok).length; return '<button type="button" class="row" data-act="w48-popen" data-id="' + esc(l.id) + '"><span><b>' + esc(l.n) + '</b><small>' + d + ' / ' + l.i.length + ' gepackt</small></span><span aria-hidden="true">→</span></button>'; }).join("") + '</div></div>';
+      h += '<div class="card"><h3>➕ Neue Liste</h3><div class="field"><label for="w48pv">Vorlage</label><select id="w48pv" class="inp">' + Object.keys(PK_VORL).map(k => '<option value="' + k + '">' + PK_VORL[k].n + '</option>').join("") + '</select></div>'
+        + '<div class="grid2"><div class="field"><label for="w48pn">Name</label><input id="w48pn" maxlength="60" placeholder="z. B. Kurztrip Hamburg"></div><div class="field"><label for="w48pt">Wie viele Tage?</label><input id="w48pt" type="number" min="1" max="30" inputmode="numeric" placeholder="z. B. 3"></div></div>'
+        + '<button type="button" class="btn primary block" data-act="w48-pnew">Liste anlegen</button><p class="small muted">Bei Urlaub und Übernachtung rechnet die Liste die Menge (z. B. Unterwäsche) nach den Tagen aus.</p></div>';
+      return h + '<p class="tip">Tipp: Gym-Tasche einmal anlegen und nach jedem Training die Haken zurücksetzen.</p></div>';
+    }
+    const fertig = L.i.filter(x => x.ok).length, pct = L.i.length ? fertig / L.i.length * 100 : 0;
+    let h = '<div class="stack view"><button type="button" class="link small" data-act="w48-pback" style="align-self:flex-start">← Alle Packlisten</button><div><p class="eyebrow">Packliste · ' + fertig + ' / ' + L.i.length + ' gepackt</p><h1>' + esc(L.n) + '</h1></div><div class="bar" style="--c:var(--ok)"><i style="width:' + pct.toFixed(1) + '%"></i></div>';
+    if (L.i.length && fertig === L.i.length) h += '<p class="tip">🎉 Alles gepackt – gute Reise!</p>';
+    PK_KAT.forEach(k => {
+      const it = L.i.filter(x => (PK_KAT.includes(x.k) ? x.k : "Sonstiges") === k); if (!it.length) return;
+      h += '<div class="card"><div class="card-h"><h3>' + esc(k) + '</h3><span class="small muted">' + it.filter(x => x.ok).length + ' / ' + it.length + '</span></div><ul class="list">' + it.map(x => '<li>' + chk("w48-pchk", x.id, !!x.ok, "Gepackt: " + x.t) + '<span class="li-main' + (x.ok ? " done" : "") + '">' + esc(x.t) + '</span>' + delBtn("w48-pidel", x.id, "Entfernen: " + x.t) + '</li>').join("") + '</ul></div>';
+    });
+    if (!L.i.length) h += '<p class="empty">Noch leer. Füg unten Sachen hinzu.</p>';
+    h += '<div class="card"><h3>➕ Hinzufügen</h3><div class="w48-row"><input id="w48pi" class="inp" maxlength="80" placeholder="z. B. Ladegerät Laptop" aria-label="Was mitnehmen?"><select id="w48pk" class="inp" style="flex:0 0 40%" aria-label="Kategorie">' + PK_KAT.map(k => '<option>' + esc(k) + '</option>').join("") + '</select></div><button type="button" class="btn block" data-act="w48-padd">Hinzufügen</button></div>'
+      + '<div class="btn-row"><button type="button" class="btn sm" data-act="w48-preset">↺ Haken zurücksetzen</button><button type="button" class="btn sm" data-act="w48-pshare">📤 Teilen / Kopieren</button></div>'
+      + (PK_DEL ? '<div class="btn-row"><button type="button" class="btn sm danger primary" data-act="w48-pldel2">Ja, Liste löschen</button><button type="button" class="btn sm" data-act="w48-pldel0">Abbrechen</button></div>' : '<button type="button" class="btn sm danger" data-act="w48-pldel">Liste löschen</button>');
+    return h + '</div>';
+  }
+
+  /* =====================================================================
+     9) BACKUP-ERINNERUNG + EXPORT AUF DEM HANDY
+     ===================================================================== */
+  function backupBanner() {
+    const st = E48(), t = todayKey(); if (!st.backup) return "";
+    if (st.snooze && st.snooze > t) return "";
+    const tage = diffDays(st.backupAt || st.seit, t); if (tage < 14) return "";
+    return '<div class="banner" style="--c:var(--privat)"><span class="ic">💾</span><div><b>' + (st.backupAt ? "Letztes Backup vor " + tage + " Tagen" : "Zeit für ein Backup") + '</b><span class="small">Deine Daten liegen nur auf diesem Gerät. Einmal sichern dauert 10 Sekunden.</span><div class="btn-row" style="margin-top:8px"><button type="button" class="btn sm primary" data-act="w48-bk">Jetzt sichern</button><button type="button" class="btn sm" data-act="w48-bkspaeter">In 7 Tagen</button></div></div></div>';
+  }
+  const merkBackup = () => { E48().backupAt = todayKey(); save(); };
+  // Ohne Claude-Download (z. B. als Home-App): Datei teilen bzw. herunterladen statt nur Text anzeigen
+  const _ex = doExport;
+  doExport = async function () {
+    if (typeof DOWNLOADS !== "undefined" && DOWNLOADS) { const r = await _ex.apply(this, arguments); merkBackup(); return r; }
+    let json = null; try { json = JSON.stringify(backupObj(), null, 2); } catch (e) {}
+    if (json) {
+      const name = "wochenkompass-backup-" + todayKey() + ".json";
+      try {
+        const file = new File([json], name, {type:"application/json"});
+        const handy = /Android|iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && /Mac/.test(navigator.platform || ""));
+        if (handy && navigator.canShare && navigator.canShare({files:[file]})) {
+          try { await navigator.share({files:[file], title:"Wochenkompass-Backup"}); merkBackup(); toast("Backup gespeichert ✓"); return; }
+          catch (e) { if (e && e.name === "AbortError") { toast("Export abgebrochen"); return; } }
+        }
+      } catch (e) {}
+      if (!/iPhone|iPad|iPod/.test(navigator.userAgent)) {
+        try { const u = URL.createObjectURL(new Blob([json], {type:"application/json"})), a = document.createElement("a"); a.href = u; a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(u), 4000); merkBackup(); toast("Backup heruntergeladen ✓"); return; } catch (e) {}
+      }
+    }
+    // Ersatz wie bisher: Text zum Kopieren (nur in den Einstellungen sichtbar)
+    if (!document.getElementById("dataBox")) { go("einstellungen"); await new Promise(r => setTimeout(r, 80)); }
+    const r = await _ex.apply(this, arguments); merkBackup(); return r;
+  };
+
+  /* =====================================================================
+     10) ZAHL AM APP-SYMBOL
+     ===================================================================== */
+  const badgeGeht = () => "setAppBadge" in navigator;
+  function badgeZahl() { const t = todayKey(); return (S.items || []).filter(x => x.kind === "todo" && !x.done && x.date && x.date <= t).length + (S.homework || []).filter(h => !h.done && h.due && h.due <= t).length; }
+  function badge() {
+    if (!badgeGeht()) return;
+    try { const st = E48(); if (!st.badge) return; const n = badgeZahl(); const p = n ? navigator.setAppBadge(n) : navigator.clearAppBadge(); if (p && p.catch) p.catch(() => {}); } catch (e) {}
+  }
+  function badgeAus() { try { const p = navigator.clearAppBadge && navigator.clearAppBadge(); if (p && p.catch) p.catch(() => {}); } catch (e) {} }
+
+  /* =====================================================================
+     11) SPEICHERN: Gnadenzeit, Joker fürs Hantelbuch, Symbol-Zahl
+     ===================================================================== */
+  const _sv = save;
+  save = function () {
+    try { E48(); gnade(); } catch (e) {}
+    const r = _sv.apply(this, arguments);
+    try { localStorage.setItem("wochenkompass.joker", E48().joker ? "1" : "0"); } catch (e) {}
+    badge();
+    return r;
+  };
+
+  /* =====================================================================
+     12) EINSTELLUNGEN: Karte „✨ Extras“
+     ===================================================================== */
+  function extrasKarte() {
+    const st = E48(), z = (k, txt, sub) => '<li>' + chk("w48-set", k, !!st[k], txt) + '<span class="li-main"><b>' + txt + '</b><small>' + sub + '</small></span></li>';
+    let h = '<div class="card"><h3>✨ Extras</h3><ul class="list">'
+      + z("roll", "Offene To-dos mitnehmen", "Was liegen blieb, landet automatisch bei heute – mit „offen seit …“.")
+      + z("joker", "Serien-Joker", "1 verpasster Tag pro Woche (Mo–So) unterbricht deine Lern- und Gym-Serie nicht.")
+      + z("backup", "Backup-Erinnerung", "Hinweis auf der Startseite, wenn dein letztes Backup älter als 14 Tage ist.");
+    if (badgeGeht()) h += z("badge", "Zahl am App-Symbol", "Zeigt offene To-dos und Hausaufgaben für heute am Symbol. Nur als App auf dem Home-Bildschirm (iPhone ab iOS 16.4) und mit Erlaubnis für Mitteilungen.");
+    return h + '</ul><p class="small muted">🌙 Gnadenzeit: Bis 3 Uhr nachts zählt alles noch zum Vortag – Lernzeit und Serien gehen nicht verloren, wenn du nach Mitternacht lernst.</p>'
+      + '<p class="small muted">Letztes Backup: <b>' + (st.backupAt ? esc(fmt(st.backupAt, {day:"numeric", month:"long", year:"numeric"})) : "noch keins seit diesem Update") + '</b></p></div>';
+  }
+  const _ve = VIEWS.einstellungen;
+  if (typeof _ve === "function") VIEWS.einstellungen = function () {
+    const h = _ve.apply(this, arguments), m = '<div class="card"><h3>Backup</h3>';
+    try { return h.indexOf(m) >= 0 ? h.replace(m, extrasKarte() + m) : h.replace(/<\/div>\s*$/, extrasKarte() + "</div>"); } catch (e) { return h; }
+  };
+
+  /* =====================================================================
+     13) STARTSEITE: Backup-Hinweis, Mein Tag, dritte Schnellzugriff-Reihe
+     ===================================================================== */
+  const _se = startExtras;
+  startExtras = function (t) {
+    let h = _se.apply(this, arguments);
+    try {
+      E48();
+      const f = lkFaellig();
+      const reihe = '<div class="quick w48q">' + [["packen", "🧳", "Packen", 0], ["leihen", "🤝", "Leihen", leihSumme().offen], ["karten", "🧠", "Karten", f.gesamt], ["schlaf", "😴", "Schlaf", 0]]
+        .map(([v, e, n, z]) => '<button type="button" class="qbtn" data-act="w48-q" data-v="' + v + '"><span aria-hidden="true">' + e + '</span>' + n + (z ? ' <b class="w48n" aria-label="' + z + ' offen">' + z + '</b>' : '') + '</button>').join("") + '</div>';
+      const m = h.match(/<div class="quick z6q">[\s\S]*?<\/div>/) || h.match(/<div class="quick">[\s\S]*?<\/div>/);
+      if (m) { const e = h.indexOf(m[0]) + m[0].length; h = h.slice(0, e) + reihe + h.slice(e); } else h = reihe + h;
+      h = backupBanner() + meinTagKarte() + h;
+    } catch (e) {}
+    return h;
+  };
+
+  /* =====================================================================
+     14) NEUE SEITEN, FENSTER, SUCHE
+     ===================================================================== */
+  VIEWS.packen = viewPacken; VIEWS.leihen = viewLeihen;
+  TITLES.packen = "Packlisten"; TITLES.leihen = "Verliehen";
+  ["packen", "leihen"].forEach(v => { if (!SUB.includes(v)) SUB.push(v); });
+
+  const _rs = renderSheet;
+  renderSheet = function () {
+    const s = UI.sheet;
+    if (s && s.kind === "w48-top") { $("#sheet").innerHTML = topSheet(); return; }
+    if (s && s.kind === "w48-schlaf") { $("#sheet").innerHTML = kopf("😴 Schlafrechner") + schlafHtml(""); return; }
+    if (s && s.kind === "w48-text") { $("#sheet").innerHTML = kopf("📋 Zum Kopieren") + '<textarea rows="14" readonly style="width:100%">' + esc(s.arg || "") + '</textarea><p class="small muted">Lange drücken → Alles auswählen → Kopieren.</p>'; return; }
+    return _rs.apply(this, arguments);
+  };
+
+  const zuLernen = () => { closeSheet(); SCH_TAB = "lernen"; if (currentView() !== "schule") go("schule"); else rerender(); setTimeout(() => { const el = document.getElementById("w48lk"); if (el) el.scrollIntoView({behavior:"smooth", block:"start"}); }, 120); };
+  if (typeof searchAll === "function") {
+    const _sa = searchAll;
+    searchAll = function (q) {
+      const r = _sa.apply(this, arguments) || [], s = String(q || "").trim().toLowerCase();
+      if (s.length < 2 || !Array.isArray(r)) return r;
+      try {
+        E48();
+        const SEITEN = [
+          ["Packliste", "🧳 Packlisten", "Koffer, Urlaub, Übernachtung, Gym-Tasche packen", () => { closeSheet(); pkSet(null); go("packen"); }],
+          ["Geld", "🤝 Geld verliehen / geliehen", "Schulden, leihen, zurückzahlen, Geld zurück", () => { closeSheet(); go("leihen"); }],
+          ["Schlaf", "😴 Schlafrechner", "Schlafzyklen, wann ins Bett, aufstehen, Wecker", () => { openSheet("w48-schlaf"); }],
+          ["Lernen", "🧠 Lernkarten wiederholen", "Leitner, fällig, wiederholen, Karteikarten, Box", zuLernen],
+          ["Mein Tag", "⭐ Mein Tag", "Wichtigste Aufgaben heute, Top 3, Fokus", () => { openSheet("w48-top"); }]
+        ];
+        SEITEN.forEach(x => { if ((x[1] + " " + x[2]).toLowerCase().includes(s)) r.push({cat:x[0], title:x[1], text:x[2], go:x[3], s:1}); });
+        S.packen.l.forEach(l => { const hit = l.i.filter(x => x.t.toLowerCase().includes(s)); if (l.n.toLowerCase().includes(s) || hit.length) r.push({cat:"Packliste", title:"🧳 " + l.n, text:hit.length ? hit.slice(0, 4).map(x => x.t).join(", ") : l.i.length + " Sachen", go:() => { closeSheet(); pkSet(l.id); go("packen"); }, s:1}); });
+        S.leihen.forEach(e => { if ((e.wer + " " + (e.fuer || "")).toLowerCase().includes(s)) r.push({cat:"Geld", title:"🤝 " + e.wer + " · " + eur(+e.betrag || 0), text:(e.r === "ein" ? "Geliehen" : "Verliehen") + (e.fuer ? " · " + e.fuer : "") + (e.ok ? " · erledigt" : " · offen"), go:() => { closeSheet(); go("leihen"); }, s:1}); });
+      } catch (e) {}
+      return r;
+    };
+  }
+
+  /* =====================================================================
+     15) KLICKS
+     ===================================================================== */
+  document.addEventListener("click", ev => {
+    const b = ev.target.closest("[data-act]"); if (!b) return;
+    const act = b.dataset.act; if (!act || act.indexOf("w48-") !== 0) return;
+    E48();
+    const id = b.dataset.id, v = b.dataset.v, t = todayKey();
+    switch (act) {
+      /* Mein Tag */
+      case "w48-top": openSheet("w48-top"); break;
+      case "w48-star": {
+        const M = meinTag(), on = M.top.includes(id);
+        if (!on && M.top.length >= 3) { toast("Höchstens 3 – nimm erst eins raus"); break; }
+        M.top = on ? M.top.filter(x => x !== id) : M.top.concat([id]); save();
+        const sh = $("#sheet"), sw = $("#sheetWrap"), a = sh ? sh.scrollTop : 0, c = sw ? sw.scrollTop : 0;
+        rerender(); if (sh) sh.scrollTop = a; if (sw) sw.scrollTop = c; break;
+      }
+      case "w48-neu": {
+        const inp = $("#w48neu"), txt = inp ? inp.value.trim() : "";
+        if (!txt) { toast("Erst kurz eintippen, was du machen willst"); if (inp) inp.focus(); break; }
+        const warn = sensitive(txt); if (warn) { toast(warn, 3500); break; }
+        const M = meinTag(), x = {id:uid(), kind:"todo", area:"privat", text:txt.slice(0, 120), date:t, von:"", bis:"", done:false, ts:Date.now()};
+        S.items.push(x); if (M.top.length < 3) M.top.push(x.id); else toast("To-do angelegt – Mein Tag ist schon voll (3)", 3000);
+        save(); renderSheet(); rerender(); setTimeout(() => { const i = $("#w48neu"); if (i) i.focus(); }, 30); break;
+      }
+      /* Lernkarten */
+      case "w48-lk": zuLernen(); break;
+      case "w48-lkgo": lkStart(); rerender(); setTimeout(() => { const el = document.getElementById("w48lk"); if (el) el.scrollIntoView({block:"start"}); }, 30); break;
+      case "w48-lkshow": if (LK) { LK.show = true; rerender(); } break;
+      case "w48-lkok": case "w48-lkno":
+        if (LK && LK.p < LK.q.length) { lkAntwort(act === "w48-lkok"); if (LK.p >= LK.q.length) toast("Runde geschafft 🎉", 2500); rerender(); }
+        break;
+      case "w48-lkstop": LK = null; rerender(); break;
+      /* Schnellzugriff + Seiten */
+      case "w48-q":
+        if (v === "karten") zuLernen();
+        else if (v === "schlaf") openSheet("w48-schlaf");
+        else { if (v === "packen") pkSet(null); go(v); }
+        break;
+      case "w48-go": go(v); break;
+      /* Leihen */
+      case "w48-lr": LH_R = v === "ein" ? "ein" : "aus"; rerender(); break;
+      case "w48-ladd": {
+        const wer = ($("#w48lw").value || "").trim(), betrag = zahl($("#w48lb").value), fuer = ($("#w48lf").value || "").trim(), bis = $("#w48ld").value || "";
+        if (!wer) { toast("Wer? Ein Spitzname reicht"); $("#w48lw").focus(); break; }
+        if (!(betrag > 0) || betrag > 100000) { toast("Bitte einen Betrag eingeben, z. B. 20 oder 12,50"); $("#w48lb").focus(); break; }
+        const warn = sensitive(wer + " " + fuer); if (warn) { toast(warn, 3500); break; }
+        S.leihen.push({id:nid(), r:LH_R, wer:wer.slice(0, 40), betrag:Math.round(betrag * 100) / 100, fuer:fuer.slice(0, 80), d:t, bis:/^\d{4}-\d{2}-\d{2}$/.test(bis) ? bis : "", ok:""});
+        save(); toast("Eingetragen ✓"); rerender(); break;
+      }
+      case "w48-lok": { const e = S.leihen.find(x => x.id === id); if (e) { e.ok = t; save(); toast("Erledigt ✓"); rerender(); } break; }
+      case "w48-ldel":
+        if (LH_DEL !== id) { LH_DEL = id; rerender(); break; }
+        S.leihen = S.leihen.filter(x => x.id !== id); LH_DEL = null; save(); toast("Gelöscht"); rerender(); break;
+      /* Packlisten */
+      case "w48-popen": pkSet(id); rerender(); window.scrollTo(0, 0); break;
+      case "w48-pback": pkSet(null); rerender(); window.scrollTo(0, 0); break;
+      case "w48-pnew": {
+        const vk = $("#w48pv").value, V = PK_VORL[vk] || PK_VORL.leer, tageRoh = parseInt($("#w48pt").value, 10), tage = tageRoh >= 1 && tageRoh <= 30 ? tageRoh : (V.tage || 1);
+        const name = (($("#w48pn").value || "").trim() || V.n.replace(/^\S+\s/, "")).slice(0, 60);
+        const warn = sensitive(name); if (warn) { toast(warn, 3500); break; }
+        const L = {id:nid(), n:name, v:vk, d:t, i:V.i.map(([k, n, f]) => ({id:nid(), k, t:f ? n + " × " + f(tage) : n, ok:false}))};
+        S.packen.l.unshift(L); pkSet(L.id); save(); toast("Liste angelegt ✓"); rerender(); window.scrollTo(0, 0); break;
+      }
+      case "w48-pchk": { const L = pkListe(), x = L && L.i.find(i => i.id === id); if (x) { x.ok = !x.ok; save(); rerender(); if (L.i.every(i => i.ok)) toast("Alles gepackt 🎉"); } break; }
+      case "w48-pidel": { const L = pkListe(); if (L) { L.i = L.i.filter(i => i.id !== id); save(); rerender(); } break; }
+      case "w48-padd": {
+        const L = pkListe(), inp = $("#w48pi"), txt = inp ? inp.value.trim() : "", k = $("#w48pk") ? $("#w48pk").value : "Sonstiges";
+        if (!L) break; if (!txt) { toast("Was willst du mitnehmen?"); if (inp) inp.focus(); break; }
+        const warn = sensitive(txt); if (warn) { toast(warn, 3500); break; }
+        L.i.push({id:nid(), k:PK_KAT.includes(k) ? k : "Sonstiges", t:txt.slice(0, 80), ok:false}); save(); rerender(); setTimeout(() => { const i = $("#w48pi"); if (i) i.focus(); }, 30); break;
+      }
+      case "w48-preset": { const L = pkListe(); if (L) { L.i.forEach(i => { i.ok = false; }); save(); toast("Haken zurückgesetzt"); rerender(); } break; }
+      case "w48-pshare": {
+        const L = pkListe(); if (!L) break; const txt = pkText(L);
+        if (navigator.share) navigator.share({title:L.n, text:txt}).catch(() => {});
+        else if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(txt).then(() => toast("Kopiert ✓"), () => openSheet("w48-text", txt));
+        else openSheet("w48-text", txt);
+        break;
+      }
+      case "w48-pldel": PK_DEL = true; rerender(); break;
+      case "w48-pldel0": PK_DEL = false; rerender(); break;
+      case "w48-pldel2": S.packen.l = S.packen.l.filter(l => l.id !== PK_ID); pkSet(null); save(); toast("Liste gelöscht"); rerender(); break;
+      /* Backup */
+      case "w48-bk": doExport(); break;
+      case "w48-bkspaeter": E48().snooze = addDays(t, 7); save(); rerender(); break;
+      /* Einstellungen */
+      case "w48-set": {
+        const st = E48(); if (!["roll", "joker", "backup", "badge"].includes(id)) break;
+        const an = !st[id];
+        if (id === "badge" && an) {
+          const weiter = () => { st.badge = true; save(); rerender(); toast("Zahl am App-Symbol ist an ✓"); };
+          if (typeof Notification !== "undefined" && Notification.permission === "default" && Notification.requestPermission) {
+            Promise.resolve(Notification.requestPermission()).then(p => { if (p === "granted") weiter(); else toast("Ohne Erlaubnis für Mitteilungen geht die Zahl leider nicht", 3500); }).catch(() => weiter());
+          } else if (typeof Notification !== "undefined" && Notification.permission === "denied") toast("Mitteilungen sind blockiert – in den iPhone-Einstellungen bei der App erlauben", 4000);
+          else weiter();
+          break;
+        }
+        st[id] = an; if (id === "badge") badgeAus();
+        if (id === "roll" && an) { st.rollT = ""; if (mitnehmen()) toast("↪ Offene To-dos auf heute geschoben"); }
+        save(); rerender(); break;
+      }
+    }
+  });
+  // Schlafrechner: Aufstehzeit live ändern
+  document.addEventListener("input", e => {
+    const i = e.target; if (!i || !i.classList || !i.classList.contains("w48-wach")) return;
+    const box = i.closest(".w48-schlaf"), out = box && box.querySelector(".w48-out");
+    if (out && /^\d{1,2}:\d{2}$/.test(i.value)) out.innerHTML = schlafListe(i.value);
+  });
+  document.addEventListener("change", e => {
+    const i = e.target; if (!i || !i.classList || !i.classList.contains("w48-wach") || !/^\d{1,2}:\d{2}$/.test(i.value)) return;
+    E48().wach = i.value; save();
+  });
+  // Enter in Eingabefeldern = Knopf drücken
+  document.addEventListener("keydown", e => {
+    if (e.key !== "Enter" || !e.target || !e.target.id) return;
+    const map = {w48neu:"w48-neu", w48pi:"w48-padd"}, a = map[e.target.id]; if (!a) return;
+    e.preventDefault(); const b = document.querySelector('[data-act="' + a + '"]'); if (b) b.click();
+  });
+
+  /* =====================================================================
+     16) FIX: schnelles Tippen markiert keinen Text mehr (ganze App)
+     ===================================================================== */
+  (function () {
+    const BTN = "button,a,summary,label,[data-act],[role=tab],.chk,.mini,.icon-btn,.daypick,.wk-nav,.tabs-seg,.gtabs,.nav,.seg,.stepper,.qbtn,.tile";
+    const EING = "input,textarea,select,[contenteditable],.sel";
+    let zuletzt = 0;
+    const el = t => t && t.nodeType === 3 ? t.parentElement : t;
+    const aufKnopf = t => { t = el(t); return !!(t && t.closest && t.closest(BTN) && !t.closest(EING)); };
+    const merken = e => { if (aufKnopf(e.target)) zuletzt = Date.now(); };
+    ["pointerdown", "touchstart", "mousedown"].forEach(n => document.addEventListener(n, merken, {capture:true, passive:true}));
+    // Kurz nach einem Tipp auf einen Knopf: kein Markieren starten
+    document.addEventListener("selectstart", e => { if (Date.now() - zuletzt > 700) return; const t = el(e.target); if (t && t.closest && t.closest(EING)) return; e.preventDefault(); }, true);
+    // … und falls doch etwas markiert wurde: sofort wieder aufheben
+    document.addEventListener("selectionchange", () => {
+      if (Date.now() - zuletzt > 700) return;
+      const a = document.activeElement; if (a && a.closest && a.closest(EING)) return;
+      const s = window.getSelection && window.getSelection(); if (s && s.rangeCount && !s.isCollapsed) s.removeAllRanges();
+    });
+    // Doppelklick mit der Maus auf Knöpfe markiert nichts
+    document.addEventListener("mousedown", e => { if (e.detail > 1 && aufKnopf(e.target)) e.preventDefault(); }, true);
+  })();
+
+  /* =====================================================================
+     17) UPDATE-HINWEIS (nur in der Home-App mit Service Worker)
+     ===================================================================== */
+  (function () {
+    if (!("serviceWorker" in navigator) || !window.fetch) return;
+    let basis = null, gezeigt = false, reg = null;
+    const lesen = () => fetch("sw.js", {cache:"no-store"}).then(r => r.ok ? r.text() : "").then(t => (String(t).match(/VERSION\s*=\s*"([^"]+)"/) || [])[1] || null).catch(() => null);
+    function hinweis() {
+      if (gezeigt || document.getElementById("w48upd")) return; gezeigt = true;
+      const d = document.createElement("div"); d.id = "w48upd"; d.className = "w48-upd"; d.setAttribute("role", "status");
+      d.innerHTML = '<span>🆕 <b>Neue Version da</b></span><button type="button" class="btn sm" id="w48updGo">Jetzt laden</button><button type="button" class="mini" id="w48updX" aria-label="Später">✕</button>';
+      document.body.appendChild(d);
+      d.querySelector("#w48updGo").addEventListener("click", () => { d.querySelector("#w48updGo").disabled = true; Promise.resolve(reg && reg.update()).catch(() => {}).then(() => location.reload()); });
+      d.querySelector("#w48updX").addEventListener("click", () => d.remove());
+    }
+    async function pruefen() { const v = await lesen(); if (!v) return; if (!basis) { basis = v; return; } if (v !== basis) hinweis(); }
+    function los() {
+      navigator.serviceWorker.getRegistration().then(r => {
+        if (!r) return; reg = r; pruefen();
+        document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") pruefen(); });
+        setInterval(pruefen, 30 * 60 * 1000);
+      }).catch(() => {});
+    }
+    if (document.readyState === "complete") setTimeout(los, 2000); else addEventListener("load", () => setTimeout(los, 2000));
+  })();
+
+  /* =====================================================================
+     18) START
+     ===================================================================== */
+  function tagesStart() {
+    try {
+      E48(); const vorher = S.meinTag.d, n = mitnehmen(); meinTag();
+      if (n || vorher !== S.meinTag.d) save();
+      if (n) setTimeout(() => toast("↪ " + n + (n === 1 ? " offenes To-do" : " offene To-dos") + " auf heute geschoben", 3000), 500);
+      return n > 0 || vorher !== S.meinTag.d;
+    } catch (e) { return false; }
+  }
+  tagesStart(); badge();
+  try { localStorage.setItem("wochenkompass.joker", E48().joker ? "1" : "0"); } catch (e) {}
+  document.addEventListener("visibilitychange", () => { if (document.visibilityState !== "visible") return; if (tagesStart() && currentView() !== "gym") rerender(); badge(); });
+  try { if (currentView() !== "gym") rerender(); } catch (e) {}
 })();
 </script>
 
