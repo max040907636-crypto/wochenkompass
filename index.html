@@ -15,6 +15,55 @@
 <link rel="icon" type="image/png" href="icons/icon-192.png">
 </head>
 <body>
+<!-- ═══════════════════════════════════════════════════════════════════════════
+     WOCHENKOMPASS – Inhaltsverzeichnis (Stand v51, 12.11.2026)
+     Vier Apps in einer: Schule · Arbeit · Gym (Hantelbuch) · Ich & Gesundheit.
+     Eine einzige HTML-Datei. Zum Springen im Editor den Suchbegriff rechts suchen.
+     ───────────────────────────────────────────────────────────────────────────
+     PRIVAT-DATEN (nur Claude-Version) ............ „PRIVAT:START Datenpakete“
+     Design sofort setzen (kein Aufblitzen) ....... „ERWEITERUNG v43 (früh“
+     Grund-Layout (CSS) ........................... „Layout: eine Handy-Spalte“
+     Hantelbuch – komplette Gym-App im Rahmen ..... „HANTELBUCH (komplette Gym-App)“
+       · Körper & Ausdauer ........................ „HANTELBUCH – ERWEITERUNG v11“
+       · Scheiben-Rechner, Aufwärmen, Joker ....... „ERWEITERUNG v48 Gym“
+     KERN: Speichern, Start, Woche, Schule,
+           Arbeit, Einstellungen, Mappe, Backup ... „WOCHENKOMPASS – persönlicher Wochenplaner“
+     v11  Kalender-Export, Lern-Statistik, Dienste  „ERWEITERUNG v11 (03.11.2026)“
+     v14  Ersatz-Vollbild (iPhone) ................ „ERWEITERUNG v14“
+     v15  Ich & Gesundheit (Baum, Karten, Termine)  „ERWEITERUNG v15–v20“
+     v21  Gym-Kopfzeile fest oben ................. „ERWEITERUNG v21“
+     v23  Zoom aus, Markieren, Wörter nicht abschneiden „ERWEITERUNG v23“
+     v25  Schulzeit bis 13:10 ..................... „v25 (08.11.2026)“
+     v22p Arbeit-Daten einmal eintragen (PRIVAT) .. „PRIVAT:START v22“
+     v24  Geld mit 8 Unterbereichen + Icons ....... „ERWEITERUNG v24“
+     v24p/v30p Lohnzettel, Lücken füllen (PRIVAT) . „PRIVAT:START v24p“ / „PRIVAT:START v30p“
+     v33  Ausgaben-Übersicht (Bilanz) ............. „ERWEITERUNG v33“
+     v35  Ich → Mein Leben ........................ „ERWEITERUNG v35“
+     v36  Einkauf, Geräte, Rückblick, Ziele, Tresor „ERWEITERUNG v36“
+     v37  Tastatur verdeckt nichts mehr ........... „ERWEITERUNG v37“
+     v38  Berichtsheft-Paket + IHK-Status ......... „ERWEITERUNG v38“
+     v39  Urlaubsanspruch, Zeit ohne Erfassung .... „ERWEITERUNG v39“
+     v40  Urlaubskarte mit Zeitstrahl ............. „ERWEITERUNG v40“
+     v41  Tabs Bericht/Fälle/Noten ausgeblendet ... „ERWEITERUNG v41“
+     v42  Hausaufgaben ausgeblendet, Klassenarbeit  „ERWEITERUNG v42“
+     v43  Design: Themes, Farben, Schrift ......... „ERWEITERUNG v43 (09.11“
+     v44  Arbeit → Praxis ......................... „ERWEITERUNG v44“
+     v45  Arbeit → Tools .......................... „ERWEITERUNG v45“
+     v46  Abgleich Claude-Version → Handy ......... „ERWEITERUNG v46“
+     v47  Schule → Klausur (Probeklausuren) ....... „ERWEITERUNG v47“
+     v48  Top 20 (Mein Tag, Updates, Pfeile) ...... „ERWEITERUNG v48 (12.11“
+     v49  Alltag heute (3 Zufalls-Aufgaben) ....... „ERWEITERUNG v49“
+     v50  Versionsnummer unten rechts ............. „ERWEITERUNG v50“
+     v51  Aufräumen + kleine Fixes (direkt im Code)  „v51“
+     ───────────────────────────────────────────────────────────────────────────
+     REGELN für neue Versionen
+     · WK_VERSION im v50-Block hochzählen (sw.js zieht das Build-Skript automatisch nach).
+     · Persönliche Daten NUR zwischen den Markern „PRIVAT:START“ und „PRIVAT:ENDE“
+       (je eine eigene Kommentarzeile). Die GitHub-Version baut tools/build_github.py
+       und entfernt dabei alles zwischen diesen Markern.
+     · Neue Lernkarten, Aufgaben und IDs nur hinten anhängen, nie umnummerieren.
+     · Speicher: localStorage „wochenkompass.v1“ (App) und „hantelbuch.v1“ (Gym).
+     ═══════════════════════════════════════════════════════════════════════════ -->
 <!-- ERWEITERUNG v43 (früh, 09.11.2026): gespeichertes Design sofort beim Start setzen, damit nichts kurz im alten Look aufblitzt.
      Liest nur die kleine Kopie „wochenkompass.design“ (die richtige Einstellung steht in S.settings.design und im Backup).
      Ohne persönliche Werte, darf auf GitHub Pages. -->
@@ -47,12 +96,15 @@
   } catch (e) {}
 })();
 </script>
+
 <title>Wochenkompass</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Barlow+Condensed:wght@600;700&display=swap">
 <style>
+/* v51: Telefonnummern größere Tipp-Fläche (ändert das Layout nicht) */
+a[href^="tel:"]{padding:10px 4px;margin:-10px -4px}
 /* Layout: eine Handy-Spalte (max. 720 px). Oben Kopfzeile, unten Navigationsleiste.
    Look: gleiche Familie wie das Hantelbuch (Schwarz/Weiß, Barlow Condensed + Atkinson),
    Farbe nur als Bedeutung: jeder Bereich und jedes Fach hat eine eigene Farbe. */
@@ -1915,6 +1967,7 @@ loadLocal(); migrate(); setSync("local"); render(); initCloud();
   if (typeof render === "function") render();
 })();
 </script>
+
 <!-- ERWEITERUNG v48 Gym (12.11.2026): Scheiben-Rechner, Aufwärmsätze, Gesamt-kg und Serien-Joker im Hantelbuch -->
 <style>
 .g48-row{gap:8px}
@@ -2157,7 +2210,7 @@ function ferienCounter(t) {
   if (cur) { const d = diffDays(t, cur.bis); return '<div class="counter" style="grid-column:1/-1;border-color:var(--ferien)"><b class="tnum">🌴</b><span>' + esc(cur.n) + ': noch ' + d + (d === 1 ? ' Tag' : ' Tage') + ' (bis ' + esc(fmt(cur.bis, {day:"numeric", month:"numeric"})) + ')</span></div>'; }
   if (!nx) return '';
   const d = diffDays(t, nx.von);
-  return '<div class="counter" style="grid-column:1/-1"><b class="tnum">' + d + '</b><span>' + esc(nx.n) + ' in ' + d + (d === 1 ? ' Tag' : ' Tagen') + ' (ab ' + esc(fmt(nx.von, {day:"numeric", month:"numeric"})) + ')</span></div>';
+  return '<div class="counter" style="grid-column:1/-1"><b class="tnum">' + d + '</b><span>' + (d === 1 ? 'Tag bis ' : 'Tage bis ') + esc(nx.n) /* v51 */ + ' (ab ' + esc(fmt(nx.von, {day:"numeric", month:"numeric"})) + ')</span></div>';
 }
 const noSchool = k => !!(ferienOf(k) || SCHULFREI[k] || holidayOf(k));
 
@@ -2516,8 +2569,8 @@ function viewStart() {
     + tile("arbeit", "💼", "Arbeit", '<b>Berichtsheft: ' + notes + (notes === 1 ? " Notiz" : " Notizen") + '</b><br>Urlaub ' + year + ': ' + left + ' von ' + vacTotalOf(year) + ' übrig')
     + tile("gym", "🏋️", "Gym", '<b>Serie: ' + streak + ' 🔥</b><br>' + esc(gymTxt))
     + '</div>'
-    + '<div class="counters"><div class="counter"><b class="tnum">' + (wkEnd === null ? "🎉" : wkEnd) + '</b><span>' + (wkEnd === null ? "Wochenende!" : "Wochenende in " + wkEnd + (wkEnd === 1 ? " Tag" : " Tagen")) + '</span></div>'
-    + '<div class="counter"><b class="tnum">' + (exam >= 0 ? exam : "✓") + '</b><span>' + (exam >= 0 ? esc(S.settings.examLabel) + " in " + exam + " Tagen" : "Prüfung vorbei") + '</span></div>' + ferienCounter(t) + '</div>';
+    + '<div class="counters"><div class="counter"><b class="tnum">' + (wkEnd === null ? "🎉" : wkEnd) + '</b><span>' + (wkEnd === null ? "Wochenende!" : (wkEnd === 1 ? "Tag" : "Tage") + " bis zum Wochenende")   /* v51: Zahl nicht doppelt */ + '</span></div>'
+    + '<div class="counter"><b class="tnum">' + (exam > 0 ? exam : exam === 0 ? "🍀" : "✓") + '</b><span>' + (exam > 0 ? (exam === 1 ? "Tag bis " : "Tage bis ") + esc(S.settings.examLabel) : exam === 0 ? "Heute: " + esc(S.settings.examLabel) : "Prüfung vorbei")   /* v51 */ + '</span></div>' + ferienCounter(t) + '</div>';
 
   h += startExtras(t);
   // Heute-Bereich
@@ -4867,7 +4920,6 @@ gymNachtrag(); load(); applyTheme(); render();
 })();
 </script>
 
-
 <!-- ERWEITERUNG v14: Ersatz-Vollbild (wie im Kochbuch Löffelweise) -->
 <style>
 /* Ersatz-Vollbild: Kopfzeile weg, Inhalt bekommt den Platz (iPhone kann kein echtes Vollbild) */
@@ -4911,7 +4963,8 @@ gymNachtrag(); load(); applyTheme(); render();
   document.addEventListener("keydown", e => { if (e.key === "Escape" && ersatz) ersatzSetzen(false); });
 })();
 </script>
-<!-- ERWEITERUNG v15–v20 (03.11.2026): v20 = verschlüsselte Daten mit Passwort (nur GitHub-Version); v19 = große Kachel „Ich“, Gesundheit als Tab im Ich-Bereich; Bereiche „Ich“ und „Gesundheit“ im Baum-Stil; v16: Gesundheit auch im Ich-Baum, Gewicht per Paket -->
+
+<!-- ERWEITERUNG v15–v20 (03.11.2026): (v20 „verschlüsselte Daten“ wurde in v51 entfernt, war nie aktiv); v19 = große Kachel „Ich“, Gesundheit als Tab im Ich-Bereich; Bereiche „Ich“ und „Gesundheit“ im Baum-Stil; v16: Gesundheit auch im Ich-Baum, Gewicht per Paket -->
 <style>
 /* ---------- Baum (wie der Schul-Baum) ---------- */
 .tree{display:flex;flex-direction:column;gap:8px}
@@ -4954,8 +5007,6 @@ gymNachtrag(); load(); applyTheme(); render();
 .ichtabs a{min-height:44px;border-radius:10px;display:flex;align-items:center;justify-content:center;gap:6px;font-weight:700;text-decoration:none;color:var(--fg)}
 .ichtabs a[aria-current="page"]{background:var(--surface);box-shadow:0 1px 0 var(--line),0 0 0 1px var(--line)}
 .tr-hit{outline:2px solid var(--privat);outline-offset:1px}
-.unlock{border:2px solid var(--privat)}
-.unlock input{height:50px;border-radius:12px;border:1px solid var(--line);background:var(--bg);padding:0 12px;width:100%;min-width:0;font-size:17px}
 </style>
 <input type="file" id="ichFile" accept=".json,application/json" hidden>
 <script>
@@ -5063,7 +5114,7 @@ gymNachtrag(); load(); applyTheme(); render();
       + (gebTxt ? '<p class="small">' + gebTxt + '</p>' : '') + '</div>';
     // Noch kein Paket geladen?
     const leer = FELDER.flatMap(([, L]) => L).filter(([k]) => !F(k));
-    if (!I.paket && !window.ICH_PAKET_ENC) h += '<div class="card note"><h3>📦 Deine Daten laden</h3><p class="small">Claude hat dir eine Datei <b>ich-paket.json</b> gemacht. Lad sie hier, dann füllt sich alles von selbst. Die Daten bleiben nur auf diesem Gerät.</p><div class="btn-row"><button class="btn primary" data-act="i-paket">Ich-Paket laden</button><button class="btn" data-act="i-pakettext">Als Text einfügen</button></div><div id="ichPaketBox"></div></div>';
+    if (!I.paket) h += '<div class="card note"><h3>📦 Deine Daten laden</h3><p class="small">Claude hat dir eine Datei <b>ich-paket.json</b> gemacht. Lad sie hier, dann füllt sich alles von selbst. Die Daten bleiben nur auf diesem Gerät.</p><div class="btn-row"><button class="btn primary" data-act="i-paket">Ich-Paket laden</button><button class="btn" data-act="i-pakettext">Als Text einfügen</button></div><div id="ichPaketBox"></div></div>';
     // Fristen
     const fr = fristen().slice(0, 6);
     if (fr.length) h += '<div class="card"><div class="card-h"><h3>⏰ Läuft bald ab</h3><span class="small muted">Karten & Ausweise</span></div><div>' + fr.map(x => '<div class="frist"><span class="ampel ' + ampel(x.tage) + '"></span><span class="li-main"><b>' + esc(x.k.name) + '</b><small>gültig bis ' + esc(fmtD(x.k.bis)) + '</small></span><b class="d">' + (x.tage < 0 ? "abgel." : x.tage > 730 ? Math.round(x.tage / 365) + " J." : x.tage + " T.") + '</b></div>').join("") + '</div></div>';
@@ -5296,38 +5347,10 @@ gymNachtrag(); load(); applyTheme(); render();
     if (S.ich.hbPending && hbAnwenden(S.ich.hbPending)) { delete S.ich.hbPending; save(); }
   } catch (e) {}
 
-  /* ---------- (v20) Verschlüsselte Daten (nur öffentliche Home-Bildschirm-Version) ----------
-     window.ICH_PAKET_ENC enthält das Ich-Paket verschlüsselt (AES-GCM, Schlüssel aus dem
-     Passwort per PBKDF2-SHA256). Ohne Passwort kann niemand die Daten lesen.
-     Nach dem Entsperren landen sie im Browser-Speicher, das Passwort wird NICHT gespeichert. */
-  const ENC = window.ICH_PAKET_ENC || null;
-  const gesperrt = () => !!(ENC && S.ich.autoV !== ENC.erstellt);
-  const b64 = t => Uint8Array.from(atob(t), c => c.charCodeAt(0));
-  async function entsperren(pw) {
-    const enc = new TextEncoder();
-    const basis = await crypto.subtle.importKey("raw", enc.encode(pw), "PBKDF2", false, ["deriveKey"]);
-    const key = await crypto.subtle.deriveKey({name:"PBKDF2", salt:b64(ENC.salt), iterations:ENC.iter, hash:"SHA-256"}, basis, {name:"AES-GCM", length:256}, false, ["decrypt"]);
-    const klar = await crypto.subtle.decrypt({name:"AES-GCM", iv:b64(ENC.iv)}, key, b64(ENC.ct));
-    return JSON.parse(new TextDecoder().decode(klar));
-  }
-  const entsperrKarte = () => !gesperrt() ? "" : '<div class="card unlock"><h3>🔒 Deine Daten entsperren</h3><p class="small">Einmal das Passwort eingeben, das Claude dir gegeben hat. Danach ist alles ausgefüllt.</p><input id="ichPw" type="password" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="Passwort" aria-label="Passwort"><button class="btn primary block" data-act="i-unlock">Entsperren</button></div>';
-  {
-    const _vs2 = VIEWS.start;
-    VIEWS.start = function () { const h = _vs2(); return gesperrt() ? h.replace('<div class="tiles', '<a class="banner" href="#ich" style="--c:var(--privat);text-decoration:none;color:var(--fg)"><span class="ic">🔒</span><div><b>Deine Daten sind noch gesperrt</b><span class="small">Tippen und einmal das Passwort eingeben.</span></div></a><div class="tiles') : h; };
-  }
-
   /* ---------- Klicks ---------- */
   document.addEventListener("click", e => {
     const b = e.target.closest("[data-act]"); if (!b) return;
     const act = b.dataset.act; if (!act.startsWith("i-")) return;
-    if (act === "i-unlock") {
-      const pw = ($("#ichPw") || {}).value || "";
-      if (!pw.trim()) { toast("Passwort eingeben"); return; }
-      b.disabled = true; b.textContent = "Entsperre …";
-      entsperren(pw.trim().toLowerCase()).then(o => { paketAnwenden(o); S.ich.autoV = ENC.erstellt; save(); rerender(); toast("Entsperrt ✓ Alles ist da.", 3500); })
-        .catch(() => { b.disabled = false; b.textContent = "Entsperren"; toast("Passwort stimmt nicht. Kleinschreibung, Bindestriche beachten.", 4000); });
-      return;
-    }
     ensureIch();
     const id = b.dataset.id, t = todayKey(), I = S.ich, G = S.gesund;
     const val = sel => { const el = $(sel); return el ? el.value.trim() : ""; };
@@ -5403,9 +5426,8 @@ gymNachtrag(); load(); applyTheme(); render();
   // Suche im Baum nach dem Neuzeichnen wieder anwenden (render wird auch per hashchange gerufen)
   const nachZeichnen = () => setTimeout(() => { const v = currentView(); if (v === "ich" && ICH_Q) filterTree("ichTree", ICH_Q); if (v === "gesund" && GES_Q) filterTree("gesTree", GES_Q); }, 0);
   const _vi = viewIch, _vg = viewGesund;
-  const mitSperre = h => entsperrKarte() ? h.replace('<div class="stack view">', '<div class="stack view">' + entsperrKarte()) : h;
-  VIEWS.ich = function () { nachZeichnen(); return mitSperre(_vi()); };
-  VIEWS.gesund = function () { nachZeichnen(); return mitSperre(_vg()); };
+  VIEWS.ich = function () { nachZeichnen(); return _vi(); };
+  VIEWS.gesund = function () { nachZeichnen(); return _vg(); };
   if (typeof rerender === "function" && (currentView() === "ich" || currentView() === "gesund" || currentView() === "start")) rerender();
 })();
 </script>
@@ -5508,7 +5530,6 @@ h1,h2,h3{padding-top:.06em;padding-bottom:.04em}
   } catch (e) {}
 })();
 </script>
-
 
 <!-- =====================================================================
      ERWEITERUNG v24 (08.11.2026): Geld mit Unterbereichen + Icons überall
@@ -5842,6 +5863,7 @@ h1,h2,h3{padding-top:.06em;padding-bottom:.04em}
   try { rerender(); } catch (e) {}
 })();
 </script>
+
 <!-- ERWEITERUNG v33 (08.11.2026): Kurz-Übersicht der Ausgaben aus der Finanz-App „Bilanz“ (Arbeit → Geld → Überblick).
      Nur gerundete Durchschnittswerte pro Monat und Kategorie, kein Datum, keine Namen. Max hat erlaubt, dass sie öffentlich im Code stehen. -->
 <style>
@@ -5905,6 +5927,7 @@ h1,h2,h3{padding-top:.06em;padding-bottom:.04em}
   try { rerender(); } catch (e) {}
 })();
 </script>
+
 <!-- ERWEITERUNG v35 (08.11.2026): Ich → „📖 Mein Leben“ mit Zeitstrahl, Reisen, Freundin, Freunden, Familie, Hobbys,
      Schullaufbahn, Wohnorten, Jobs, Erfolgen, Erlebnissen, Haustieren, Lieblingsdingen und Bucket List.
      Ohne persönliche Werte im Code (darf auf GitHub Pages). Die Werte trägt Max selbst ein oder lädt ein „Leben-Paket“. -->
@@ -7479,6 +7502,7 @@ h1,h2,h3{padding-top:.06em;padding-bottom:.04em}
   window.__v38 = {laden: bhPaketLaden};
 })();
 </script>
+
 <!-- ERWEITERUNG v39 (09.11.2026): Arbeit → Zeit ohne Arbeitszeit-Erfassung · Urlaubsanspruch pro Jahr · Urlaubs-Paket laden.
      Keine persönlichen Werte hier drin (darf auf GitHub Pages). -->
 <script>
@@ -7575,6 +7599,7 @@ h1,h2,h3{padding-top:.06em;padding-bottom:.04em}
   try { rerender(); } catch (e) {}
 })();
 </script>
+
 <!-- ERWEITERUNG v40 (09.11.2026): Urlaubskarte schöner – Jahres-Zeitstrahl, Karten mit Wetter-Icon, typischem Wetter (Köln),
      Countdown und „frei am Stück“. Keine persönlichen Werte (darf auf GitHub Pages). -->
 <style>
@@ -7701,8 +7726,6 @@ h1,h2,h3{padding-top:.06em;padding-bottom:.04em}
 })();
 </script>
 
-
-
 <!-- ERWEITERUNG v41 (09.11.2026): Tabs entfernt – Arbeit ohne „Bericht“ und „Fälle“, Schule ohne „Noten“.
      Wunsch von Max. Ohne persönliche Werte, darf auf GitHub Pages.
      - Nur die Anzeige fällt weg. Gespeicherte Daten (S.work.bh, S.cases, S.grades, S.gradeGoal, S.ihkCalc) bleiben im Speicher und im Backup.
@@ -7769,7 +7792,6 @@ h1,h2,h3{padding-top:.06em;padding-bottom:.04em}
   try { rerender(); } catch (e) {}
 })();
 </script>
-
 
 <!-- ERWEITERUNG v42 (09.11.2026): Schule ohne „Hausaufgaben“.
      Wunsch von Max. Ohne persönliche Werte, darf auf GitHub Pages.
@@ -9330,7 +9352,6 @@ html[data-d43-motion="0"] *,html[data-d43-motion="0"] *::before,html[data-d43-mo
 })();
 </script>
 
-
 <!-- ERWEITERUNG v46 (10.11.2026): 🔄 Abgleich – Daten aus der Claude-Version aufs Handy holen, OHNE etwas zu löschen.
      Wunsch von Max: „mit Handy synchronisieren“. Ohne persönliche Werte – darf in die GitHub-Pages-Version.
      Einstellungen → Karte „🔄 Abgleich mit der Claude-Version“: Abgleich-Datei (.json) wählen oder Text einfügen.
@@ -10170,7 +10191,6 @@ html[data-d43-motion="0"] *,html[data-d43-motion="0"] *::before,html[data-d43-mo
   try { if (typeof currentView === "function" && currentView() === "schule") rerender(); } catch (e) {}
 })();
 </script>
-
 
 <!-- ERWEITERUNG v48 (12.11.2026): „Top 20“ aus den Ideen Part 2 + Fix für halbe Pfeile und Markieren beim schnellen Tippen.
      Haupt-App: Mein Tag, To-dos mitnehmen, Gnadenzeit bis 3 Uhr, Serien-Joker, Leitner-Lernkarten, „Heute fällig“,
@@ -11022,7 +11042,6 @@ html[data-d43-motion="0"] *,html[data-d43-motion="0"] *::before,html[data-d43-mo
 })();
 </script>
 
-
 <!-- ERWEITERUNG v49 (12.11.2026): „🎲 Alltag heute“ in Mein Tag.
      Wunsch von Max: Bei den To-dos in „Mein Tag“ jeden Tag 3 zufällige Alltags-Sachen (aufräumen, PC-Updates,
      Klamotten raussuchen …), aus dem, was er so macht, und dem, was andere Menschen täglich machen. Mindestens 50 verschiedene.
@@ -11466,7 +11485,7 @@ html[data-d43-motion="0"] *,html[data-d43-motion="0"] *::before,html[data-d43-mo
 <script>
 (function () {
   "use strict";
-  const WK_VERSION = "v50";   // ← bei jeder neuen Version hochzählen
+  const WK_VERSION = "v51";   // ← bei jeder neuen Version hochzählen
   window.WK_VERSION = WK_VERSION;
   if (document.getElementById("w50ver")) return;
   const el = document.createElement("div");
