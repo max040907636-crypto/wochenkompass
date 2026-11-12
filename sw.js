@@ -3,7 +3,7 @@
    Speichert die App auf dem Handy, damit sie auch mit schlechtem Netz startet.
    Videos werden NICHT gespeichert (laden nur mit Internet).
    ===================================================================== */
-const VERSION = "wochenkompass-v48";   // bei Änderungen hochzählen
+const VERSION = "wochenkompass-v49";   // bei Änderungen hochzählen
 const DATEIEN = ["./", "index.html", "manifest.webmanifest", "icons/icon-180.png", "icons/icon-192.png", "icons/icon-512.png"];
 
 // 1) Installieren: App-Dateien speichern

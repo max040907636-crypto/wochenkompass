@@ -11023,6 +11023,438 @@ html[data-d43-motion="0"] *,html[data-d43-motion="0"] *::before,html[data-d43-mo
 </script>
 
 
+<!-- ERWEITERUNG v49 (12.11.2026): „🎲 Alltag heute“ in Mein Tag.
+     Wunsch von Max: Bei den To-dos in „Mein Tag“ jeden Tag 3 zufällige Alltags-Sachen (aufräumen, PC-Updates,
+     Klamotten raussuchen …), aus dem, was er so macht, und dem, was andere Menschen täglich machen. Mindestens 50 verschiedene.
+     - 79 Aufgaben in 8 Bereichen (Liste AUFGABEN). IDs nie umnummerieren (sind Speicher-Schlüssel), neue nur hinten anhängen.
+     - Auswahl passt zum Tag (dayBlocks): Arbeit/Schule/frei/krank, morgen Arbeit/Schule, Gym heute/gestern, Sonntag.
+       Höchstens 1 Aufgabe pro Bereich, nichts von den letzten 2 Tagen, „alle X Tage“ nach dem letzten Erledigen.
+     - Abhaken, einzeln tauschen (🔄), Liste an/aus pro Aufgabe, eigene Aufgaben. Unerledigtes wandert NICHT mit.
+     - Taschen, Laptop, Handy laden und Berichtsheft stehen schon im 🌙 Abend-Check – deshalb nicht in der Liste.
+     - Speicher: S.alltag = {an, d, ids, weg, h:{Tag:[ids]}, x:{Tag:[erledigt]}, aus:[ids], eigen:[{id, k, t}]} (kommt ins Backup).
+     - Tag wie bei Mein Tag: bis 3 Uhr nachts zählt noch der Vortag.
+     Keine persönlichen Daten in diesem Block. Zurück: Block löschen. Test-Hilfe window.__v49. -->
+<style>
+.w49{border-top:1px solid var(--line);margin-top:8px;padding-top:10px}
+.w49-kopf{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;-webkit-user-select:none;user-select:none}
+.w49-kopf b{font-size:16px}
+.w49 .list>li{padding:8px 0}
+.w49-tausch{font-size:17px;padding:0}
+.w49-fuss{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-top:2px}
+.w49-liste h3{margin:16px 0 2px;font-size:16px}
+.w49-liste .list>li{padding:8px 0}
+.w49-sum{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0}
+.w49-sum span{border:1px solid var(--line);border-radius:999px;padding:4px 10px;font-size:13px;font-weight:700}
+.w49-neu{border:1px solid var(--line);border-radius:14px;padding:12px;margin-top:16px;display:flex;flex-direction:column;gap:8px}
+.w49-neu .w49-reihe{display:flex;gap:8px;min-width:0}
+.w49-neu .w49-reihe>*{min-width:0}
+.w49-neu select.inp{flex:0 0 46%}
+</style>
+<script>
+(function () {
+  "use strict";
+  if (typeof S === "undefined" || typeof VIEWS !== "object" || typeof save !== "function" || typeof dayBlocks !== "function") return;
+
+  /* =====================================================================
+     0) BEREICHE UND AUFGABEN
+     w = wann passt es? (siehe gewicht())   alle = frühestens wieder nach X Tagen, wenn erledigt
+     leicht = geht auch, wenn man krank ist   min = ungefähre Dauer in Minuten
+     ===================================================================== */
+  const KAT = {
+    zimmer:["🧹", "Zimmer & Haushalt"],
+    waesche:["👕", "Klamotten & Wäsche"],
+    pc:["💻", "PC & Technik"],
+    handy:["📱", "Handy & Digitales"],
+    orga:["🗂️", "Schule, Arbeit & Orga"],
+    ich:["🧘", "Körper & Kopf"],
+    raus:["🚶", "Draußen & Bewegung"],
+    leute:["💬", "Familie & Freunde"]
+  };
+  const A_ = (id, k, t, tip, min, alle, w, leicht) => ({id, k, t, tip, min, alle:alle || 1, w:w || "", leicht:!!leicht});
+  const AUFGABEN = [
+    /* Zimmer & Haushalt */
+    A_("a01", "zimmer", "Bett machen", "Dauert 2 Minuten – danach wirkt das ganze Zimmer ordentlicher.", 2, 1),
+    A_("a02", "zimmer", "Zimmer 10 Minuten aufräumen", "Timer auf 10 Minuten stellen und los. Wenn er klingelt, darfst du aufhören.", 10, 2),
+    A_("a03", "zimmer", "Schreibtisch freiräumen", "Alles weg, was nicht zum Arbeiten oder Zocken gehört.", 10, 3),
+    A_("a04", "zimmer", "Staubsaugen im Zimmer", "Auch unter dem Bett und unter dem Schreibtisch.", 15, 5, "frei"),
+    A_("a05", "zimmer", "Staub wischen", "Regal, Fensterbank, Schreibtisch – ein feuchtes Tuch reicht.", 10, 7, "frei"),
+    A_("a06", "zimmer", "Lüften: 5 Minuten Fenster ganz auf", "Stoßlüften bringt mehr frische Luft als ein gekipptes Fenster.", 5, 1, "", true),
+    A_("a07", "zimmer", "Mülleimer leeren und Müll rausbringen", "Papier, Plastik und Restmüll gleich richtig trennen.", 5, 3),
+    A_("a08", "zimmer", "Geschirr aus dem Zimmer in die Küche bringen", "Gläser, Teller, Tassen – alles mitnehmen.", 2, 2, "", true),
+    A_("a09", "zimmer", "Spülmaschine ein- oder ausräumen", "Hilft allen zu Hause.", 10, 2),
+    A_("a10", "zimmer", "Bettwäsche wechseln", "Alle 1–2 Wochen ist normal.", 15, 14, "frei"),
+    A_("a11", "zimmer", "Eine Schublade ausmisten", "Was du seit einem Jahr nicht benutzt hast: weg oder verschenken.", 10, 7),
+    A_("a12", "zimmer", "Spiegel und Fenster putzen", "Glasreiniger und Mikrofasertuch.", 15, 14, "frei"),
+    A_("a13", "zimmer", "Pfand wegbringen", "Leere Flaschen sammeln und beim nächsten Einkauf mitnehmen.", 10, 7),
+    A_("a14", "zimmer", "Zu Hause fragen, wo du helfen kannst", "Kurz fragen, was gerade ansteht.", 10, 3),
+    A_("a16", "zimmer", "Kühlschrank checken: Was muss weg?", "Abgelaufenes raus, Reste zuerst essen.", 5, 7),
+    /* Klamotten & Wäsche */
+    A_("a20", "waesche", "Klamotten für morgen raussuchen", "Abends erledigt = morgens mehr Ruhe.", 5, 1, "morgen", true),
+    A_("a21", "waesche", "Wäsche waschen und aufhängen", "Hell und dunkel trennen, vorher die Taschen leeren.", 15, 4, "frei"),
+    A_("a22", "waesche", "Trockene Wäsche zusammenlegen und wegräumen", "Gleich in den Schrank – nicht auf den Stuhl.", 10, 3),
+    A_("a23", "waesche", "Klamotten-Stuhl leer räumen", "Alles in den Schrank oder in die Wäsche.", 5, 3),
+    A_("a24", "waesche", "Gym-Klamotten in die Wäsche", "Nicht in der Tasche liegen lassen.", 2, 2, "nachGym"),
+    A_("a25", "waesche", "Schuhe putzen", "Sneaker: feuchtes Tuch und etwas Spülmittel.", 10, 14, "frei"),
+    A_("a26", "waesche", "Ein Teil aussortieren, das du nicht mehr trägst", "Spenden, verkaufen oder in den Altkleider-Container.", 5, 14),
+    /* PC & Technik */
+    A_("a30", "pc", "Windows-Updates checken", "Start → Einstellungen → Windows Update → „Nach Updates suchen“.", 5, 4),
+    A_("a31", "pc", "Grafikkarten-Treiber prüfen", "Zum Beispiel in der NVIDIA App bzw. der AMD Software unter „Treiber“.", 5, 10),
+    A_("a32", "pc", "Speicherplatz auf C: checken", "Einstellungen → System → Speicher. Faustregel: etwas Platz frei lassen, sonst wird es langsam.", 5, 7),
+    A_("a33", "pc", "Papierkorb leeren", "Vorher kurz reinschauen, ob nichts Wichtiges drin ist.", 1, 5, "", true),
+    A_("a34", "pc", "Downloads-Ordner aufräumen", "Alte Installer löschen, Wichtiges einsortieren.", 10, 7, "", true),
+    A_("a35", "pc", "Desktop aufräumen", "Nur Verknüpfungen behalten, die du wirklich brauchst.", 5, 7, "", true),
+    A_("a36", "pc", "Spiele und Apps updaten", "Launcher einmal öffnen und Updates laden lassen.", 5, 4),
+    A_("a37", "pc", "Tastatur, Maus und Monitor sauber machen", "PC aus, Tastatur ausschütteln, Bildschirm nur mit trockenem Mikrofasertuch.", 10, 14, "frei"),
+    A_("a38", "pc", "PC entstauben (Lüfter)", "PC aus und Stecker ziehen. Lüfter beim Auspusten festhalten.", 15, 30, "nurFrei"),
+    A_("a39", "pc", "PC einmal richtig neu starten", "„Neu starten“ wählen – Herunterfahren mit Schnellstart ist kein echter Neustart.", 2, 7, "", true),
+    A_("a40", "pc", "Linux oder Docker: 10 Minuten was Neues ausprobieren", "Ein Befehl, ein Container, ein Video – Hauptsache dranbleiben.", 10, 4),
+    /* Handy & Digitales */
+    A_("a45", "handy", "Handy-Fotos aussortieren", "Screenshots und doppelte Bilder löschen – 20 Stück reichen.", 10, 5, "", true),
+    A_("a46", "handy", "Handy-Updates checken", "iPhone: Einstellungen → Allgemein → Softwareupdate.", 2, 7, "", true),
+    A_("a47", "handy", "Postfach aufräumen: 10 Mails", "Löschen, archivieren oder Newsletter abbestellen.", 5, 3, "", true),
+    A_("a48", "handy", "Apps löschen, die du nicht mehr nutzt", "Spart Speicher und Ablenkung.", 5, 14, "", true),
+    A_("a49", "handy", "Backup vom Wochenkompass machen", "Einstellungen → Backup. Deine Daten liegen sonst nur auf diesem Gerät.", 2, 7, "", true),
+    A_("a50", "handy", "Mitteilungen ausmisten", "Apps, die nur nerven: Mitteilungen aus.", 5, 30, "", true),
+    A_("a51", "handy", "Handy-Bildschirm und Hülle sauber machen", "Mikrofasertuch – nichts direkt aufs Handy sprühen.", 2, 7, "", true),
+    A_("a52", "handy", "Bei einem wichtigen Konto 2-Faktor einschalten", "Mail, Gaming, Bank – wo es noch fehlt.", 5, 30, "", true),
+    /* Schule, Arbeit & Orga */
+    A_("a55", "orga", "15 Minuten für die Schule wiederholen", "Probeklausur, Lernkarten oder Lernzettel – Hauptsache aktiv.", 15, 2),
+    A_("a56", "orga", "Termine der Woche checken", "Wochenkompass → Woche: Was kommt, was musst du vorbereiten?", 3, 4, "", true),
+    A_("a57", "orga", "Ausgaben von heute eintragen", "Arbeit → Geld → Ausgaben. Kleine Beträge zählen auch.", 2, 1, "", true),
+    A_("a58", "orga", "Kontostand checken", "Kurzer Blick in die Banking-App – passt alles?", 2, 7, "", true),
+    A_("a59", "orga", "Einkaufsliste checken und ergänzen", "Was ist leer, was brauchst du diese Woche?", 3, 4, "", true),
+    A_("a60", "orga", "Fahrplan für morgen checken", "Bus- und Bahn-App: Verspätung oder Baustelle?", 2, 2, "mArbSch", true),
+    A_("a61", "orga", "Essen für morgen vorbereiten", "Brote schmieren oder Reste einpacken spart Geld.", 10, 2, "mArbSch"),
+    A_("a62", "orga", "Eine Sache erledigen, die du vor dir herschiebst", "5-Minuten-Regel: nur anfangen – meistens machst du dann weiter.", 10, 4),
+    A_("a63", "orga", "Zettel und Briefe abheften", "Wichtiges in den Ordner, den Rest ins Altpapier.", 10, 14),
+    A_("a64", "orga", "Nächste Woche anschauen und planen", "Klausur, Termine, Gym – passt alles zusammen?", 10, 6, "sonntag", true),
+    A_("a65", "orga", "Rucksack ausmisten", "Alte Zettel, Müll und Krümel raus.", 5, 7),
+    A_("a66", "orga", "Geburtstage der nächsten 2 Wochen checken", "Rechtzeitig an Geschenk oder Nachricht denken.", 2, 7, "", true),
+    A_("a67", "orga", "Abos durchgehen", "Arbeit → Geld → Abos: Brauchst du noch alle?", 5, 30, "", true),
+    A_("a68", "orga", "Eine Notiz in Obsidian einsortieren", "Neue Notizen in den richtigen Ordner schieben und verlinken.", 10, 3, "", true),
+    A_("a69", "orga", "Fragen für Betrieb oder Schule aufschreiben", "Was wolltest du deinen Ausbilder oder Lehrer fragen?", 3, 3, "werktag", true),
+    /* Körper & Kopf */
+    A_("a75", "ich", "2 große Gläser Wasser extra trinken", "Das erste am besten gleich jetzt.", 1, 1, "", true),
+    A_("a76", "ich", "5 Minuten dehnen", "Beine, Rücken, Schultern – ruhig atmen, nichts erzwingen.", 5, 1),
+    A_("a77", "ich", "Tages-Check ausfüllen", "Ich → Gesundheit: Stimmung, Schlaf, Wasser.", 1, 1, "", true),
+    A_("a78", "ich", "Rechtzeitig ins Bett", "Der 😴 Schlafrechner sagt dir, wann es Zeit ist.", 1, 2, "morgen", true),
+    A_("a79", "ich", "30 Minuten vor dem Schlafen kein Handy", "Handy außer Reichweite legen hilft am meisten.", 1, 3, "", true),
+    A_("a80", "ich", "Obst oder Gemüse essen", "Ein Apfel oder eine Banane zählt schon.", 2, 1, "", true),
+    A_("a81", "ich", "Zahnseide benutzen", "Einmal am Tag reicht.", 2, 2, "", true),
+    A_("a82", "ich", "10 Minuten lesen", "Buch, Comic oder Artikel – ohne nebenbei zu scrollen.", 10, 2, "", true),
+    A_("a83", "ich", "3 gute Dinge von heute aufschreiben", "Auch Kleinigkeiten zählen.", 3, 2, "", true),
+    A_("a84", "ich", "5 Minuten Pause ohne Bildschirm", "Einfach durchatmen oder aus dem Fenster schauen.", 5, 2, "", true),
+    A_("a85", "ich", "Jede Stunde kurz aufstehen", "Am Schreibtisch: kurz strecken, Wasser holen.", 1, 2, "werktag"),
+    A_("a86", "ich", "Nägel schneiden", "Hände und Füße.", 5, 10),
+    A_("a87", "ich", "Lieblingsmusik hören und abschalten", "10 Minuten nur Musik, sonst nichts.", 10, 3, "", true),
+    /* Draußen & Bewegung */
+    A_("a90", "raus", "15 Minuten an die frische Luft", "Einmal um den Block – gut für Kopf und Schlaf.", 15, 2),
+    A_("a92", "raus", "Treppe statt Aufzug nehmen", "Im Betrieb oder in der Schule – jedes Mal.", 1, 2, "werktag"),
+    A_("a93", "raus", "Eine Haltestelle früher aussteigen", "Die letzten Minuten zu Fuß gehen.", 10, 4, "werktag"),
+    A_("a94", "raus", "Kleinen Einkauf zu Fuß erledigen", "Statt mitfahren: hin und zurück laufen.", 20, 5, "frei"),
+    /* Familie & Freunde */
+    A_("a100", "leute", "Jemandem schreiben, von dem du lange nichts gehört hast", "Ein „Na, wie läuft's?“ reicht völlig.", 2, 4, "", true),
+    A_("a101", "leute", "Jemandem, den du gern hast, was Liebes schreiben", "Einfach so, ohne Anlass.", 1, 2, "", true),
+    A_("a102", "leute", "Mit der Familie zusammen essen", "Handy weg und kurz erzählen, wie der Tag war.", 30, 2),
+    A_("a103", "leute", "Danke sagen", "Jemandem, der dir heute geholfen hat.", 1, 2, "", true),
+    A_("a104", "leute", "Freunde fürs Wochenende fragen", "Gym, Essen, Zocken – früh fragen klappt besser.", 2, 7, "vorWE", true),
+    A_("a105", "leute", "Jemandem bei etwas helfen", "Kollege, Mitschüler, Familie – kleine Hilfe, großer Eindruck.", 5, 3)
+  ];
+  const ANZ = 3;   // so viele Aufgaben pro Tag
+
+  /* =====================================================================
+     1) HELFER
+     ===================================================================== */
+  const lernTag = () => new Date().getHours() < 3 ? addDays(todayKey(), -1) : todayKey();   // wie Mein Tag (Gnadenzeit)
+  const nid = () => "e" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+  const kopf = t => '<div class="sheet-top"><h2>' + t + '</h2><button class="icon-btn" data-act="close" aria-label="Schließen">' + ICON.x + '</button></div>';
+  function E49() {
+    if (!S.alltag || typeof S.alltag !== "object" || Array.isArray(S.alltag)) S.alltag = {};
+    const A = S.alltag;
+    if (A.an == null) A.an = true;
+    if (typeof A.d !== "string") A.d = "";
+    ["ids", "weg", "aus", "eigen"].forEach(k => { if (!Array.isArray(A[k])) A[k] = []; });
+    ["h", "x"].forEach(k => { if (!A[k] || typeof A[k] !== "object" || Array.isArray(A[k])) A[k] = {}; });
+    return A;
+  }
+  // Alle Aufgaben (feste + eigene)
+  function alle() {
+    const A = E49();
+    return AUFGABEN.concat(A.eigen.filter(e => e && e.id && e.t).map(e => ({id:e.id, k:KAT[e.k] ? e.k : "orga", t:String(e.t), tip:"", min:0, alle:1, w:"", leicht:true, eigen:true})));
+  }
+  const finde = id => alle().find(a => a.id === id) || null;
+  const aktiv = () => { const A = E49(); return alle().filter(a => !A.aus.includes(a.id)); };
+  const erledigt = K => { const A = E49(); return Array.isArray(A.x[K]) ? A.x[K] : []; };
+  // Wann wurde die Aufgabe zuletzt erledigt (vor dem Tag K)?
+  function zuletzt(id, K) { const A = E49(); let best = ""; Object.keys(A.x).forEach(d => { if (d < K && d > best && Array.isArray(A.x[d]) && A.x[d].includes(id)) best = d; }); return best; }
+
+  /* =====================================================================
+     2) WAS IST HEUTE FÜR EIN TAG?
+     ===================================================================== */
+  function kontext(K) {
+    const b = dayBlocks(K), m = dayBlocks(addDays(K, 1)), g = dayBlocks(addDays(K, -1)), hat = (l, a) => l.some(x => x.area === a);
+    const arbeit = hat(b, "arbeit"), schule = hat(b, "schule");
+    return {wd:wdOf(K), arbeit, schule, frei:!arbeit && !schule, krank:hat(b, "krank"), gym:b.some(x => x.gym), gGym:g.some(x => x.gym),
+      mArbeit:hat(m, "arbeit"), mSchule:hat(m, "schule"), mGym:m.some(x => x.gym)};
+  }
+  // Wie gut passt eine Aufgabe zu diesem Tag? 0 = gar nicht
+  function gewicht(a, c, ohneKrank) {
+    if (c.krank && !a.leicht && !ohneKrank) return 0;
+    const morgen = c.mArbeit || c.mSchule;
+    switch (a.w) {
+      case "frei": return c.frei ? 2.5 : 0.6;
+      case "nurFrei": return c.frei ? 2 : 0;
+      case "morgen": return morgen ? 3 : 0.5;
+      case "mArbSch": return morgen ? 2.5 : 0;
+      case "nachGym": return c.gym || c.gGym ? 2.5 : 0;
+      case "werktag": return c.arbeit || c.schule ? 1.5 : 0;
+      case "sonntag": return c.wd === 0 ? 3 : 0;
+      case "vorWE": return c.wd >= 3 && c.wd <= 5 ? 2 : 0.3;
+      default: return 1;
+    }
+  }
+
+  /* =====================================================================
+     3) ZIEHEN: eine passende Aufgabe auslosen
+     Stufen, falls zu wenig passt: 0 alle Regeln · 1 Bereich darf doppelt · 2 auch von gestern/vorgestern
+     · 3 auch vor „alle X Tage“ · 4 auch schon heute weggetauschte · 5 auch Schweres bei krank · 6 alles Aktive
+     ===================================================================== */
+  function ziehe(K, c, schon, weg) {
+    const A = E49(), pool = aktiv().filter(a => !schon.includes(a.id));
+    const kats = schon.map(id => (finde(id) || {}).k);
+    const kuerzlich = [].concat(A.h[addDays(K, -1)] || [], A.h[addDays(K, -2)] || []);
+    for (let s = 0; s <= 6; s++) {
+      const kand = [];
+      pool.forEach(a => {
+        const g = s >= 6 ? 1 : gewicht(a, c, s >= 5);
+        if (!(g > 0)) return;
+        if (s < 1 && kats.includes(a.k)) return;
+        if (s < 2 && kuerzlich.includes(a.id)) return;
+        if (s < 3) { const z = zuletzt(a.id, K); if (z && diffDays(z, K) < (a.alle || 1)) return; }
+        if (s < 4 && weg.includes(a.id)) return;
+        kand.push([a, g]);
+      });
+      if (!kand.length) continue;
+      let r = Math.random() * kand.reduce((n, x) => n + x[1], 0);
+      for (const [a, g] of kand) { r -= g; if (r <= 0) return a.id; }
+      return kand[kand.length - 1][0].id;
+    }
+    return null;
+  }
+  // Den Tag vorbereiten: neuer Tag → neue Aufgaben; zu wenige (z. B. nach dem Einschalten) → auffüllen
+  function heute(K0) {   // K0 nur für Tests
+    const A = E49(), K = K0 || lernTag();
+    let neu = false;
+    if (A.d !== K) {
+      A.d = K; A.ids = []; A.weg = []; neu = true;
+      const grenze = addDays(K, -120);   // alte Verläufe aufräumen
+      ["h", "x"].forEach(f => Object.keys(A[f]).forEach(d => { if (d < grenze) delete A[f][d]; }));
+    }
+    const vorher = A.ids.join(",");
+    A.ids = A.ids.filter((id, i, l) => finde(id) && l.indexOf(id) === i);
+    if (A.ids.length < ANZ) {
+      const c = kontext(K);
+      while (A.ids.length < ANZ) { const id = ziehe(K, c, A.ids, A.weg); if (!id) break; A.ids.push(id); }
+    }
+    if (neu || A.ids.join(",") !== vorher) { A.h[K] = A.ids.slice(); save(); }
+    return A;
+  }
+  // Eine Aufgabe gegen eine andere tauschen
+  function tauschen(id) {
+    const A = heute(), K = A.d, i = A.ids.indexOf(id);
+    if (i < 0 || erledigt(K).includes(id)) return false;
+    if (!A.weg.includes(id)) A.weg.push(id);
+    const n = ziehe(K, kontext(K), A.ids, A.weg);
+    if (!n) return false;
+    A.ids[i] = n; A.h[K] = A.ids.slice(); save();
+    return true;
+  }
+  function abhaken(id) {
+    const A = heute(), K = A.d; if (!A.ids.includes(id)) return null;
+    const l = erledigt(K), an = !l.includes(id);
+    A.x[K] = an ? l.concat([id]) : l.filter(x => x !== id);
+    if (!A.x[K].length) delete A.x[K];
+    save(); return an;
+  }
+  // Statistik: erledigte Alltags-Aufgaben diese Woche (Mo–So)
+  function woche() { const A = E49(), K = lernTag(), mo = mondayOf(K); let n = 0; Object.keys(A.x).forEach(d => { if (d >= mo && d <= K && Array.isArray(A.x[d])) n += A.x[d].length; }); return n; }
+
+  /* =====================================================================
+     4) ANZEIGE: Abschnitt in „Mein Tag“ (Startseite + Fenster)
+     ===================================================================== */
+  function zeile(a, fertig) {
+    const K = KAT[a.k] || KAT.orga, sub = [a.tip, a.min ? "ca. " + a.min + " Min." : ""].filter(Boolean).join(" · ");
+    return '<li>' + chk("w49-ok", a.id, fertig, (fertig ? "Nicht erledigt: " : "Erledigt: ") + a.t)
+      + '<span class="li-main' + (fertig ? " done" : "") + '"><span aria-hidden="true">' + K[0] + '</span> ' + esc(a.t) + (sub ? '<small>' + esc(sub) + '</small>' : '') + '</span>'
+      + (fertig ? '' : '<button type="button" class="mini w49-tausch" data-act="w49-tausch" data-id="' + esc(a.id) + '" aria-label="Andere Aufgabe statt: ' + esc(a.t) + '" title="Andere Aufgabe">🔄</button>') + '</li>';
+  }
+  function alltagHtml(imFenster) {
+    const A = E49(); if (!A.an) return "";
+    heute();
+    const its = A.ids.map(finde).filter(Boolean), done = erledigt(A.d), f = its.filter(a => done.includes(a.id)).length;
+    let h = '<div class="w49" role="group" aria-label="Alltag heute"><div class="w49-kopf"><b>🎲 Alltag heute</b><span class="small muted">' + (its.length ? f + ' / ' + its.length + ' erledigt' : '') + '</span></div>';
+    if (!its.length) return h + '<p class="small muted">Gerade ist keine Alltags-Aufgabe eingeschaltet.</p><button type="button" class="link small" data-act="w49-liste">⚙️ Liste anpassen</button></div>';
+    h += '<ul class="list">' + its.map(a => zeile(a, done.includes(a.id))).join("") + '</ul>';
+    if (f === its.length) h += '<p class="tip">🎉 Alltag für heute erledigt – stark!</p>';
+    h += '<div class="w49-fuss"><button type="button" class="link small" data-act="w49-liste">⚙️ Liste anpassen</button>'
+      + (imFenster ? '<span class="small muted">Diese Woche: <b>' + woche() + '</b> erledigt</span>' : '<span class="small muted">🔄 = andere Aufgabe</span>') + '</div>';
+    if (imFenster && f < its.length) h += '<button type="button" class="btn sm" data-act="w49-alle">🎲 Offene neu auslosen</button>';
+    return h + '</div>';
+  }
+
+  /* =====================================================================
+     5) FENSTER „🎲 Alltags-Aufgaben“: Liste an/aus, eigene Aufgaben
+     ===================================================================== */
+  let DEL = null;
+  function listeHtml() {
+    const A = E49(), L = alle(), an = L.filter(a => !A.aus.includes(a.id)).length;
+    let h = kopf("🎲 Alltags-Aufgaben") + '<div class="w49-liste">'
+      + '<p class="small muted">Jeden Tag lost die App <b>' + ANZ + ' Aufgaben</b> für „Mein Tag“ aus. Sie achtet auf deinen Tag: an Arbeits- und Schultagen eher Kleines, an freien Tagen auch Größeres (Staubsaugen, Wäsche). Was gestern oder vorgestern dran war, kommt nicht gleich wieder – höchstens eine Aufgabe pro Bereich.</p>'
+      + '<ul class="list"><li>' + chk("w49-set", "an", !!A.an, "Alltags-Aufgaben in Mein Tag") + '<span class="li-main"><b>In „Mein Tag“ anzeigen</b><small>Aus = keine zufälligen Aufgaben mehr</small></span></li></ul>'
+      + '<div class="w49-sum"><span>' + an + ' von ' + L.length + ' an</span><span>Diese Woche ' + woche() + ' erledigt</span></div>'
+      + '<p class="small muted">✓ = Aufgabe ist an und kann ausgelost werden. Haken weg = kommt nicht mehr dran. Taschen packen, Laptop und Handy laden und Berichtsheft-Stichpunkte stehen schon im 🌙 Abend-Check – deshalb nicht hier.</p>';
+    Object.keys(KAT).forEach(k => {
+      const g = L.filter(a => a.k === k); if (!g.length) return;
+      h += '<h3>' + KAT[k][0] + ' ' + esc(KAT[k][1]) + '</h3><ul class="list">' + g.map(a => {
+        const on = !A.aus.includes(a.id), sub = a.eigen ? "eigene Aufgabe" : [a.alle > 1 ? "frühestens alle " + a.alle + " Tage" : "", a.leicht ? "geht auch, wenn du krank bist" : ""].filter(Boolean).join(" · ");
+        return '<li>' + chk("w49-an", a.id, on, (on ? "Ausschalten: " : "Einschalten: ") + a.t) + '<span class="li-main' + (on ? "" : " done") + '">' + esc(a.t) + (sub ? '<small>' + esc(sub) + '</small>' : '') + '</span>'
+          + (a.eigen ? (DEL === a.id ? '<button type="button" class="mini" style="border-color:var(--feiertag);color:var(--feiertag)" data-act="w49-del" data-id="' + esc(a.id) + '">Löschen?</button>' : '<button type="button" class="mini" data-act="w49-del" data-id="' + esc(a.id) + '" aria-label="Eigene Aufgabe löschen: ' + esc(a.t) + '">✕</button>') : '') + '</li>';
+      }).join("") + '</ul>';
+    });
+    h += '<div class="btn-row" style="margin-top:12px"><button type="button" class="btn sm" data-act="w49-allean">Alle einschalten</button></div>'
+      + '<div class="w49-neu"><b>➕ Eigene Aufgabe</b><input id="w49neu" class="inp" maxlength="80" placeholder="z. B. Mit dem Hund raus" aria-label="Eigene Alltags-Aufgabe">'
+      + '<div class="w49-reihe"><select id="w49kat" class="inp" aria-label="Bereich">' + Object.keys(KAT).map(k => '<option value="' + k + '">' + KAT[k][0] + ' ' + esc(KAT[k][1]) + '</option>').join("") + '</select>'
+      + '<button type="button" class="btn" data-act="w49-add" style="flex:1">Hinzufügen</button></div>'
+      + '<span class="small muted">Bleibt nur auf diesem Gerät (und im Backup). Keine Passwörter oder echten Namen.</span></div>';
+    return h + '</div>';
+  }
+
+  /* =====================================================================
+     6) EINHÄNGEN: Startseite, Mein-Tag-Fenster, Einstellungen, Suche
+     ===================================================================== */
+  // Ende des <div>, das an Stelle i beginnt
+  function divEnde(h, i) { const re = /<div\b|<\/div>/g; re.lastIndex = i; let d = 0, m; while ((m = re.exec(h))) { if (m[0] === "</div>") { if (--d === 0) return m.index + 6; } else d++; } return -1; }
+  const _se = startExtras;
+  startExtras = function () {
+    let h = _se.apply(this, arguments);
+    try {
+      const teil = alltagHtml(false); if (!teil) return h;
+      const i = h.indexOf('<div class="card w48-tag">'), e = i >= 0 ? divEnde(h, i) : -1;
+      h = e > 0 ? h.slice(0, e - 6) + teil + h.slice(e - 6) : '<div class="card">' + teil.replace('class="w49"', 'class="w49" style="border-top:0;margin-top:0;padding-top:0"') + '</div>' + h;
+    } catch (err) {}
+    return h;
+  };
+  const _rs = renderSheet;
+  renderSheet = function () {
+    const s = UI.sheet;
+    if (s && s.kind === "w49-liste") { $("#sheet").innerHTML = listeHtml(); return; }
+    const r = _rs.apply(this, arguments);
+    try {
+      if (s && s.kind === "w48-top") {
+        const sh = $("#sheet"), teil = alltagHtml(true);
+        if (sh && teil && !sh.querySelector(".w49")) { const row = sh.querySelector(".w48-row"); if (row) row.insertAdjacentHTML("afterend", teil); else sh.insertAdjacentHTML("beforeend", teil); }
+      }
+    } catch (err) {}
+    return r;
+  };
+  const _ve = VIEWS.einstellungen;
+  if (typeof _ve === "function") VIEWS.einstellungen = function () {
+    const h = _ve.apply(this, arguments);
+    try {
+      const A = E49(), m = '<h3>✨ Extras</h3><ul class="list">';
+      const li = '<li>' + chk("w49-set", "an", !!A.an, "Alltags-Aufgaben in Mein Tag") + '<span class="li-main"><b>🎲 Alltags-Aufgaben</b><small>Jeden Tag ' + ANZ + ' zufällige Alltags-To-dos in „Mein Tag“ (' + aktiv().length + ' von ' + alle().length + ' an). <button type="button" class="link small" data-act="w49-liste">Liste anpassen</button></small></span></li>';
+      return h.indexOf(m) >= 0 ? h.replace(m, m + li) : h;
+    } catch (err) { return h; }
+  };
+  if (typeof searchAll === "function") {
+    const _sa = searchAll;
+    searchAll = function (q) {
+      const r = _sa.apply(this, arguments) || [], s = String(q || "").trim().toLowerCase();
+      if (s.length < 2 || !Array.isArray(r)) return r;
+      try {
+        const T = ["Mein Tag", "🎲 Alltags-Aufgaben", "Zufällige To-dos: aufräumen, Wäsche, Klamotten, PC-Updates, Haushalt"];
+        if ((T[1] + " " + T[2] + " alltag zufall random").toLowerCase().includes(s)) r.push({cat:T[0], title:T[1], text:T[2], go:() => openSheet("w49-liste"), s:1});
+      } catch (err) {}
+      return r;
+    };
+  }
+
+  /* =====================================================================
+     7) KLICKS
+     ===================================================================== */
+  function neuZeichnen() {
+    const sh = $("#sheet"), sw = $("#sheetWrap"), a = sh ? sh.scrollTop : 0, c = sw ? sw.scrollTop : 0;
+    if (currentView() !== "gym") rerender(); else if (UI.sheet) renderSheet();
+    if (sh) sh.scrollTop = a; if (sw) sw.scrollTop = c;
+  }
+  document.addEventListener("click", ev => {
+    const b = ev.target.closest("[data-act]"); if (!b) return;
+    const act = b.dataset.act; if (!act || act.indexOf("w49-") !== 0) return;
+    const A = E49(), id = b.dataset.id;
+    switch (act) {
+      case "w49-ok": {
+        if (A.d !== lernTag()) { heute(); neuZeichnen(); toast("Neuer Tag – neue Aufgaben 🎲"); break; }
+        const an = abhaken(id); if (an === null) { neuZeichnen(); break; }
+        const K = A.d, f = A.ids.filter(x => erledigt(K).includes(x)).length;
+        neuZeichnen();
+        if (an && f === A.ids.length) toast("Alltag für heute erledigt 🎉", 2500);
+        break;
+      }
+      case "w49-tausch":
+        if (A.d !== lernTag()) { heute(); neuZeichnen(); toast("Neuer Tag – neue Aufgaben 🎲"); break; }
+        if (!tauschen(id)) toast("Gerade keine andere passende Aufgabe übrig");
+        neuZeichnen(); break;
+      case "w49-alle": {
+        heute(); const K = A.d, d = erledigt(K); let n = 0;
+        A.ids.slice().forEach(x => { if (!d.includes(x) && tauschen(x)) n++; });
+        if (!n) toast("Gerade keine anderen passenden Aufgaben übrig");
+        neuZeichnen(); break;
+      }
+      case "w49-liste": DEL = null; openSheet("w49-liste"); break;
+      case "w49-set": A.an = !A.an; save(); neuZeichnen(); toast(A.an ? "Alltags-Aufgaben sind an 🎲" : "Alltags-Aufgaben sind aus"); break;
+      case "w49-an": {
+        if (!finde(id)) break;
+        const aus = !A.aus.includes(id);
+        if (aus) {
+          if (aktiv().length <= 1) { toast("Mindestens eine Aufgabe muss an bleiben"); break; }
+          A.aus.push(id);
+          if (A.ids.includes(id) && !erledigt(A.d).includes(id)) { A.ids = A.ids.filter(x => x !== id); heute(); }   // durch eine andere ersetzen
+        } else { A.aus = A.aus.filter(x => x !== id); heute(); }
+        save(); neuZeichnen(); break;
+      }
+      case "w49-allean": A.aus = []; heute(); save(); neuZeichnen(); toast("Alle Aufgaben sind an ✓"); break;
+      case "w49-add": {
+        const inp = $("#w49neu"), txt = inp ? inp.value.trim().replace(/\s+/g, " ") : "", k = $("#w49kat") ? $("#w49kat").value : "orga";
+        if (!txt) { toast("Erst kurz eintippen, was du machen willst"); if (inp) inp.focus(); break; }
+        const warn = sensitive(txt); if (warn) { toast(warn, 3500); break; }
+        if (alle().some(a => a.t.toLowerCase() === txt.toLowerCase())) { toast("Die Aufgabe gibt es schon"); break; }
+        A.eigen.push({id:nid(), k:KAT[k] ? k : "orga", t:txt.slice(0, 80)}); save(); toast("Hinzugefügt ✓");
+        neuZeichnen(); setTimeout(() => { const i = $("#w49neu"); if (i) i.focus(); }, 30); break;
+      }
+      case "w49-del": {
+        if (DEL !== id) { DEL = id; neuZeichnen(); break; }
+        DEL = null; A.eigen = A.eigen.filter(e => e.id !== id); A.aus = A.aus.filter(x => x !== id);
+        if (A.ids.includes(id) && !erledigt(A.d).includes(id)) A.ids = A.ids.filter(x => x !== id);
+        heute(); save(); toast("Gelöscht"); neuZeichnen(); break;
+      }
+    }
+  });
+  // Enter im Eingabefeld = Hinzufügen
+  document.addEventListener("keydown", e => {
+    if (e.key !== "Enter" || !e.target || e.target.id !== "w49neu") return;
+    e.preventDefault(); const b = document.querySelector('[data-act="w49-add"]'); if (b) b.click();
+  });
+  // App kommt nach Mitternacht (bzw. 3 Uhr) wieder nach vorne → neue Aufgaben zeigen
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState !== "visible") return;
+    try { const A = E49(); if (A.an && A.d !== lernTag() && currentView() !== "gym") rerender(); } catch (e) {}
+  });
+
+  window.__v49 = {AUFGABEN, KAT, kontext, gewicht, ziehe, heute, tauschen, abhaken, E49, lernTag, alle, finde};
+  try { E49(); if (currentView() !== "gym") rerender(); } catch (e) {}
+})();
+</script>
+
 <script>
 /* Service Worker: App startet auch mit schlechtem Netz */
 if ("serviceWorker" in navigator) addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));
