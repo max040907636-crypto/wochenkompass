@@ -16,7 +16,7 @@
 </head>
 <body>
 <!-- ═══════════════════════════════════════════════════════════════════════════
-     WOCHENKOMPASS – Inhaltsverzeichnis (Stand v51, 12.11.2026)
+     WOCHENKOMPASS – Inhaltsverzeichnis (Stand v52, 12.11.2026)
      Vier Apps in einer: Schule · Arbeit · Gym (Hantelbuch) · Ich & Gesundheit.
      Eine einzige HTML-Datei. Zum Springen im Editor den Suchbegriff rechts suchen.
      ───────────────────────────────────────────────────────────────────────────
@@ -55,6 +55,7 @@
      v49  Alltag heute (3 Zufalls-Aufgaben) ....... „ERWEITERUNG v49“
      v50  Versionsnummer unten rechts ............. „ERWEITERUNG v50“
      v51  Aufräumen + kleine Fixes (direkt im Code)  „v51“
+     v52  Schneller Start: Schrift ohne Warten, Update-Hinweis zum Speicher-Start  „v52“
      ───────────────────────────────────────────────────────────────────────────
      REGELN für neue Versionen
      · WK_VERSION im v50-Block hochzählen (sw.js zieht das Build-Skript automatisch nach).
@@ -101,7 +102,11 @@
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Barlow+Condensed:wght@600;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Barlow+Condensed:wght@600;700&display=swap" media="print">
+<script>/* v52: Schrift laden, ohne dass die App darauf wartet (bei schlechtem Netz blieb der Bildschirm sonst leer).
+   Trick: als „Druck“-Stil laden (blockiert nichts), danach für den Bildschirm einschalten. */
+(function () { var l = document.currentScript.previousElementSibling; function an() { l.media = "all"; }
+  if (l.sheet) an(); else l.addEventListener("load", an); })();</script>
 <style>
 /* v51: Telefonnummern größere Tipp-Fläche (ändert das Layout nicht) */
 a[href^="tel:"]{padding:10px 4px;margin:-10px -4px}
@@ -482,7 +487,11 @@ details.callout summary{cursor:pointer;font-weight:700}
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Barlow+Condensed:wght@600;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Barlow+Condensed:wght@600;700&display=swap" media="print">
+<script>/* v52: Schrift laden, ohne dass die App darauf wartet (bei schlechtem Netz blieb der Bildschirm sonst leer).
+   Trick: als „Druck“-Stil laden (blockiert nichts), danach für den Bildschirm einschalten. */
+(function () { var l = document.currentScript.previousElementSibling; function an() { l.media = "all"; }
+  if (l.sheet) an(); else l.addEventListener("load", an); })();</script>
 <style>
 /* Layout: eine schmale Handy-Spalte (max. 600 px). Oben Kopfzeile, unten Tabs.
    Look: nur Schwarz und Weiß (plus Grautöne) – hell: weißer Grund, dunkel: schwarzer Grund. */
@@ -11003,17 +11012,30 @@ html[data-d43-motion="0"] *,html[data-d43-motion="0"] *::before,html[data-d43-mo
      ===================================================================== */
   (function () {
     if (!("serviceWorker" in navigator) || !window.fetch) return;
-    let basis = null, gezeigt = false, reg = null;
+    let gezeigt = false, reg = null;
+    // v52: Versionsnummer als Zahl („wochenkompass-v52“ → 52, „v52“ → 52)
+    const nr = v => { const m = String(v || "").match(/v(\d+)/); return m ? +m[1] : 0; };
+    // v52: Service Worker holt die neue Seite in den Speicher; höchstens 10 s warten
+    function frischHolen() {
+      return new Promise(fertig => {
+        const sw = navigator.serviceWorker.controller; if (!sw || !window.MessageChannel) return fertig(false);
+        const k = new MessageChannel(), t = setTimeout(() => fertig(false), 10000);
+        k.port1.onmessage = e => { clearTimeout(t); fertig(!!(e.data && e.data.ok)); };
+        try { sw.postMessage({typ: "frisch"}, [k.port2]); } catch (e) { clearTimeout(t); fertig(false); }
+      });
+    }
     const lesen = () => fetch("sw.js", {cache:"no-store"}).then(r => r.ok ? r.text() : "").then(t => (String(t).match(/VERSION\s*=\s*"([^"]+)"/) || [])[1] || null).catch(() => null);
     function hinweis() {
       if (gezeigt || document.getElementById("w48upd")) return; gezeigt = true;
       const d = document.createElement("div"); d.id = "w48upd"; d.className = "w48-upd"; d.setAttribute("role", "status");
       d.innerHTML = '<span>🆕 <b>Neue Version da</b></span><button type="button" class="btn sm" id="w48updGo">Jetzt laden</button><button type="button" class="mini" id="w48updX" aria-label="Später">✕</button>';
       document.body.appendChild(d);
-      d.querySelector("#w48updGo").addEventListener("click", () => { d.querySelector("#w48updGo").disabled = true; Promise.resolve(reg && reg.update()).catch(() => {}).then(() => location.reload()); });
+      d.querySelector("#w48updGo").addEventListener("click", () => { const g = d.querySelector("#w48updGo"); g.disabled = true; g.textContent = "Lädt …";
+        Promise.all([frischHolen(), Promise.resolve(reg && reg.update()).catch(() => {})]).then(() => location.reload()); });
       d.querySelector("#w48updX").addEventListener("click", () => d.remove());
     }
-    async function pruefen() { const v = await lesen(); if (!v) return; if (!basis) { basis = v; return; } if (v !== basis) hinweis(); }
+    // v52: Die App startet jetzt aus dem Speicher → mit der EIGENEN Version vergleichen (nur neuere Server-Version zählt)
+    async function pruefen() { const v = nr(await lesen()), ich = nr(window.WK_VERSION); if (v && ich && v > ich) hinweis(); }
     function los() {
       navigator.serviceWorker.getRegistration().then(r => {
         if (!r) return; reg = r; pruefen();
@@ -11485,7 +11507,7 @@ html[data-d43-motion="0"] *,html[data-d43-motion="0"] *::before,html[data-d43-mo
 <script>
 (function () {
   "use strict";
-  const WK_VERSION = "v51";   // ← bei jeder neuen Version hochzählen
+  const WK_VERSION = "v52";   // ← bei jeder neuen Version hochzählen
   window.WK_VERSION = WK_VERSION;
   if (document.getElementById("w50ver")) return;
   const el = document.createElement("div");
