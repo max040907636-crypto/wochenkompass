@@ -11455,6 +11455,44 @@ html[data-d43-motion="0"] *,html[data-d43-motion="0"] *::before,html[data-d43-mo
 })();
 </script>
 
+<!-- ERWEITERUNG v50 (12.11.2026): Versionsnummer ganz klein unten rechts (Wunsch von Max).
+     Sitzt immer knapp über der Leiste unten (oder in der Ecke, wenn keine Leiste da ist), lässt Tipps durch.
+     WICHTIG: Bei jeder neuen Version die Zahl in WK_VERSION hochzählen (und sw.js VERSION in der Home-App).
+     Keine persönlichen Daten. Zurück: Block löschen. -->
+<style>
+#w50ver{position:fixed;right:max(6px,env(safe-area-inset-right,0px));bottom:calc(env(safe-area-inset-bottom,0px) + 4px);z-index:26;font-size:10px;line-height:1;font-weight:700;letter-spacing:.02em;color:var(--muted);opacity:.6;pointer-events:none;-webkit-user-select:none;user-select:none;font-variant-numeric:tabular-nums}
+@media print{#w50ver{display:none}}
+</style>
+<script>
+(function () {
+  "use strict";
+  const WK_VERSION = "v50";   // ← bei jeder neuen Version hochzählen
+  window.WK_VERSION = WK_VERSION;
+  if (document.getElementById("w50ver")) return;
+  const el = document.createElement("div");
+  el.id = "w50ver"; el.textContent = WK_VERSION; el.setAttribute("aria-hidden", "true"); el.title = "Wochenkompass " + WK_VERSION;
+  document.body.appendChild(el);
+  // Knapp über die Leiste unten setzen (Leiste fehlt oder ist versteckt → Ecke)
+  // Obere Kante der sichtbaren Leiste unten (Haupt-App oder Hantelbuch im Gym), sonst null
+  function leisteOben() {
+    const n = document.querySelector(".nav");
+    if (n && getComputedStyle(n).display !== "none" && getComputedStyle(n).visibility !== "hidden") { const r = n.getBoundingClientRect(); if (r.height > 0 && r.top < innerHeight) return r.top; }
+    try {
+      const f = document.querySelector("#gymWrap:not([hidden]) iframe"), t = f && f.contentDocument && f.contentDocument.querySelector("nav.tabs");
+      if (t) { const fr = f.getBoundingClientRect(), r = t.getBoundingClientRect(); if (r.height > 0) return fr.top + r.top; }
+    } catch (e) {}
+    return null;
+  }
+  function lage() { const o = leisteOben(); el.style.bottom = o != null && o < innerHeight ? Math.max(4, Math.round(innerHeight - o + 3)) + "px" : ""; }
+  lage();
+  addEventListener("resize", lage); addEventListener("orientationchange", () => setTimeout(lage, 200));
+  addEventListener("hashchange", () => { setTimeout(lage, 60); setTimeout(lage, 700); setTimeout(lage, 1500); }); addEventListener("load", lage);
+  document.addEventListener("load", e => { if (e.target && e.target.tagName === "IFRAME") setTimeout(lage, 50); }, true);   // Gym-Rahmen fertig geladen
+  try { new MutationObserver(() => setTimeout(lage, 30)).observe(document.body, {attributes:true, attributeFilter:["class"]}); } catch (e) {}
+  try { const n = document.querySelector(".nav"); if (n && window.ResizeObserver) new ResizeObserver(lage).observe(n); } catch (e) {}
+})();
+</script>
+
 <script>
 /* Service Worker: App startet auch mit schlechtem Netz */
 if ("serviceWorker" in navigator) addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));
